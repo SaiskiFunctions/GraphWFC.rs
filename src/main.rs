@@ -7,6 +7,7 @@ use std::clone::Clone;
 type NodeValue = i32;           // values that a node can contain
 type NodeIndex = i32;           // each unique node in a graph
 type EdgeDirection = i32;       // the directional relationship between two nodes
+type Rules = HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>>;
 
 /*
 Each node in a graph has an index,
@@ -42,7 +43,7 @@ fn main() {
         [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
     );
 
-    let input_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map([
+    let input_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
         (0, hash_set(&[(0, 1), (3, 2)])), 
         (1, hash_set(&[(1, 0), (2, 3)])),
         (2, hash_set(&[(1, 2), (0, 3)])),
@@ -52,12 +53,10 @@ fn main() {
     // generate the rules
     // Set up uncollapsed output values
     let rules: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>>;
-    
-    // 
 
     // generate output graph from input graph
 
-    let output_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map([
+    let output_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
         (0, hash_set(&[(0, 1), (3, 2)])), 
         (1, hash_set(&[(1, 0), (2, 3)])),
         (2, hash_set(&[(1, 2), (0, 3)])),
@@ -78,8 +77,8 @@ fn main() {
 
 }
 
-fn make_rules() {
-
+fn make_rules() -> Rules {
+    HashMap::new()
 }
 
 struct Graph {
@@ -123,6 +122,8 @@ mod tests {
             ((2, 1), hash_set(&[2])),
             ((3, 1), hash_set(&[0])),
             ((3, 2), hash_set(&[1])),
-            ]);
+        ]);
+        
+        assert_eq!(make_rules(), result);
     }
 }
