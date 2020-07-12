@@ -1,7 +1,7 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashSet, HashMap, BinaryHeap};
 use std::iter::FromIterator;
 use std::hash::Hash;
-use std::cmp::Eq;
+use std::cmp::{Eq, Ordering};
 use std::clone::Clone;
 
 type NodeValue = i32;           // values that a node can contain
@@ -146,10 +146,63 @@ fn main() {
     Set up master set of fully collapsed nodes,
 
     struct collapse {
-        entropoy: i32 <-- Supply any propagation method
+        entropy: i32 <-- Supply any propagation method
     }
 
+    
+    OPTION NO
+    struct entropoObject {
+        entropy: f32
+    }
+
+    implements propgate() and collapse()
+
+    wrapped in an enum
+
+    
+
     */
+}
+
+#[derive(Debug)]
+struct EntropyAction {
+    entropy: f32,
+    to: i32,
+    from: i32
+}
+
+impl EntropyAction {
+    fn new(entropy: f32) -> EntropyAction {
+        EntropyAction {
+            entropy: entropy,
+            to: 1,
+            from: 0
+        }
+    }
+
+    fn constraint(&self, graph: &Graph) {
+        // code to do collapse or propagate
+    }
+}
+
+impl Ord for EntropyAction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entropy.partial_cmp(&other.entropy).unwrap()
+    }
+}
+
+impl Eq for EntropyAction {}
+
+impl PartialOrd for EntropyAction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for EntropyAction {
+    fn eq(&self, other: &Self) -> bool {
+        self.entropy == other.entropy
+    }
 }
 
 /*
