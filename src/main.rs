@@ -77,8 +77,29 @@ fn main() {
 
 }
 
-fn make_rules() -> Rules {
-    HashMap::new()
+fn make_rules(graph: &Graph) -> Rules {
+    let mut rules: Rules = HashMap::new();
+
+    /*
+    1. Construct rules hash map
+    2. loop through graph directed edges
+    2. for each edge:
+        try add (dir, NodeValue) to rules, if already in rules, union set values
+     */
+
+    for (direction, edges) in graph.edges.iter() {
+        for (from_index, to_index) in edges.iter() {
+            let rules_key = (*direction, *graph.nodes[*from_index as usize].iter().next().unwrap());
+            let default: HashSet<i32> = HashSet::new();
+            let mut new_set: HashSet<i32> = HashSet::new();
+            {
+                new_set.extend(rules.get(&rules_key).unwrap_or(&default));
+                new_set.extend(&graph.nodes[*to_index as usize]);
+            }
+            rules.insert(rules_key, new_set);
+        }
+    }
+    rules
 }
 
 struct Graph {
@@ -93,16 +114,21 @@ mod tests {
 
     #[test]
     fn test_make_rules() {
-        let input_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
+        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
             [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
     
-        let input_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
+        let test_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
             (0, hash_set(&[(0, 1), (3, 2)])), 
             (1, hash_set(&[(1, 0), (2, 3)])),
             (2, hash_set(&[(1, 2), (0, 3)])),
             (3, hash_set(&[(2, 1), (3, 0)]))
         ]);
+
+        let test_graph = Graph {
+            nodes: test_graph_nodes,
+            edges: test_graph_edges
+        };
 
         // (0: N, 0: a) -> (1: b)
         // (0: N, 1: b) -> (2: c)
@@ -124,6 +150,6 @@ mod tests {
             ((3, 2), hash_set(&[1])),
         ]);
         
-        assert_eq!(make_rules(), result);
+        assert_eq!(make_rules(&test_graph), result);
     }
 }
