@@ -92,7 +92,7 @@ fn main() {
 
     2)
 
-    1abc --- 2abc       HEAP: propagate(0, 1), propgate(0, 3), collapse(1), collapse(2), collapse(3)
+    1abc --- 2abc       HEAP: propagate(0, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
     |        |
     |        |
     0a ----- 3abc
@@ -130,6 +130,10 @@ fn main() {
     |        |
     0a ----- 3abc
 
+    call HEAP --> propagate(2, 3) PUSH TO {
+        propagate(3, 2)
+        propagate(3, 0)
+    }
 
     1. Find a node with the lowest entropy and collapse that node
     2. Look up each edge FROM the collapsed node in the graph's edges property
@@ -138,6 +142,8 @@ fn main() {
     4. Repeat step 2 & 3 propagating out until all propagations are completed
     5. Repeat from step 1
     6. Failure: Node collapses to an empty set 😿, Succcess: Heap empty 👍
+
+    Set up master set of fully collapsed nodes,
 
     struct collapse {
         entropoy: i32 <-- Supply any propagation method
