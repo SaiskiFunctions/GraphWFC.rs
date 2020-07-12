@@ -114,6 +114,12 @@ mod tests {
 
     #[test]
     fn test_make_rules() {
+        /*
+        1b --- 2c
+        |      |
+        0a --- 3b
+        */
+
         let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
             [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
@@ -208,9 +214,12 @@ mod tests {
         0ab --- 3a
         */
 
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
-            [[0, 1], [1], [2], [0]].iter().map(|n: &i32| hash_set(&n))
-        );
+        let test_graph_nodes: Vec<HashSet<NodeValue>> = vec![
+            hash_set(&[0, 1]),
+            hash_set(&[1]),
+            hash_set(&[2]),
+            hash_set(&[0])
+        ];
     
         let test_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
             (0, hash_set(&[(0, 1), (3, 2)])), 
@@ -230,9 +239,22 @@ mod tests {
         (1: S, 1: b) -> (0: a, 1: b)
         (1: S, 2: c) -> (0: a)
         (2: E, 0: a) -> (0: a)
-        (2: E, 1: b) -> (2: c, 0: a)
+        (2: E, 1: b) -> (0: a, 2: c)
         (3: W, 0: a) -> (0: a, 1: b)
         (3: W, 2: c) -> (1: b)
         */
+
+        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
+            ((0, 0), hash_set(&[1, 2])),
+            ((0, 1), hash_set(&[1])),
+            ((1, 1), hash_set(&[0, 1])),
+            ((1, 2), hash_set(&[0])),
+            ((2, 0), hash_set(&[0])),
+            ((2, 1), hash_set(&[0, 2])),
+            ((3, 0), hash_set(&[0, 1])),
+            ((3, 2), hash_set(&[1])),
+        ]);
+
+        assert_eq!(make_rules(&test_graph), result);
     }
 }
