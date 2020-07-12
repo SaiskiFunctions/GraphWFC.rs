@@ -78,11 +78,11 @@ fn main() {
 }
 
 /*
-    1. Construct rules hash map
-    2. loop through graph directed edges
-    2. for each edge:
-        try add (dir, NodeValue) to rules, if already in rules, union set values
-     */
+1. Construct rules hash map
+2. loop through graph directed edges
+2. for each edge:
+    try add (dir, NodeValue) to rules, if already in rules, union set values
+*/
 fn make_rules(graph: &Graph) -> Rules {
     let mut rules: Rules = HashMap::new();
     for (direction, edges) in graph.edges.iter() {
@@ -151,5 +151,88 @@ mod tests {
         ]);
         
         assert_eq!(make_rules(&test_graph), result);
+    }
+
+    #[test]
+    fn test_make_rules_multiple() {
+        /*
+        1b---2c
+        |    |
+        0a---3a
+        */
+
+        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
+            [0, 1, 2, 0].iter().map(|n: &i32| hash_set(&[*n]))
+        );
+    
+        let test_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
+            (0, hash_set(&[(0, 1), (3, 2)])), 
+            (1, hash_set(&[(1, 0), (2, 3)])),
+            (2, hash_set(&[(1, 2), (0, 3)])),
+            (3, hash_set(&[(2, 1), (3, 0)]))
+        ]);
+
+        let test_graph = Graph {
+            nodes: test_graph_nodes,
+            edges: test_graph_edges
+        };
+
+        /*
+        (0: N, 0: a) -> (1: b, 2: c)
+        (1: S, 1: b) -> (0: a)
+        (1: S, 2: c) -> (0: a)
+        (2: E, 0: a) -> (0: a)
+        (2: E, 1: b) -> (2: c)
+        (3: W, 0: a) -> (0: a)
+        (3: W, 2: c) -> (1: b)
+        */
+
+        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
+            ((0, 0), hash_set(&[1, 2])),
+            ((1, 1), hash_set(&[0])),
+            ((1, 2), hash_set(&[0])),
+            ((2, 0), hash_set(&[0])),
+            ((2, 1), hash_set(&[2])),
+            ((3, 0), hash_set(&[0])),
+            ((3, 2), hash_set(&[1])),
+        ]);
+
+        assert_eq!(make_rules(&test_graph), result);
+    }
+
+    #[test]
+    fn test_make_rules_partially_collapsed() {
+        /*
+        1b ---- 2c
+        |       |
+        0ab --- 3a
+        */
+
+        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
+            [[0, 1], [1], [2], [0]].iter().map(|n: &i32| hash_set(&n))
+        );
+    
+        let test_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
+            (0, hash_set(&[(0, 1), (3, 2)])), 
+            (1, hash_set(&[(1, 0), (2, 3)])),
+            (2, hash_set(&[(1, 2), (0, 3)])),
+            (3, hash_set(&[(2, 1), (3, 0)]))
+        ]);
+
+        let test_graph = Graph {
+            nodes: test_graph_nodes,
+            edges: test_graph_edges
+        };
+
+        /*
+        (0: N, 0: a) -> (1: b, 2: c)
+        (0: N, 1: b) -> (1: b)
+        (1: S, 1: b) -> (0: a, 1: b)
+        (1: S, 2: c) -> (0: a)
+        (2: E, 0: a) -> (0: a)
+        (2: E, 1: b) -> (2: c, 0: a)
+        (3: W, 0: a) -> (0: a, 1: b)
+        (3: W, 2: c) -> (1: b)
+        */
     }
 }
