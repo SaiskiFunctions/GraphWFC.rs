@@ -77,31 +77,31 @@ fn main() {
 
 }
 
-fn make_rules(graph: &Graph) -> Rules {
-    let mut rules: Rules = HashMap::new();
-
-    /*
+/*
     1. Construct rules hash map
     2. loop through graph directed edges
     2. for each edge:
         try add (dir, NodeValue) to rules, if already in rules, union set values
      */
-
+fn make_rules(graph: &Graph) -> Rules {
+    let mut rules: Rules = HashMap::new();
     for (direction, edges) in graph.edges.iter() {
-        for (from_index, to_index) in edges.iter() {
-            let rules_key = (*direction, *graph.nodes[*from_index as usize].iter().next().unwrap());
-            let default: HashSet<i32> = HashSet::new();
-            let mut new_set: HashSet<i32> = HashSet::new();
-            {
-                new_set.extend(rules.get(&rules_key).unwrap_or(&default));
-                new_set.extend(&graph.nodes[*to_index as usize]);
+        for (from_node_index, to_node_index) in edges.iter() {
+            for node_value in graph.nodes[*from_node_index as usize].iter() {
+                let rules_key = (*direction, *node_value);
+                let mut new_set: HashSet<i32> = HashSet::new();
+                {
+                    new_set.extend(rules.get(&rules_key).unwrap_or(&HashSet::new()));
+                    new_set.extend(&graph.nodes[*to_node_index as usize]);
+                }
+                rules.insert(rules_key, new_set);
             }
-            rules.insert(rules_key, new_set);
         }
     }
     rules
 }
 
+#[derive(Debug)]
 struct Graph {
     nodes: Vec<HashSet<NodeValue>>,
     edges: HashMap<EdgeDirection, HashSet<(i32, i32)>>
