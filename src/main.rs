@@ -75,6 +75,75 @@ fn main() {
         edges: output_graph_edges
     };
 
+    println!("{:?}", output_graph);
+
+    /*
+    1)
+
+    1abc --- 2abc       HEAP: collapse(0), collapse(1), collapse(2), collapse(3)
+    |        |
+    |        |
+    0abc --- 3abc
+
+    Call: HEAP --> collapse(0) PUSH TO {
+        propagate(0, 1)
+        propagate(0, 3)
+    }
+
+    2)
+
+    1abc --- 2abc       HEAP: propagate(0, 1), propgate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |
+    |        |
+    0a ----- 3abc
+
+    Call: HEAP --> propagate(0, 1) PUSH TO {
+        propagate(1, 2)
+        propagate(1, 0)
+    }
+
+    3)
+
+    1ab --- 2abc       HEAP: propagate(1, 0), propagate(1, 2), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |
+    |        |
+    0a ----- 3abc
+
+    call HEAP --> propogate(1, 0) PUSH TO { }
+
+    4)
+
+    1ab --- 2abc       HEAP: propagate(1, 2), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |
+    |        |
+    0a ----- 3abc
+
+    call HEAP --> propagate(1, 2) PUSH TO {
+        propagate(2, 3)
+        propagate(2, 1)
+    }
+
+    5)
+
+    1ab ---- 2ac       HEAP: propagate(2, 3), propagate(2, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |
+    |        |
+    0a ----- 3abc
+
+
+    1. Find a node with the lowest entropy and collapse that node
+    2. Look up each edge FROM the collapsed node in the graph's edges property
+    3. For each node that the collapsed node connected TO run a union of the remaining possibilities
+       and update that node's possible values
+    4. Repeat step 2 & 3 propagating out until all propagations are completed
+    5. Repeat from step 1
+    6. Failure: Node collapses to an empty set 😿, Succcess: Heap empty 👍
+
+    struct collapse {
+        entropoy: i32 <-- Supply any propagation method
+    }
+
+    */
 }
 
 /*
