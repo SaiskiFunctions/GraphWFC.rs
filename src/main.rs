@@ -1,27 +1,19 @@
+mod utils;
+use utils::{hash_map, hash_set};
+mod graph;
+use graph::*;
+
 use std::collections::{HashSet, HashMap, BinaryHeap};
 use std::iter::FromIterator;
 use std::hash::Hash;
 use std::cmp::{Eq, Ordering};
 use std::clone::Clone;
 
-type NodeValue = i32;           // values that a node can contain
-type NodeIndex = i32;           // each unique node in a graph
-type EdgeDirection = u16;       // the directional relationship between two nodes
-type Rules = HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>>;
-
 /*
 Each node in a graph has an index,
 There is a directional relationship between nodes
 Each node has a value
 */
-
-fn hash_set<T: Hash + Eq + Clone>(data: &[T]) -> HashSet<T> {
-    HashSet::from_iter(data.iter().cloned())
-}
-
-fn hash_map<K: Hash + Eq + Clone, V: Clone>(data: &[(K, V)]) -> HashMap<K, V> {
-    HashMap::from_iter(data.iter().cloned())
-}
 
 fn main() {
 
@@ -39,43 +31,25 @@ fn main() {
     // turn input into a graph
 
     // index number represents each node position
-    let input_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
-        [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
-    );
-
-    let input_graph_edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>> = hash_map(&[
-        (0, vec![(1, 0), (3, 2)]),
-        (1, vec![(0, 1), (2, 2)]),
-        (2, vec![(3, 1), (1, 3)]),
-        (3, vec![(0, 3), (2, 0)])
-    ]);
 
     // generate the rules
     // Set up uncollapsed output values
-    let rules: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>>;
 
     // generate output graph from input graph
 
-    let output_graph_edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>> = hash_map(&[
-        (0, vec![(1, 0), (3, 2)]),
-        (1, vec![(0, 1), (2, 2)]),
-        (2, vec![(3, 1), (1, 3)]),
-        (3, vec![(0, 3), (2, 0)])
-    ]);
-
-    let input_graph = Graph {
-        nodes: input_graph_nodes,
-        edges: input_graph_edges
-    };
-
-    let output_graph_nodes = vec![hash_set(&[0, 1, 2]); 4];
-    
-    let output_graph = Graph {
-        nodes: output_graph_nodes,
-        edges: output_graph_edges
-    };
-
-    println!("{:?}", output_graph);
+    // let output_graph_nodes = vec![hash_set(&[0, 1, 2]); 4];
+    //
+    // let output_graph_edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>> = hash_map(&[
+    //     (0, vec![(1, 0), (3, 2)]),
+    //     (1, vec![(0, 1), (2, 2)]),
+    //     (2, vec![(3, 1), (1, 3)]),
+    //     (3, vec![(0, 3), (2, 0)])
+    // ]);
+    //
+    // let output_graph = Graph::new(
+    //     output_graph_nodes,
+    //     output_graph_edges
+    // );
 
     /*
     1)
@@ -164,235 +138,50 @@ fn main() {
     */
 }
 
-#[derive(Debug)]
-struct EntropyAction {
-    entropy: f32,
-    to: i32,
-    from: i32
+fn collapse(rules: Rules, out_graph: &Graph) {
+
 }
 
-impl EntropyAction {
-    fn new(entropy: f32) -> EntropyAction {
-        EntropyAction {
+#[derive(Debug)]
+struct ConstraintAction {
+    entropy: f32,
+    to: i32,
+    from: i32,
+    direction: u16
+}
+
+impl ConstraintAction {
+    fn new(entropy: f32, from: i32, to: i32, direction: u16) -> ConstraintAction {
+        ConstraintAction {
             entropy,
-            to: 1,
-            from: 0
+            from,
+            to,
+            direction
         }
     }
 
-    fn constraint(&self, graph: &Graph) {
+    fn constrain(&self, graph: &Graph) {
         // code to do collapse or propagate
     }
 }
 
-impl Ord for EntropyAction {
+impl Ord for ConstraintAction {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entropy.partial_cmp(&other.entropy).unwrap()
     }
 }
 
-impl Eq for EntropyAction {}
+impl Eq for ConstraintAction {}
 
-impl PartialOrd for EntropyAction {
+impl PartialOrd for ConstraintAction {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for EntropyAction {
+impl PartialEq for ConstraintAction {
     fn eq(&self, other: &Self) -> bool {
         self.entropy == other.entropy
-    }
-}
-
-/*
-1. Construct rules hash map
-2. loop through graph directed edges
-2. for each edge:
-    try add (dir, NodeValue) to rules, if already in rules, union set values
-*/
-fn make_rules(graph: &Graph) -> Rules {
-    let mut rules: Rules = HashMap::new();
-    for (from_node_index, edges) in graph.edges.iter() {
-        for (to_node_index, direction) in edges.iter() {
-            for node_value in graph.nodes[*from_node_index as usize].iter() {
-                let rules_key = (*direction, *node_value);
-                rules.entry(rules_key)
-                    .and_modify(|set| set.extend(&graph.nodes[*to_node_index as usize]))
-                    .or_insert(graph.nodes[*to_node_index as usize].clone());
-            }
-        }
-    }
-    rules
-}
-
-#[derive(Debug)]
-struct Graph {
-    nodes: Vec<HashSet<NodeValue>>,
-    edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>>
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_make_rules() {
-        /*
-        1b --- 2c
-        |      |
-        0a --- 3b
-
-        North = 0, South = 1, East = 2, West = 3
-        */
-
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
-            [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
-        );
-
-        let test_graph_edges: HashMap<EdgeDirection, HashSet<(NodeIndex, NodeIndex)>> = hash_map(&[
-            (0, hash_set(&[(0, 1), (3, 2)])),
-            (1, hash_set(&[(1, 0), (2, 3)])),
-            (2, hash_set(&[(1, 2), (0, 3)])),
-            (3, hash_set(&[(2, 1), (3, 0)]))
-        ]);
-
-        let test_graph_edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>> = hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)])
-        ]);
-
-        let test_graph = Graph {
-            nodes: test_graph_nodes,
-            edges: test_graph_edges
-        };
-
-        // (0: N, 0: a) -> (1: b)
-        // (0: N, 1: b) -> (2: c)
-        // (1: S, 1: b) -> (0: a)
-        // (1: S, 2: c) -> (1: b)
-        // (2: E, 0: a) -> (1: b)
-        // (2: E, 1: b) -> (2: c)
-        // (3: W, 1: b) -> (0: a)
-        // (3: W, 2: c) -> (1: b)
-        
-        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
-            ((0, 0), hash_set(&[1])),
-            ((0, 1), hash_set(&[2])),
-            ((1, 1), hash_set(&[0])),
-            ((1, 2), hash_set(&[1])),
-            ((2, 0), hash_set(&[1])),
-            ((2, 1), hash_set(&[2])),
-            ((3, 1), hash_set(&[0])),
-            ((3, 2), hash_set(&[1])),
-        ]);
-        
-        assert_eq!(make_rules(&test_graph), result);
-    }
-
-    #[test]
-    fn test_make_rules_multiple() {
-        /*
-        1b---2c
-        |    |
-        0a---3a
-
-        North = 0, South = 1, East = 2, West = 3
-        */
-
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
-            [0, 1, 2, 0].iter().map(|n: &i32| hash_set(&[*n]))
-        );
-
-        let test_graph_edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>> = hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)])
-        ]);
-
-        let test_graph = Graph {
-            nodes: test_graph_nodes,
-            edges: test_graph_edges
-        };
-
-        /*
-        (0: N, 0: a) -> (1: b, 2: c)
-        (1: S, 1: b) -> (0: a)
-        (1: S, 2: c) -> (0: a)
-        (2: E, 0: a) -> (0: a)
-        (2: E, 1: b) -> (2: c)
-        (3: W, 0: a) -> (0: a)
-        (3: W, 2: c) -> (1: b)
-        */
-
-        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
-            ((0, 0), hash_set(&[1, 2])),
-            ((1, 1), hash_set(&[0])),
-            ((1, 2), hash_set(&[0])),
-            ((2, 0), hash_set(&[0])),
-            ((2, 1), hash_set(&[2])),
-            ((3, 0), hash_set(&[0])),
-            ((3, 2), hash_set(&[1])),
-        ]);
-
-        assert_eq!(make_rules(&test_graph), result);
-    }
-
-    #[test]
-    fn test_make_rules_partially_collapsed() {
-        /*
-        1b ---- 2c
-        |       |
-        0ab --- 3a
-
-        North = 0, South = 1, East = 2, West = 3
-        */
-
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = vec![
-            hash_set(&[0, 1]),
-            hash_set(&[1]),
-            hash_set(&[2]),
-            hash_set(&[0])
-        ];
-
-        let test_graph_edges: HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>> = hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)])
-        ]);
-
-        let test_graph = Graph {
-            nodes: test_graph_nodes,
-            edges: test_graph_edges
-        };
-
-        /*
-        (0: N, 0: a) -> (1: b, 2: c)
-        (0: N, 1: b) -> (1: b)
-        (1: S, 1: b) -> (0: a, 1: b)
-        (1: S, 2: c) -> (0: a)
-        (2: E, 0: a) -> (0: a)
-        (2: E, 1: b) -> (0: a, 2: c)
-        (3: W, 0: a) -> (0: a, 1: b)
-        (3: W, 2: c) -> (1: b)
-        */
-
-        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
-            ((0, 0), hash_set(&[1, 2])),
-            ((0, 1), hash_set(&[1])),
-            ((1, 1), hash_set(&[0, 1])),
-            ((1, 2), hash_set(&[0])),
-            ((2, 0), hash_set(&[0])),
-            ((2, 1), hash_set(&[0, 2])),
-            ((3, 0), hash_set(&[0, 1])),
-            ((3, 2), hash_set(&[1])),
-        ]);
-
-        assert_eq!(make_rules(&test_graph), result);
     }
 }
 
