@@ -109,6 +109,7 @@ fn main() {
         propagate(3, 0)
     }
 
+
     1. Find a node with the lowest entropy and collapse that node
     2. Look up each edge FROM the collapsed node in the graph's edges property
     3. For each node that the collapsed node connected TO run a union of the remaining possibilities
@@ -133,8 +134,102 @@ fn main() {
 
     wrapped in an enum
 
-    
+    Collapse(0)
+    graph.constrain(nodeIndex, singletonSet) -> bool
+     graph.constrain(0, {a})
+     (0 {ab})
 
+    entropy
+
+    Sorted Collapse List { collapse(0), collapse(1) }
+    Propagate Stack
+
+
+    1. Start with a binary HEAP of collapses for the number of nodes in the output graph
+    2. Pop the collapse action with the lowest entropy off the top of the HEAP and execute it
+    3. The collapse changes the node's value and triggers a propagate on that node:
+        a. Node looks up its neighbours in the edges matrix
+        b. Sends a constrain message to each connected node with its set of values
+        c. Its neighbours execute the constrain message with that value cross referenced with the rules
+        d. If the node's value changed: 
+            it generates a new collapse action and adds it to the HEAP 
+            AND triggers further propagates
+    4. When all propagations are complete return to step 2.
+    5. When all nodes are collapsed return.
+
+
+
+    1. Start with a binary HEAP of collapses for the number of nodes in the output graph
+    2. Pop the collapse action with the lowest entropy off the top of the HEAP and execute it
+    3. IF the collapse changes the node's value: 
+        Triggers a propagation:
+        a. Looks up its neighbours for each one it will update propagationMsgs:
+            IF the nodeIndex key does not exist in the propagationMsgs Map:
+                Add a entry to propagationMsgs with key=nodeIndex with value=intersection(this values, neighbour values)
+            ELSE
+                Update propagationMsgs entry with insection(this values, entry values)
+        b. Run through the message stack and place the update set of values back into the graph.nodes
+        c. graph.update(nodeIndex, set) {
+            IF changed:
+              propagate
+        }
+
+
+        [(2, 1), (2, 3)]
+
+        propagationMsgs = HashMap (
+            0: {1, 2} <- update as we go
+            2: vec![{2}, {1, 2}, {2}] <- collect then intersect
+        )
+
+
+
+
+
+        c. Its neighbours execute the constrain message with that value cross referenced with the rules
+        d. If the node's value changed: 
+            it generates a new collapse action and adds it to the HEAP 
+            AND triggers further propagates
+    4. When all propagations are complete return to step 2.
+    5. When all nodes are collapsed return.
+
+    struct nodes {
+        connections: HashSet,
+        values: HashSet
+    }
+
+    HEAP: BinaryHeap
+    COLLAPSE_ACTION: represents a snapshot of node's entropy for collapse
+    1. Create a new binary HEAP
+    2. Create a number of COLLAPSE_ACTIONs equal to the number of nodes onto the HEAP
+    3. Pop the COLLAPSE_ACTION with the lowest entropy off the HEAP.
+    4. Run the COLLAPSE_ACTION: 
+        1. Collapse the nodeValue of the nodeIndex this references to a singleton set
+        2. IF the nodeValue at nodeIndex changed:
+            1. Find nodes connected to this.nodeIndex using the out_graph edges property
+            2. For each connected node push the nodeValue of this and the node it effect 
+               onto the PROPAGATION_MESSAGES list.
+    5. Run through PROPAGATION_MESSAGES list and update the node it refers to.
+    6. IF the nodeValue at nodeIndex changed:
+        1. Add the nodeIndex to CHANGED_NODES list
+    7. Empty PROPAGATION_MESSAGES
+    8. FOR EACH node in CHANGE_NODES:
+        1. Find nodes connected to this.nodeIndex using the out_graph edges property
+        2. For each connected node push the nodeValue of this and the node it effect 
+               onto the PROPAGATION_MESSAGES list.
+    9. Repeat from 5 until CHANGED_NODES is empty
+
+    2. Pop the NodeCollapseAction with the lowest entropy off of the HEAP.
+    3. Run a collapse on the Node that the NodeCollapseAction refers to, collapsing it to a singleton set.
+    4. IF the Node's set of values changed:
+        1. Find the nodes IT is connected to through out_graph edges property.
+        2. Push IT's current value and the index of the node it is connected to the PropagationMsgs list.
+        3. when all propagations are done and sets have been calculated run through each node on the messages
+            and update that nodes values, if the node changes add to a list of changed nodes
+        4. Empty PropagatioMsgs
+        5. Run through each of the nodes in changed nodes which generates PropagationMsgs
+        6. Empty changed nodes
+        7. Run PropagationMsgs until all 
     */
 }
 
@@ -162,6 +257,7 @@ impl ConstraintAction {
 
     fn constrain(&self, graph: &Graph) {
         // code to do collapse or propagate
+        
     }
 }
 
