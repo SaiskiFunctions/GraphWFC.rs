@@ -52,184 +52,19 @@ fn main() {
     // );
 
     /*
-    1)
-
-    1abc --- 2abc       HEAP: collapse(0), collapse(1), collapse(2), collapse(3)
-    |        |
-    |        |
-    0abc --- 3abc
-
-    Call: HEAP --> collapse(0) PUSH TO {
-        propagate(0, 1)
-        propagate(0, 3)
-    }
-
-    2)
-
-    1abc --- 2abc       HEAP: propagate(0, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-    |        |
-    |        |
-    0a ----- 3abc
-
-    Call: HEAP --> propagate(0, 1) PUSH TO {
-        propagate(1, 2)
-        propagate(1, 0)
-    }
-
-    3)
-
-    1ab --- 2abc       HEAP: propagate(1, 0), propagate(1, 2), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-    |        |
-    |        |
-    0a ----- 3abc
-
-    call HEAP --> propogate(1, 0) PUSH TO { }
-
-    4)
-
-    1ab --- 2abc       HEAP: propagate(1, 2), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-    |        |
-    |        |
-    0a ----- 3abc
-
-    call HEAP --> propagate(1, 2) PUSH TO {
-        propagate(2, 3)
-        propagate(2, 1)
-    }
-
-    5)
-
-    1ab ---- 2ac       HEAP: propagate(2, 3), propagate(2, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-    |        |
-    |        |
-    0a ----- 3abc
-
-    call HEAP --> propagate(2, 3) PUSH TO {
-        propagate(3, 2)
-        propagate(3, 0)
-    }
-
-
-    1. Find a node with the lowest entropy and collapse that node
-    2. Look up each edge FROM the collapsed node in the graph's edges property
-    3. For each node that the collapsed node connected TO run a union of the remaining possibilities
-       and update that node's possible values
-    4. Repeat step 2 & 3 propagating out until all propagations are completed
-    5. Repeat from step 1
-    6. Failure: Node collapses to an empty set 😿, Succcess: Heap empty 👍
-
-    Set up master set of fully collapsed nodes,
-
-    struct collapse {
-        entropy: i32 <-- Supply any propagation method
-    }
-
     
-    OPTION NO
-    struct entropoObject {
-        entropy: f32
-    }
-
-    implements propgate() and collapse()
-
-    wrapped in an enum
-
-    Collapse(0)
-    graph.constrain(nodeIndex, singletonSet) -> bool
-     graph.constrain(0, {a})
-     (0 {ab})
-
-    entropy
-
-    Sorted Collapse List { collapse(0), collapse(1) }
-    Propagate Stack
-
-
-    1. Start with a binary HEAP of collapses for the number of nodes in the output graph
-    2. Pop the collapse action with the lowest entropy off the top of the HEAP and execute it
-    3. The collapse changes the node's value and triggers a propagate on that node:
-        a. Node looks up its neighbours in the edges matrix
-        b. Sends a constrain message to each connected node with its set of values
-        c. Its neighbours execute the constrain message with that value cross referenced with the rules
-        d. If the node's value changed: 
-            it generates a new collapse action and adds it to the HEAP 
-            AND triggers further propagates
-    4. When all propagations are complete return to step 2.
-    5. When all nodes are collapsed return.
-
-
-
-    1. Start with a binary HEAP of collapses for the number of nodes in the output graph
-    2. Pop the collapse action with the lowest entropy off the top of the HEAP and execute it
-    3. IF the collapse changes the node's value: 
-        Triggers a propagation:
-        a. Looks up its neighbours for each one it will update propagationMsgs:
-            IF the nodeIndex key does not exist in the propagationMsgs Map:
-                Add a entry to propagationMsgs with key=nodeIndex with value=intersection(this values, neighbour values)
-            ELSE
-                Update propagationMsgs entry with insection(this values, entry values)
-        b. Run through the message stack and place the update set of values back into the graph.nodes
-        c. graph.update(nodeIndex, set) {
-            IF changed:
-              propagate
-        }
-
-
-        [(2, 1), (2, 3)]
-
-        propagationMsgs = HashMap (
-            0: {1, 2} <- update as we go
-            2: vec![{2}, {1, 2}, {2}] <- collect then intersect
-        )
-
-
-
-
-
-        c. Its neighbours execute the constrain message with that value cross referenced with the rules
-        d. If the node's value changed: 
-            it generates a new collapse action and adds it to the HEAP 
-            AND triggers further propagates
-    4. When all propagations are complete return to step 2.
-    5. When all nodes are collapsed return.
-
-    struct nodes {
-        connections: HashSet,
-        values: HashSet
-    }
-
-    ==== METHOD ONE ====
+    ==== RUN ALOGIRITHM ====
     HEAP: BinaryHeap
-    COLLAPSE_ACTION: represents a snapshot of node's entropy for collapse
-    1. Create a new binary HEAP
-    2. Create a number of COLLAPSE_ACTIONs equal to the number of nodes onto the HEAP
-    3. Pop the COLLAPSE_ACTION with the lowest entropy off the HEAP.
-    4. Run the COLLAPSE_ACTION: 
-        1. Collapse the nodeValue of the nodeIndex this references to a singleton set
-        2. IF the nodeValue at nodeIndex changed:
-            1. Find nodes connected to this.nodeIndex using the out_graph edges property
-            2. For each connected node push the nodeValue of this and the node it effect 
-               onto the PROPAGATION_MESSAGES list.
-    5. Run through PROPAGATION_MESSAGES list and update the node it refers to.
-    6. IF the nodeValue at nodeIndex changed:
-        1. Add the nodeIndex to CHANGED_NODES list
-    7. Empty PROPAGATION_MESSAGES
-    8. FOR EACH node in CHANGE_NODES:
-        1. Find nodes connected to this.nodeIndex using the out_graph edges property
-        2. For each connected node push the nodeValue of this and the node it effect 
-               onto the PROPAGATION_MESSAGES list.
-    9. Repeat from 5 until CHANGED_NODES is empty
-
-
-    ==== METHOD TWO ====
-    HEAP: BinaryHeap
-    TO_COLLAPSE: HashSet
+    GEN_COLLAPSE: HashSet
+    COLLAPSED: HashSet
     1. Create a new binary HEAP.
     2. Create a number of COLLAPSE_ACTION's equal to the number of nodes onto the HEAP.
-    3. Peek an Action on the HEAP.
-    4. IF Action == COLLAPSE_ACTION:
-        1. IF TO_COLLAPSE is not empty:
-            1. Generate COLLAPSE_ACTION's FOR EACH nodeIndex in TO_COLLAPSE and empty TO_COLLAPSE set.
+    3. IF length of COLLAPSED == Graph.nodes.length:
+        return SUCCESS! 
+    4. Peek an Action on the HEAP.
+    5. IF Action == COLLAPSE_ACTION:
+        1. IF GEN_COLLAPSE is not empty:
+            1. Generate COLLAPSE_ACTION's FOR EACH nodeIndex in GEN_COLLAPSE and empty GEN_COLLAPSE set.
         2. Pop an Action off of the HEAP
         3. Collapse the nodeValue of the nodeIndex this references to a singleton set.
         4. IF the nodeValue at nodeIndex changed:
@@ -239,95 +74,101 @@ fn main() {
        ELSE IF Action == PROPAGATE_ACTION:
         1. Pop an Action off of the HEAP.
         2. Constrain nodeValue according to propagation.
-        3. IF the nodeValue at nodeIndex changed:
-            1. Add nodeIndex to TO_COLLAPSE.
+        3. IF the nodeValue at nodeIndex changed
+            1. IF nodeValue == {}:
+                1. return FAILURE!
+               ELSE IF nodeValue != singleton:
+                1. Add nodeIndex to GEN_COLLAPSE.
+               ELSE:
+                1. Add nodeIndex to COLLAPSED
             2. Find nodes connected to this.nodeIndex using the out_graph edges property
             3. For each connected node, push a PROPAGATE_ACTION to the HEAP.
         4. GOTO 3.
        ElSE IF HEAP is empty:
-        1. return.
+        1. return SUCCESS!
 
 
-    EXAMPLE:
+    === EXAMPLE ===
 
-    -- Start --
-    HEAP = [ Collapse(0), Collapse(1) ]
-    GRAPH: 0ab --- 1ab
-    TO_COLLAPSE = [ ]
+    1abc --- 2abc       HEAP: collapse(0), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: []
+    |        |          COLLAPSED: []
+    0abc --- 3abc
 
-    -- Loop 1 --
-    PEAK Action == Collapse
+    RUN collapse(0) {
 
-    POP Action:
-        TO_COLLAPSE is empty:
-            no collapses generated
-        Action = Collapse(0)
-        HEAP = [ Collapse(1) ]
+    }
 
-    RUN Collapse(0):
-        nodeValues 0 = {a}
-        connected_nodes = {1}
-        HEAP = [ Propagate(1), Collapse(1) ]
-        GRAPH: 0a --- 1ab
-        TO_COLLAPSE = [ ]
+    1abc --- 2abc       HEAP: propagate(0, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: []
+    |        |          COLLAPSED: [0]
+    0a ----- 3abc
 
-    GOTO 3.
+    RUN propagate(0, 1) {
 
-    -- Loop 2 --
-    PEAK Action == Propagate
+    }
 
-    POP Action
+    1ab ---- 2abc       HEAP: propagate(1, 2), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: [1]
+    |        |          COLLAPSED: [0]
+    0a ----- 3abc
 
-    RUN Propagate(1):
-        nodeValues 1 = {}
+    RUN propagate(1, 2) {
 
+    }
 
+    1ab ---- 2c         HEAP: propagate(2, 3), propagate(2, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: [1]
+    |        |          COLLAPSED: [0, 2]
+    0a ----- 3abc
 
-    3. Pop the COLLAPSE_ACTION with the lowest entropy off the HEAP.
-    4. Run the COLLAPSE_ACTION:
-        1. Collapse the nodeValue of the nodeIndex this references to a singleton set
-        2. IF the nodeValue at nodeIndex changed:
-            1. Find nodes connected to this.nodeIndex using the out_graph edges property
-            2. For each connected node, push a PROPAGATE_ACTION to the HEAP.
+    RUN propagate(2, 3) {
+        
+    }
 
+    1ab ---- 2c         HEAP: propagate(2, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: [1, 3]
+    |        |          COLLAPSED: [0, 2]
+    0a ----- 3ab
 
+    RUN propagate(2, 1) {
+        
+    }
 
+    1ab ---- 2c         HEAP: propagate(0, 3), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: [1, 3]
+    |        |          COLLAPSED: [0, 2]
+    0a ----- 3ab
 
+    RUN propagate(0, 3) {
+        
+    }
 
+    1ab ---- 2c         HEAP: collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: [1, 3]
+    |        |          COLLAPSED: [0, 2, 3]
+    0a ----- 3b
 
+    PEAK collapse {
+        RUN GEN_COLLAPSE
+    }
 
+    1ab ---- 2c         HEAP: collapse(1), collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: []
+    |        |          COLLAPSED: [0, 2, 3]
+    0a ----- 3b
 
+    RUN collapse(1) {
 
+    }
 
+    1b ----- 2c         HEAP: collapse(1), collapse(2), collapse(3)
+    |        |          GEN_COLLAPSE: []
+    |        |          COLLAPSED: [0, 1, 2, 3]
+    0a ----- 3b
 
+    ALL NODES COLLAPSED -> RETURN
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    2. Pop the NodeCollapseAction with the lowest entropy off of the HEAP.
-    3. Run a collapse on the Node that the NodeCollapseAction refers to, collapsing it to a singleton set.
-    4. IF the Node's set of values changed:
-        1. Find the nodes IT is connected to through out_graph edges property.
-        2. Push IT's current value and the index of the node it is connected to the PropagationMsgs list.
-        3. when all propagations are done and sets have been calculated run through each node on the messages
-            and update that nodes values, if the node changes add to a list of changed nodes
-        4. Empty PropagatioMsgs
-        5. Run through each of the nodes in changed nodes which generates PropagationMsgs
-        6. Empty changed nodes
-        7. Run PropagationMsgs until all
     */
 }
 
