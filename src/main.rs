@@ -386,3 +386,45 @@ mod tests {
         assert_eq!(make_rules(&test_graph), result);
     }
 }
+
+/*
+Why are we using this data structure for connections and directions?
+
+// (0: N, 0: a) -> (1: b)
+// (0: N, 1: b) -> (2: c)
+// (1: S, 1: b) -> (0: a)
+// (1: S, 2: c) -> (1: b)
+// (2: E, 0: a) -> (1: b)
+// (2: E, 1: b) -> (2: c)
+// (3: W, 1: b) -> (0: a)
+// (3: W, 2: c) -> (1: b)
+
+This means when we look up further propagations from a collapse or a propagate action we have to log
+the value that has been propagated/collapsed, then go to the graph's edges, iterate through it and look
+in each value in the edges map for hashsets that contain the desired "from" node as their first value
+and do this for four separate entries (more if we are in higher dimensions) in the map.
+
+Could we not just combine all of this edge and connection information into a single (sparse) matrix making it
+much simpler to look up connections and generate rules.
+
+    1b --- 2c
+    |      |
+    0a --- 3b
+
+    1:n, 2:s, 3:e, 4:w, 5, 6, 
+
+    0     1     2     3   <-- FROM
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+0 ┃ 0   ┃ 2:S ┃ 0   ┃ 4:W
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+1 ┃ 1:N ┃ 0   ┃ 4:W ┃ 0
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+2 ┃ 0   ┃ 3:E ┃ 0   ┃ 1:N
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+3 ┃ 3:E ┃ 0   ┃ 2:S ┃ 0
+⟰
+TO
+
+Then store as sparse matrix and query directly to get node connection AND direction information immediately.
+
+*/
