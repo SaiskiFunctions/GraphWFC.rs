@@ -39,9 +39,28 @@ fn collapse_algorithm(rules: &Rules, frequencies: &Frequencies, out_graph: Graph
     let mut observed: HashSet<VertexIndex> = HashSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
 
+    // Initialize binary heap
     out_graph.vertices.iter().enumerate().for_each(|(index, labels)| {
         heap.push(Observe::new(&(index as i32), labels, frequencies))
     });
+
+    loop {
+        if observed.len() == out_graph.vertices.len() || heap.is_empty() { return Some(out_graph) }
+        if propagations.is_empty() { 
+            if !gen_observe.is_empty() {
+                // add new observes to the heap and empty gen_observe
+                gen_observe.iter().for_each(|index| {
+                    let labels = out_graph.vertices.get(*index as usize).unwrap();
+                    heap.push(Observe::new(index, labels, frequencies))
+                });
+                gen_observe.clear();
+            }
+            
+            //heap.pop().unwrap()
+        } else {
+            // do propagate
+        }
+    }
 
     N0ne
 }

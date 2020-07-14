@@ -30,7 +30,11 @@ impl Observe {
 
 impl Ord for Observe {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.entropy.partial_cmp(&other.entropy).unwrap()
+        match self.entropy.partial_cmp(&other.entropy).unwrap() {
+            Ordering::Greater => Ordering::Less,
+            Ordering::Less => Ordering::Greater,
+            ordering => ordering
+        }
     }
 }
 
@@ -51,6 +55,7 @@ impl PartialEq for Observe {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BinaryHeap;
 
     #[test]
     fn test_calculate_entropy_one() {
@@ -80,4 +85,47 @@ mod tests {
         });
     }
     */
+
+    #[test]
+    fn test_observe_cmp() {
+        let observe_less_entropy = Observe {
+            entropy: 2.0,
+            index: 0
+        };
+
+        let observe_more_entropy = Observe {
+            entropy: 4.0,
+            index: 1
+        };
+
+        assert!(observe_less_entropy > observe_more_entropy);
+    }
+
+    #[test]
+    fn test_observe_cmp_eq() {
+        let observe_a = Observe {
+            entropy: 2.0,
+            index: 0
+        };
+
+        let observe_b = Observe {
+            entropy: 2.0,
+            index: 1
+        };
+
+        assert!(observe_a == observe_b);
+    }
+
+    #[test]
+    fn test_observe_heap() {
+        let mut test_heap = BinaryHeap::new();
+
+        test_heap.push(Observe {entropy: 4.1, index: 0});
+        test_heap.push(Observe {entropy: 2.5, index: 0});
+        test_heap.push(Observe {entropy: 3.7, index: 0});
+
+        assert_eq!(test_heap.pop().unwrap().entropy, 2.5);
+        assert_eq!(test_heap.pop().unwrap().entropy, 3.7);
+        assert_eq!(test_heap.pop().unwrap().entropy, 4.1);
+    }
 }

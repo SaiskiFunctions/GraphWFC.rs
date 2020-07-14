@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
+use rand::{thread_rng, Rng};
 
 use crate::utils::{hash_map, hash_set};
 
@@ -23,12 +24,6 @@ impl Graph {
             vertices,
             edges
         }
-    }
-
-    pub fn constrain(&mut self, index: VertexIndex, labels: HashSet<VertexLabel>) {
-        self.vertices.get_mut(index as usize).map(|set| {
-            set.intersection(&labels).collect::<HashSet<&VertexLabel>>()
-        });
     }
 
     /*
@@ -61,6 +56,42 @@ impl Graph {
             });
         });
         frequencies
+    }
+
+    /*
+    TODO:
+        1. Seedable randomness
+        2. Dependency injected random module
+        3. Test
+    */
+    pub fn observe(&mut self, index: &VertexIndex, frequencies: &Frequencies) {
+        let mut rng = thread_rng();
+        self.vertices.get_mut(*index as usize).map(|set| {
+            let total: i32 = frequencies.clone().iter()
+                .filter(|(label, _)| set.contains(label))
+                .map(|(k, v)| (*k, *v))
+                .collect::<HashMap<i32, i32>>()
+                .values().sum();
+            
+            let choice = rng.gen_range(1, total+1);
+            let mut label_choice = 0;
+            let mut frequency_acc = 0;
+
+            for label in set.iter() {
+                frequency_acc += frequencies.get(label).unwrap();
+                if frequency_acc >= choice {
+                    label_choice = *label;
+                    break;
+                }
+            }
+            label_choice
+        });
+    }
+
+    pub fn constrain(&mut self, index: VertexIndex, labels: HashSet<VertexLabel>) {
+        self.vertices.get_mut(index as usize).map(|set| {
+            set.intersection(&labels).collect::<HashSet<&VertexLabel>>()
+        });
     }
 }
 
