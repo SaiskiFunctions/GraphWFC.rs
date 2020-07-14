@@ -228,9 +228,7 @@ Modularising graph metadata generation:
 Method on graph:
 pub fn metadata(&self, function<Graph, U>) -> U 
 
-```math
-{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}
-```
+![Shannon entropy](entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
 
 H(X) -> shanon entropy
 
