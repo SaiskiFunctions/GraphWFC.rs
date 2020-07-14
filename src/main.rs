@@ -31,7 +31,7 @@ fn main() {
     // );
 }
 
-fn calculate_entropy()
+// fn calculate_entropy()
 
 fn collapse_algorithm(rules: Rules, out_graph: Graph) -> Option<Graph> {
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
@@ -39,12 +39,10 @@ fn collapse_algorithm(rules: Rules, out_graph: Graph) -> Option<Graph> {
     let mut observed: HashSet<VertexIndex> = HashSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
 
-    for vertex in out_graph.vertices.iter().for_each(|vertex| {
+    // for vertex in out_graph.vertices.iter().for_each(|vertex| {
 
-    });
+    // });
+
+    None
 
 }
-
-
-
-

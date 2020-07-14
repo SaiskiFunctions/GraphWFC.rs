@@ -52,7 +52,13 @@ impl Graph {
 
     pub fn frequencies(&self) -> HashMap<VertexLabel, i32> {
         let mut frequencies = HashMap::new();
-        self.vertices.iter().for_each()
+        self.vertices.iter().for_each(|labels| {
+            labels.iter().for_each(|label| {
+                let frequency = frequencies.entry(*label).or_insert(0);
+                *frequency += 1
+            });
+        });
+        frequencies
     }
 }
 
@@ -70,7 +76,7 @@ mod tests {
     }
 
     #[test]
-    fn test_make_rules() {
+    fn test_rules() {
         /*
         1b --- 2c
         |      |
@@ -112,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn test_make_rules_multiple() {
+    fn test_rules_multiple() {
         /*
         1b---2c
         |    |
@@ -154,7 +160,7 @@ mod tests {
     }
 
     #[test]
-    fn test_make_rules_partially_collapsed() {
+    fn test_rules_partially_collapsed() {
         /*
         1b ---- 2c
         |       |
@@ -198,5 +204,37 @@ mod tests {
         ]);
 
         assert_eq!(test_graph.rules(), result);
+    }
+
+    #[test]
+    fn test_frequencies() {
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
+            [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
+        );
+
+        let test_graph = Graph {
+            vertices: test_graph_vertices,
+            edges: HashMap::new()
+        };
+
+        let result = hash_map(&[(0, 1), (1, 2), (2, 1)]);
+
+        assert_eq!(test_graph.frequencies(), result);
+    }
+
+    #[test]
+    fn test_frequencies_complex() {
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
+            [0, 1, 2, 1, 1, 1, 2, 3, 4, 5, 5, 0, 0, 1, 2, 4, 5, 6, 0].iter().map(|n: &i32| hash_set(&[*n]))
+        );
+
+        let test_graph = Graph {
+            vertices: test_graph_vertices,
+            edges: HashMap::new()
+        };
+
+        let result = hash_map(&[(0, 4), (1, 5), (2, 3), (3, 1), (4, 2), (5, 3), (6, 1)]);
+
+        assert_eq!(test_graph.frequencies(), result);
     }
 }
