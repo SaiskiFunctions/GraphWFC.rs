@@ -1,3 +1,5 @@
+![travis build](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)
+
 # Propagation
 
 `vertexLabel = i32`
