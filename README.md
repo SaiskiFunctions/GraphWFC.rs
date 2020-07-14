@@ -40,47 +40,47 @@ rules = input_graph.rules()
 try_count = 0
 WHILE try_count <= retry_count:
     MATCH COLLAPSE_ALGORITHM(rules, output_graph.clone()) {
-        Ok(result) => result
-        Error() => try_count += 1; continue
+        Some(result) => result
+        None => try_count += 1; continue
     }
 
 ==== COLLAPSE ALGORITHM ====
 INPUT: input_graph_rules, output_graph
-RETURN Result:
-    Ok: output_graph (collapsed)
-    Error:
-HEAP: BinaryHeap
-GEN_OBSERVE: HashSet
-OBSERVED: HashSet
+RETURN Option<Graph>:
+    Some: output_graph (collapsed)
+    None:
+HEAP: BinaryHeap<OBSERVE_ACTION>
+GEN_OBSERVE: HashSet<VertexIndex>
+OBSERVED: HashSet<VertexIndex>
+PROPAGATIONS: Vec<PROPAGATE_ACTION>
 1. Create a new binary HEAP.
 2. Create a number of OBSERVE_ACTION's equal to the number of vertices onto the HEAP.
 3. IF length of OBSERVED == Graph.vertices.length:
-    return SUCCESS! 
-4. Peek an Action on the HEAP.
-5. IF Action == OBSERVE_ACTION:
-    1. IF GEN_OBSERVE is not empty:
-        1. Generate OBSERVE_ACTION's FOR EACH vertexIndex in GEN_OBSERVE and empty GEN_OBSERVE set.
-    2. Pop an Action off of the HEAP
-    3. Collapse the vertexLabel of the vertexIndex this references to a singleton set.
-    4. IF the vertexLabel at vertexIndex changed:
-        2. Find vertices connected to this.vertexIndex using the out_graph edges property
-        3. For each connected vertex, push a PROPAGATE_ACTION to the HEAP.
-    5. GOTO 3.
-   ELSE IF Action == PROPAGATE_ACTION:
-    1. Pop an Action off of the HEAP.
-    2. Constrain vertexLabel according to propagation.
-    3. IF the vertexLabel at vertexIndex changed
+    return SUCCESS!
+4. IF HEAP is empty:
+    1. return SUCCESS!
+   ELSE IF PROPAGATIONS is empty:
+    2. IF GEN_OBSERVE is not empty:
+        1. Add OBSERVE_ACTION's onto the HEAP FOR EACH vertexIndex in GEN_OBSERVE and empty GEN_OBSERVE set.
+    3. Pop an OBSERVE_ACTION off of the HEAP
+    4. Collapse the vertexLabel of the vertexIndex this action references to a singleton set.
+    5. IF the vertexLabel at vertexIndex changed:
+        2. Find vertices connected to this vertexIndex using the out_graph edges property.
+        3. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
+    6. GOTO 3.
+   ELSE:
+    7. Pop a PROPAGATE_ACTION off of PROPAGATIONS.
+    8. Constrain vertexLabel according to propagation.
+    9. IF the vertexLabel at vertexIndex changed:
         1. IF vertexLabel == {}:
             1. return FAILURE!
            ELSE IF vertexLabel != singleton:
-            1. Add vertexIndex to GEN_OBSERVE.
+            2. Add vertexIndex to GEN_OBSERVE.
            ELSE:
-            1. Add vertexIndex to OBSERVED
-        2. Find vertices connected to this.vertexIndex using the out_graph edges property
-        3. For each connected vertex, push a PROPAGATE_ACTION to the HEAP.
-    4. GOTO 3.
-   ElSE IF HEAP is empty:
-    1. return SUCCESS!
+            3. Add vertexIndex to OBSERVED.
+        2. Find vertices connected to this.vertexIndex using the out_graph edges property.
+        3. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
+    10. GOTO 3.
 
 
 === EXAMPLE ===

@@ -8,6 +8,7 @@ use std::iter::FromIterator;
 use std::hash::Hash;
 use std::cmp::{Eq, Ordering};
 use std::clone::Clone;
+use std::error::Error;
 
 
 fn main() {
@@ -32,8 +33,9 @@ fn main() {
     // );
 }
 
-fn collapse(rules: Rules, out_graph: &Graph) {
-
+fn collapse_algorithm(rules: Rules, out_graph: Graph) -> Option<Graph> {
+    let mut heap: BinaryHeap<> = BinaryHeap::new();
+    let mut gen_observe = HashSet::new();
 }
 
 #[derive(Debug)]
