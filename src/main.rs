@@ -6,7 +6,7 @@ mod graph;
 use std::collections::{HashSet, BinaryHeap, HashMap};
 use crate::observe::Observe;
 use crate::propagate::Propagate;
-use crate::graph::{Rules, Graph, VertexIndex, VertexLabel};
+use crate::graph::{Rules, Graph, VertexIndex, VertexLabel, Frequencies};
 use crate::utils::{hash_set, hash_map};
 
 
@@ -32,24 +32,15 @@ fn main() {
     // );
 }
 
-fn calculate_entropy(labels: &HashSet<VertexLabel>, frequencies: &HashMap<VertexLabel, i32>) -> f32 {
-    let label_frequencies =  labels.iter().map(|label| frequencies.get(label).unwrap());
-    let total: i32 = label_frequencies.clone().sum();
-    - label_frequencies.map(|frequency| {
-        let P = *frequency as f32 / total as f32;
-        P * P.log2()
-    }).sum::<f32>()
-}
-
-fn collapse_algorithm(rules: &Rules, frequencies: &HashMap<VertexLabel, i32>, out_graph: Graph) -> Option<Graph> {
+fn collapse_algorithm(rules: &Rules, frequencies: &Frequencies, out_graph: Graph) -> Option<Graph> {
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
     let mut observed: HashSet<VertexIndex> = HashSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
 
-    // for vertex in out_graph.vertices.iter().for_each(|vertex| {
-
-    // });
+    out_graph.vertices.iter().enumerate().for_each(|(index, labels)| {
+        heap.push(Observe::new(&(index as i32), labels, frequencies))
+    });
 
     None
 
