@@ -3,29 +3,29 @@ use std::iter::FromIterator;
 
 use crate::utils::{hash_map, hash_set};
 
-pub type NodeValue = i32;           // values that a node can contain
-pub type NodeIndex = i32;           // each unique node in a graph
-pub type EdgeDirection = u16;       // the directional relationship between two nodes
-pub type Edges = HashMap<NodeIndex, Vec<(NodeIndex, EdgeDirection)>>;
-pub type Rules = HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>>;
+pub type VertexLabel = i32;           // labels that a vertex can contain
+pub type VertexIndex = i32;           // each unique vertex in a graph
+pub type EdgeDirection = u16;       // the directional relationship between two vertices
+pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
+pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 
 #[derive(Debug)]
 pub struct Graph {
-    pub nodes: Vec<HashSet<NodeValue>>,
+    vertices: Vec<HashSet<VertexLabel>>,
     edges: Edges
 }
 
 impl Graph {
-    pub fn new(nodes: Vec<HashSet<NodeValue>>, edges: Edges) -> Graph {
+    pub fn new(vertices: Vec<HashSet<VertexLabel>>, edges: Edges) -> Graph {
         Graph {
-            nodes,
+            vertices,
             edges
         }
     }
 
-    pub fn constrain(&mut self, index: NodeIndex, values: HashSet<NodeValue>) {
-        self.nodes.get_mut(index as usize).map(|set| {
-            set.intersection(&values).collect::<HashSet<&NodeValue>>()
+    pub fn constrain(&mut self, index: VertexIndex, labels: HashSet<VertexLabel>) {
+        self.vertices.get_mut(index as usize).map(|set| {
+            set.intersection(&labels).collect::<HashSet<&VertexLabel>>()
         });
     }
 
@@ -33,17 +33,17 @@ impl Graph {
     1. Construct rules hash map
     2. loop through graph directed edges
     2. for each edge:
-        try add (dir, NodeValue) to rules, if already in rules, union set values
+        try add (dir, vertexLabel) to rules, if already in rules, union set labels
     */
-    pub fn make_rules(&self) -> Rules {
+    pub fn rules(&self) -> Rules {
         let mut rules: Rules = HashMap::new();
-        for (from_node_index, edges) in self.edges.iter() {
-            for (to_node_index, direction) in edges.iter() {
-                for node_value in self.nodes[*from_node_index as usize].iter() {
-                    let rules_key = (*direction, *node_value);
+        for (from_vertex_index, edges) in self.edges.iter() {
+            for (to_vertex_index, direction) in edges.iter() {
+                for vertex_label in self.vertices[*from_vertex_index as usize].iter() {
+                    let rules_key = (*direction, *vertex_label);
                     rules.entry(rules_key)
-                        .and_modify(|set| set.extend(&self.nodes[*to_node_index as usize]))
-                        .or_insert(self.nodes[*to_node_index as usize].clone());
+                        .and_modify(|set| set.extend(&self.vertices[*to_vertex_index as usize]))
+                        .or_insert(self.vertices[*to_vertex_index as usize].clone());
                 }
             }
         }
@@ -74,12 +74,12 @@ mod tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
             [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
 
         let test_graph = Graph {
-            nodes: test_graph_nodes,
+            vertices: test_graph_vertices,
             edges: graph_edges()
         };
 
@@ -92,7 +92,7 @@ mod tests {
         // (3: W, 1: b) -> (0: a)
         // (3: W, 2: c) -> (1: b)
 
-        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
+        let result: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
             ((0, 0), hash_set(&[1])),
             ((0, 1), hash_set(&[2])),
             ((1, 1), hash_set(&[0])),
@@ -103,7 +103,7 @@ mod tests {
             ((3, 2), hash_set(&[1])),
         ]);
 
-        assert_eq!(test_graph.make_rules(), result);
+        assert_eq!(test_graph.rules(), result);
     }
 
     #[test]
@@ -116,12 +116,12 @@ mod tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = Vec::from_iter(
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
             [0, 1, 2, 0].iter().map(|n: &i32| hash_set(&[*n]))
         );
 
         let test_graph = Graph {
-            nodes: test_graph_nodes,
+            vertices: test_graph_vertices,
             edges: graph_edges()
         };
 
@@ -135,7 +135,7 @@ mod tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
+        let result: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
             ((0, 0), hash_set(&[1, 2])),
             ((1, 1), hash_set(&[0])),
             ((1, 2), hash_set(&[0])),
@@ -145,7 +145,7 @@ mod tests {
             ((3, 2), hash_set(&[1])),
         ]);
 
-        assert_eq!(test_graph.make_rules(), result);
+        assert_eq!(test_graph.rules(), result);
     }
 
     #[test]
@@ -158,7 +158,7 @@ mod tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let test_graph_nodes: Vec<HashSet<NodeValue>> = vec![
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
             hash_set(&[0, 1]),
             hash_set(&[1]),
             hash_set(&[2]),
@@ -166,7 +166,7 @@ mod tests {
         ];
 
         let test_graph = Graph {
-            nodes: test_graph_nodes,
+            vertices: test_graph_vertices,
             edges: graph_edges()
         };
 
@@ -181,7 +181,7 @@ mod tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: HashMap<(EdgeDirection, NodeValue), HashSet<NodeValue>> = hash_map(&[
+        let result: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
             ((0, 0), hash_set(&[1, 2])),
             ((0, 1), hash_set(&[1])),
             ((1, 1), hash_set(&[0, 1])),
@@ -192,6 +192,6 @@ mod tests {
             ((3, 2), hash_set(&[1])),
         ]);
 
-        assert_eq!(test_graph.make_rules(), result);
+        assert_eq!(test_graph.rules(), result);
     }
 }
