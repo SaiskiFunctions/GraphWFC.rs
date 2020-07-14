@@ -11,7 +11,7 @@ pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 
 #[derive(Debug)]
 pub struct Graph {
-    vertices: Vec<HashSet<VertexLabel>>,
+    pub vertices: Vec<HashSet<VertexLabel>>,
     edges: Edges
 }
 
@@ -48,6 +48,11 @@ impl Graph {
             }
         }
         rules
+    }
+
+    pub fn frequencies(&self) -> HashMap<VertexLabel, i32> {
+        let mut frequencies = HashMap::new();
+        self.vertices.iter().for_each()
     }
 }
 

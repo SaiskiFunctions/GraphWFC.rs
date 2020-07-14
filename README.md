@@ -223,3 +223,7 @@ possibilities are output as a set
 set logic stuff tm
 
 Collapse calculation is arbitrary <- 
+
+Modularising graph metadata generation:
+Method on graph:
+pub fn metadata(&self, function<Graph, U>) -> U 

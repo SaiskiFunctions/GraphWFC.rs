@@ -1,14 +1,12 @@
+mod observe;
+mod propagate;
 mod utils;
-use utils::{hash_map, hash_set};
 mod graph;
-use graph::*;
 
-use std::collections::{HashSet, HashMap, BinaryHeap};
-use std::iter::FromIterator;
-use std::hash::Hash;
-use std::cmp::{Eq, Ordering};
-use std::clone::Clone;
-use std::error::Error;
+use std::collections::{HashSet, BinaryHeap};
+use crate::observe::Observe;
+use crate::propagate::Propagate;
+use crate::graph::{Rules, Graph, VertexIndex};
 
 
 fn main() {
@@ -33,51 +31,20 @@ fn main() {
     // );
 }
 
+fn calculate_entropy()
+
 fn collapse_algorithm(rules: Rules, out_graph: Graph) -> Option<Graph> {
-    let mut heap: BinaryHeap<> = BinaryHeap::new();
-    let mut gen_observe = HashSet::new();
+    let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
+    let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
+    let mut observed: HashSet<VertexIndex> = HashSet::new();
+    let mut propagations: Vec<Propagate> = Vec::new();
+
+    for vertex in out_graph.vertices.iter().for_each(|vertex| {
+
+    });
+
 }
 
-#[derive(Debug)]
-struct ConstraintAction {
-    entropy: f32,
-    to: i32,
-    from: i32,
-    direction: u16
-}
 
-impl ConstraintAction {
-    fn new(entropy: f32, from: i32, to: i32, direction: u16) -> ConstraintAction {
-        ConstraintAction {
-            entropy,
-            from,
-            to,
-            direction
-        }
-    }
 
-    fn constrain(&self, graph: &Graph) {
-        // code to do collapse or propagate
-        
-    }
-}
 
-impl Ord for ConstraintAction {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.entropy.partial_cmp(&other.entropy).unwrap()
-    }
-}
-
-impl Eq for ConstraintAction {}
-
-impl PartialOrd for ConstraintAction {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for ConstraintAction {
-    fn eq(&self, other: &Self) -> bool {
-        self.entropy == other.entropy
-    }
-}
