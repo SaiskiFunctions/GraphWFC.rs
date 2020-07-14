@@ -8,6 +8,8 @@ pub type VertexIndex = i32;           // each unique vertex in a graph
 pub type EdgeDirection = u16;       // the directional relationship between two vertices
 pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
+pub type Labels = HashSet<VertexLabel>;
+pub type Frequencies = HashMap<VertexLabel, i32>;
 
 #[derive(Debug)]
 pub struct Graph {
