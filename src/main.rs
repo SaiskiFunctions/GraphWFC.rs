@@ -3,10 +3,10 @@ mod propagate;
 mod utils;
 mod graph;
 
-use std::collections::{HashSet, BinaryHeap};
+use std::collections::{HashSet, BinaryHeap, HashMap};
 use crate::observe::Observe;
 use crate::propagate::Propagate;
-use crate::graph::{Rules, Graph, VertexIndex};
+use crate::graph::{Rules, Graph, VertexIndex, VertexLabel};
 
 
 fn main() {
@@ -31,7 +31,14 @@ fn main() {
     // );
 }
 
-// fn calculate_entropy()
+fn calculate_entropy(labels: HashSet<VertexLabel>, frequencies: HashMap<VertexLabel, i32>) -> f32 {
+    let label_frequencies =  labels.iter().map(|label| frequencies.get(label).unwrap());
+    let total: i32 = label_frequencies.clone().sum();
+    - label_frequencies.map(|frequency| {
+        let P = *frequency as f32 / total as f32;
+        P * P.log2()
+    }).sum::<f32>()
+}
 
 fn collapse_algorithm(rules: Rules, out_graph: Graph) -> Option<Graph> {
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();

@@ -227,3 +227,25 @@ Collapse calculation is arbitrary <-
 Modularising graph metadata generation:
 Method on graph:
 pub fn metadata(&self, function<Graph, U>) -> U 
+
+
+{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}
+
+H(X) -> shanon entropy
+
+Sum of expression
+
+P is probability for a element in a set of possible values
+
+Map {
+    0: 4,
+    1: 5,
+    2: 10,
+    3: 20
+}
+
+{0, 1} P(0) = 4/4+5
+
+{}
+
+
