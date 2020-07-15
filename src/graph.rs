@@ -47,7 +47,7 @@ impl Graph {
         rules
     }
 
-    pub fn frequencies(&self) -> HashMap<VertexLabel, i32> {
+    pub fn frequencies(&self) -> Frequencies {
         let mut frequencies = HashMap::new();
         self.vertices.iter().for_each(|labels| {
             labels.iter().for_each(|label| {
@@ -63,35 +63,28 @@ impl Graph {
         1. Seedable randomness
         2. Dependency injected random module
         3. Test
-        4. Should this function return a bool?
+        4. cache calculation of total.
+        5. should observe and constrain return a bool?
     */
     pub fn observe(&mut self, index: &VertexIndex, frequencies: &Frequencies) {
         let mut rng = thread_rng();
         self.vertices.get_mut(*index as usize).map(|set| {
-            let total: i32 = frequencies.clone().iter()
-                .filter(|(label, _)| set.contains(label))
-                .map(|(k, v)| (*k, *v))
-                .collect::<HashMap<i32, i32>>()
-                .values().sum();
-            
-            let choice = rng.gen_range(1, total+1);
-            let mut label_choice = 0;
-            let mut frequency_acc = 0;
+            let total: i32 = set.iter().fold(0, |mut acc, label| {
+                acc + *frequencies.get(label).unwrap()
+            });
+            let choice = rng.gen_range(1, total + 1);
+            let mut acc = 0;
 
-            for label in set.iter() {
-                frequency_acc += frequencies.get(label).unwrap();
-                if frequency_acc >= choice {
-                    label_choice = *label;
-                    break;
-                }
-            }
-            label_choice
+            *set.iter().skip_while(|label| {
+                acc += *frequencies.get(label).unwrap();
+                acc < choice
+            }).next().unwrap()
         });
     }
 
-    pub fn constrain(&mut self, index: VertexIndex, labels: HashSet<VertexLabel>) {
-        self.vertices.get_mut(index as usize).map(|set| {
-            set.intersection(&labels).collect::<HashSet<&VertexLabel>>()
+    pub fn constrain(&mut self, index: &VertexIndex, labels: &Labels) {
+        self.vertices.get_mut(*index as usize).map(|set| {
+            set.intersection(labels).collect::<HashSet<&VertexLabel>>()
         });
     }
 }
