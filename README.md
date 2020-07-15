@@ -41,9 +41,10 @@ Ouput array -> Image
 INPUT: input_graph, output_graph, retry_count
 
 rules = input_graph.rules()
+all_labels = input_graph.all_labels()
 try_count = 0
 WHILE try_count <= retry_count:
-    MATCH COLLAPSE_ALGORITHM(rules, output_graph.clone()) {
+    MATCH COLLAPSE_ALGORITHM(rules, frequencies, all_labels, output_graph.clone()) {
         Some(result) => result
         None => try_count += 1; continue
     }
@@ -58,7 +59,14 @@ GEN_OBSERVE: HashSet<VertexIndex>
 OBSERVED: HashSet<VertexIndex>
 PROPAGATIONS: Vec<PROPAGATE_ACTION>
 1. Create a new binary HEAP.
-2. Create a number of OBSERVE_ACTION's equal to the number of vertices onto the HEAP.
+2. FOR EACH vertex in output_graph: // Create a number of OBSERVE_ACTION's equal to the number of vertices onto the HEAP.
+    1. IF vertex labels is a <proper subset> of all_labels:
+        1. Find vertices connected to this.vertexIndex using the out_graph edges property.
+        2. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
+        3. IF vertex labels is a singleton set:
+            1. Add vertexIndex to OBSERVED
+            2. CONTINUE
+    2. Push vertex OBSERVE_ACTION onto the HEAP.
 3. IF length of OBSERVED == Graph.vertices.length:
     return SUCCESS!
 4. IF HEAP is empty:
