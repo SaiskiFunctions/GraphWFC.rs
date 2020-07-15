@@ -55,6 +55,13 @@ impl Graph {
         frequencies
     }
 
+    pub fn all_labels(&self) -> Labels {
+        self.vertices.iter().fold(HashSet::new(), |mut all, labels| {
+            all.extend(labels);
+            all
+        })
+    }
+
     /*
     TODO:
         1. Seedable randomness ✅
@@ -319,5 +326,23 @@ mod tests {
         assert!(!test_graph.constrain(&0, &test_constraint));
 
         assert_eq!(*test_graph.vertices.get(0).unwrap(), hash_set(&[0, 1]));
+    }
+
+    #[test]
+    fn test_all_labels() {
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1]),
+            hash_set(&[1, 2]),
+            hash_set(&[0, 2, 3, 4]),
+            hash_set(&[1, 2, 3, 0]),
+            hash_set(&[5, 6])
+        ];
+
+        let test_graph = Graph {
+            vertices: test_graph_vertices,
+            edges: HashMap::new()
+        };
+
+        assert_eq!(test_graph.all_labels(), hash_set(&[0, 1, 2, 3, 4, 5, 6]));
     }
 }

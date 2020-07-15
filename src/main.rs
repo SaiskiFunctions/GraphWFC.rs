@@ -45,6 +45,10 @@ fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, ou
         heap.push(Observe::new(&(index as i32), labels, frequencies))
     });
 
+    for (index, labels) in out_graph.vertices.iter().enumerate() {
+        
+    }
+
     loop {
         if observed.len() == out_graph.vertices.len() || heap.is_empty() { return Some(out_graph) }
         if propagations.is_empty() {
