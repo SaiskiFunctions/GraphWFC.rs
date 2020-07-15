@@ -12,8 +12,6 @@ pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
 pub type Frequencies = HashMap<VertexLabel, i32>;
 
-static SEED: u64 = 10;
-
 #[derive(Debug)]
 pub struct Graph {
     pub vertices: Vec<HashSet<VertexLabel>>,
@@ -60,13 +58,12 @@ impl Graph {
     /*
     TODO:
         1. Seedable randomness ✅
-        2. Dependency injected random module
+        2. Dependency injected random module ✅
         3. Write BETTER observe tests
         4. cache calculation of total.
         6. implement all_labels method
     */
-    pub fn observe(&mut self, index: &VertexIndex, frequencies: &Frequencies) {
-        let mut rng = StdRng::seed_from_u64(SEED);
+    pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {
         let labels = &self.vertices[*index as usize];
         
         let total: i32 = labels.iter().fold(0, |acc, label| {
@@ -82,10 +79,11 @@ impl Graph {
     }
 
     // return a bool
-    pub fn constrain(&mut self, index: &VertexIndex, labels: &Labels) {
-        self.vertices.get_mut(*index as usize).map(|set| {
-            set.intersection(labels).collect::<HashSet<&VertexLabel>>()
-        });
+    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> bool {
+        let labels = &self.vertices[*index as usize];
+        if labels.is_subset(constraint) { return false } 
+        self.vertices[*index as usize] = labels.intersection(constraint).map(|x| *x).collect();
+        true
     }
 }
 
@@ -278,10 +276,48 @@ mod tests {
             edges: HashMap::new()
         };
 
-        test_graph.observe(&0, &test_frequencies);
+        let mut test_rng = StdRng::seed_from_u64(10);
+
+        test_graph.observe(&mut test_rng, &0, &test_frequencies);
 
         let expected: HashSet<i32> = hash_set(&[2]);
 
         assert_eq!(*test_graph.vertices.get(0).unwrap(), expected);
+    }
+
+    #[test]
+    fn test_constrain_true() {
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1, 2, 3])
+        ];
+
+        let test_constraint = hash_set(&[0, 1]);
+
+        let mut test_graph = Graph {
+            vertices: test_graph_vertices,
+            edges: HashMap::new()
+        };
+
+        assert!(test_graph.constrain(&0, &test_constraint));
+
+        assert_eq!(*test_graph.vertices.get(0).unwrap(), test_constraint);
+    }
+
+    #[test]
+    fn test_constrain_false() {
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1])
+        ];
+
+        let test_constraint = hash_set(&[0, 1, 2]);
+
+        let mut test_graph = Graph {
+            vertices: test_graph_vertices,
+            edges: HashMap::new()
+        };
+
+        assert!(!test_graph.constrain(&0, &test_constraint));
+
+        assert_eq!(*test_graph.vertices.get(0).unwrap(), hash_set(&[0, 1]));
     }
 }

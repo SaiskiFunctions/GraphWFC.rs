@@ -4,6 +4,7 @@ mod utils;
 mod graph;
 
 use std::collections::{HashSet, BinaryHeap, HashMap};
+use rand::prelude::*;
 use crate::observe::Observe;
 use crate::propagate::Propagate;
 use crate::graph::{Rules, Graph, VertexIndex, VertexLabel, Frequencies};
@@ -31,7 +32,7 @@ fn main() {
     // );
 }
 
-fn collapse_algorithm(rules: &Rules, frequencies: &Frequencies, out_graph: Graph) -> Option<Graph> {
+fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, out_graph: Graph) -> Option<Graph> {
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
     let mut observed: HashSet<VertexIndex> = HashSet::new();

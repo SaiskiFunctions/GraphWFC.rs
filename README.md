@@ -43,8 +43,9 @@ INPUT: input_graph, output_graph, retry_count
 rules = input_graph.rules()
 all_labels = input_graph.all_labels()
 try_count = 0
+rng.seed.start
 WHILE try_count <= retry_count:
-    MATCH COLLAPSE_ALGORITHM(rules, frequencies, all_labels, output_graph.clone()) {
+    MATCH COLLAPSE_ALGORITHM(rng, rules, frequencies, all_labels, output_graph.clone()) {
         Some(result) => result
         None => try_count += 1; continue
     }
