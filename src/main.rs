@@ -40,21 +40,19 @@ fn collapse_algorithm(rules: &Rules, frequencies: &Frequencies, out_graph: Graph
     let mut propagations: Vec<Propagate> = Vec::new();
 
     // Initialize binary heap
+    // todo: ensure random order of initial observes.
+    // todo: add initial propagation step to the collapse algorithm.
     out_graph.vertices.iter().enumerate().for_each(|(index, labels)| {
         heap.push(Observe::new(&(index as i32), labels, frequencies))
     });
 
     loop {
         if observed.len() == out_graph.vertices.len() || heap.is_empty() { return Some(out_graph) }
-        if propagations.is_empty() { 
-            if !gen_observe.is_empty() {
-                // add new observes to the heap and empty gen_observe
-                gen_observe.iter().for_each(|index| {
-                    let labels = out_graph.vertices.get(*index as usize).unwrap();
-                    heap.push(Observe::new(index, labels, frequencies))
-                });
-                gen_observe.clear();
-            }
+        if propagations.is_empty() {
+            gen_observe.drain().for_each(|index| {  // algo: 4.2
+                let labels = out_graph.vertices.get(index as usize).unwrap();
+                heap.push(Observe::new(&index, labels, frequencies))
+            });
             
             //heap.pop().unwrap()
         } else {

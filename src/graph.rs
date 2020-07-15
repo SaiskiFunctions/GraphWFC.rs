@@ -20,10 +20,7 @@ pub struct Graph {
 
 impl Graph {
     pub fn new(vertices: Vec<HashSet<VertexLabel>>, edges: Edges) -> Graph {
-        Graph {
-            vertices,
-            edges
-        }
+        Graph { vertices, edges }
     }
 
     /*
@@ -36,10 +33,10 @@ impl Graph {
         let mut rules: Rules = HashMap::new();
         for (from_vertex_index, edges) in self.edges.iter() {
             for (to_vertex_index, direction) in edges.iter() {
-                for vertex_label in self.vertices[*from_vertex_index as usize].iter() {
-                    let rules_key = (*direction, *vertex_label);
+                for from_vertex_label in self.vertices[*from_vertex_index as usize].iter() {
+                    let rules_key = (*direction, *from_vertex_label);
                     rules.entry(rules_key)
-                        .and_modify(|set| set.extend(&self.vertices[*to_vertex_index as usize]))
+                        .and_modify(|to_labels| to_labels.extend(&self.vertices[*to_vertex_index as usize]))
                         .or_insert(self.vertices[*to_vertex_index as usize].clone());
                 }
             }
@@ -68,14 +65,14 @@ impl Graph {
     */
     pub fn observe(&mut self, index: &VertexIndex, frequencies: &Frequencies) {
         let mut rng = thread_rng();
-        self.vertices.get_mut(*index as usize).map(|set| {
-            let total: i32 = set.iter().fold(0, |mut acc, label| {
+        self.vertices.get_mut(*index as usize).map(|labels| {
+            let total: i32 = labels.iter().fold(0, |mut acc, label| {
                 acc + *frequencies.get(label).unwrap()
             });
             let choice = rng.gen_range(1, total + 1);
             let mut acc = 0;
 
-            *set.iter().skip_while(|label| {
+            *labels.iter().skip_while(|label| {
                 acc += *frequencies.get(label).unwrap();
                 acc < choice
             }).next().unwrap()
