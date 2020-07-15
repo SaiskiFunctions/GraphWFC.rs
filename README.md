@@ -1,6 +1,8 @@
 [![travis build](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/github/dpwdec/wfc-rust)
 
-# Propagation
+# Wave Function Collapse
+
+
 
 `vertexLabel = i32`
 `EdgeDirection = i32`

@@ -63,6 +63,7 @@ impl Graph {
         1. Seedable randomness
         2. Dependency injected random module
         3. Test
+        4. Should this function return a bool?
     */
     pub fn observe(&mut self, index: &VertexIndex, frequencies: &Frequencies) {
         let mut rng = thread_rng();
