@@ -62,6 +62,12 @@ impl Graph {
         })
     }
 
+    // entropoy coonections 🤡
+    // TODO: unwrap/or (unsafe)
+    pub fn connections(&self, index: &VertexIndex) -> &Vec<(VertexIndex, EdgeDirection)> {
+        self.edges.get(index).unwrap()
+    }
+
     /*
     TODO:
         1. Seedable randomness ✅
@@ -344,5 +350,15 @@ mod tests {
         };
 
         assert_eq!(test_graph.all_labels(), hash_set(&[0, 1, 2, 3, 4, 5, 6]));
+    }
+
+    #[test]
+    fn test_connections() {
+        let test_graph = Graph {
+            vertices: Vec::new(),
+            edges: graph_edges()
+        };
+
+        assert_eq!(test_graph.connections(&3), &vec![(0, 3), (2, 0)])
     }
 }

@@ -7,7 +7,7 @@ use std::collections::{HashSet, BinaryHeap, HashMap};
 use rand::prelude::*;
 use crate::observe::Observe;
 use crate::propagate::Propagate;
-use crate::graph::{Rules, Graph, VertexIndex, VertexLabel, Frequencies};
+use crate::graph::{Rules, Graph, VertexIndex, VertexLabel, Frequencies, Labels};
 use crate::utils::{hash_set, hash_map};
 
 fn main() {
@@ -32,7 +32,7 @@ fn main() {
     // );
 }
 
-fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, out_graph: Graph) -> Option<Graph> {
+fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, all_labels: &Labels, out_graph: Graph) -> Option<Graph> {
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
     let mut observed: HashSet<VertexIndex> = HashSet::new();
@@ -46,7 +46,9 @@ fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, ou
     });
 
     for (index, labels) in out_graph.vertices.iter().enumerate() {
-        
+        if labels.is_subset(all_labels) && labels != all_labels {
+            
+        }
     }
 
     loop {
