@@ -32,32 +32,13 @@ fn main() {
     // );
 }
 
-fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, all_labels: &Labels, out_graph: Graph) -> Option<Graph> {
+fn collapse_algorithm(rng: &mut StdRng, rules: &Rules, frequencies: &Frequencies, all_labels: &Labels, out_graph: Graph) -> Option<Graph> {
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
     let mut observed: HashSet<VertexIndex> = HashSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
 
-    // Initialize binary heap
-    // todo: ensure random order of initial observes.
-    // todo: add initial propagation step to the collapse algorithm.
-
-    for (_index, labels) in out_graph.vertices.iter().enumerate() {
-        let from_index = _index as i32;
-        if labels.is_subset(all_labels) && labels != all_labels {
-            out_graph.connections(&from_index).iter().for_each(|(to_index, direction)| {
-                propagations.push(Propagate::new(from_index, *to_index, *direction))
-            });
-
-            if labels.len() == 1 {
-                observed.insert(from_index);
-                continue
-            }
-        }
-        // let mut observe = Observe::new
-        // observe.add_entropic_fuzz()
-        heap.push(Observe::new(&from_index, labels, frequencies))
-    }
+    initialize(rng, frequencies, all_labels, &out_graph, &mut propagations, &mut observed, &mut heap);
 
     loop {
         if observed.len() == out_graph.vertices.len() || heap.is_empty() { return Some(out_graph) }
@@ -74,4 +55,29 @@ fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, al
     }
 
     None
+}
+
+fn initialize(
+    rng: &mut StdRng, 
+    frequencies: &Frequencies, 
+    all_labels: &Labels, 
+    out_graph: &Graph, 
+    propagations: &mut Vec<Propagate>,
+    observed: &mut HashSet<VertexIndex>,
+    heap: &mut BinaryHeap<Observe>
+) {
+    for (_index, labels) in out_graph.vertices.iter().enumerate() {
+        let from_index = _index as i32;
+        if labels.is_subset(all_labels) && labels != all_labels {
+            out_graph.connections(&from_index).iter().for_each(|(to_index, direction)| {
+                propagations.push(Propagate::new(from_index, *to_index, *direction))
+            });
+
+            if labels.len() == 1 {
+                observed.insert(from_index);
+                continue
+            }
+        }
+        heap.push(Observe::new_fuzz(rng, &from_index, labels, frequencies))
+    }
 }
