@@ -10,6 +10,11 @@ use crate::propagate::Propagate;
 use crate::graph::{Rules, Graph, VertexIndex, VertexLabel, Frequencies, Labels};
 use crate::utils::{hash_set, hash_map};
 
+/*
+TODO:
+    1. Conversion between usize and i32 should be couched in an unwrap()
+*/
+
 fn main() {
     // turn input into a graph
     // index number represents each vertex position
