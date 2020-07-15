@@ -41,14 +41,22 @@ fn collapse_algorithm(rng: &StdRng, rules: &Rules, frequencies: &Frequencies, al
     // Initialize binary heap
     // todo: ensure random order of initial observes.
     // todo: add initial propagation step to the collapse algorithm.
-    out_graph.vertices.iter().enumerate().for_each(|(index, labels)| {
-        heap.push(Observe::new(&(index as i32), labels, frequencies))
-    });
 
-    for (index, labels) in out_graph.vertices.iter().enumerate() {
+    for (_index, labels) in out_graph.vertices.iter().enumerate() {
+        let from_index = _index as i32;
         if labels.is_subset(all_labels) && labels != all_labels {
-            
+            out_graph.connections(&from_index).iter().for_each(|(to_index, direction)| {
+                propagations.push(Propagate::new(from_index, *to_index, *direction))
+            });
+
+            if labels.len() == 1 {
+                observed.insert(from_index);
+                continue
+            }
         }
+        // let mut observe = Observe::new
+        // observe.add_entropic_fuzz()
+        heap.push(Observe::new(&from_index, labels, frequencies))
     }
 
     loop {

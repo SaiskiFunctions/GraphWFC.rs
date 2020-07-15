@@ -1,7 +1,10 @@
 use crate::graph::{Graph, VertexIndex, Labels, Frequencies};
 use std::cmp::Ordering;
+use rand::prelude::*;
 use crate::utils::{hash_map, hash_set};
 
+static FUZZ_LB: f32 = 0.000001;
+static FUZZ_UB: f32 = 0.0005;
 
 #[derive(Debug)]
 pub struct Observe {
@@ -12,6 +15,11 @@ pub struct Observe {
 impl Observe {
     pub fn new(index: &VertexIndex, labels: &Labels, frequencies: &Frequencies) -> Observe {
         Observe { entropy: calculate_entropy(labels, frequencies), index: *index }
+    }
+
+    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels, frequencies: &Frequencies) -> Observe {
+        let entropy = calculate_entropy(labels, frequencies);
+        Observe { entropy: entropy + rng.gen_range(FUZZ_LB, FUZZ_UB), index: *index }
     }
 
     fn constrain(&self, graph: &Graph) {
@@ -126,5 +134,17 @@ mod tests {
         assert_eq!(test_heap.pop().unwrap().entropy, 2.5);
         assert_eq!(test_heap.pop().unwrap().entropy, 3.7);
         assert_eq!(test_heap.pop().unwrap().entropy, 4.1);
+    }
+
+    #[test]
+    fn test_new_fuzz() {
+        let test_labels = hash_set(&[0, 1, 2]);
+        let test_frequencies = hash_map(&[(0, 2), (1, 1), (2, 1)]);
+
+        let mut rng = StdRng::seed_from_u64(10);
+        let observe = Observe::new(&0, &test_labels, &test_frequencies);
+        let observe_fuzz = Observe::new_fuzz(&mut rng, &0, &test_labels, &test_frequencies);
+
+        assert!(observe.entropy < observe_fuzz.entropy);
     }
 }
