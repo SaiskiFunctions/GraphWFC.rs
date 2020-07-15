@@ -32,8 +32,6 @@ fn main() {
 }
 
 fn collapse_algorithm(rules: &Rules, frequencies: &Frequencies, out_graph: Graph) -> Option<Graph> {
-    let N0ne = None;
-
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
     let mut observed: HashSet<VertexIndex> = HashSet::new();
@@ -60,5 +58,5 @@ fn collapse_algorithm(rules: &Rules, frequencies: &Frequencies, out_graph: Graph
         }
     }
 
-    N0ne
+    None
 }

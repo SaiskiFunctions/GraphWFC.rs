@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use rand::{thread_rng, Rng};
+use rand::prelude::*;
 
 use crate::utils::{hash_map, hash_set};
 
@@ -11,6 +11,8 @@ pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
 pub type Frequencies = HashMap<VertexLabel, i32>;
+
+static SEED: u64 = 10;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -57,28 +59,29 @@ impl Graph {
 
     /*
     TODO:
-        1. Seedable randomness
+        1. Seedable randomness ✅
         2. Dependency injected random module
-        3. Test
+        3. Write BETTER observe tests
         4. cache calculation of total.
-        5. should observe and constrain return a bool?
+        6. implement all_labels method
     */
     pub fn observe(&mut self, index: &VertexIndex, frequencies: &Frequencies) {
-        let mut rng = thread_rng();
-        self.vertices.get_mut(*index as usize).map(|labels| {
-            let total: i32 = labels.iter().fold(0, |mut acc, label| {
-                acc + *frequencies.get(label).unwrap()
-            });
-            let choice = rng.gen_range(1, total + 1);
-            let mut acc = 0;
-
-            *labels.iter().skip_while(|label| {
-                acc += *frequencies.get(label).unwrap();
-                acc < choice
-            }).next().unwrap()
+        let mut rng = StdRng::seed_from_u64(SEED);
+        let labels = &self.vertices[*index as usize];
+        
+        let total: i32 = labels.iter().fold(0, |acc, label| {
+            acc + *frequencies.get(label).unwrap()
         });
+        let choice = rng.gen_range(1, total + 1);
+        let mut acc = 0;
+
+        self.vertices[*index as usize] = hash_set(&[*labels.iter().skip_while(|label| {
+            acc += *frequencies.get(label).unwrap();
+            acc < choice
+        }).next().unwrap()]);
     }
 
+    // return a bool
     pub fn constrain(&mut self, index: &VertexIndex, labels: &Labels) {
         self.vertices.get_mut(*index as usize).map(|set| {
             set.intersection(labels).collect::<HashSet<&VertexLabel>>()
@@ -260,5 +263,25 @@ mod tests {
         let result = hash_map(&[(0, 4), (1, 5), (2, 3), (3, 1), (4, 2), (5, 3), (6, 1)]);
 
         assert_eq!(test_graph.frequencies(), result);
+    }
+
+    #[test]
+    fn test_osbserve() {
+        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1, 2, 3])
+        ];
+
+        let test_frequencies = hash_map(&[(0, 1), (1, 2), (2, 100), (3, 1)]);
+
+        let mut test_graph = Graph {
+            vertices: test_graph_vertices,
+            edges: HashMap::new()
+        };
+
+        test_graph.observe(&0, &test_frequencies);
+
+        let expected: HashSet<i32> = hash_set(&[2]);
+
+        assert_eq!(*test_graph.vertices.get(0).unwrap(), expected);
     }
 }
