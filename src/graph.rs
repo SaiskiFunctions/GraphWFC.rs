@@ -3,6 +3,7 @@ use std::ops::Index;
 use rand::prelude::*;
 
 use crate::utils::hash_set;
+use std::iter::FromIterator;
 
 pub type VertexLabel = i32;         // labels that a vertex can contain
 pub type VertexIndex = i32;         // each unique vertex in a graph
@@ -87,7 +88,10 @@ impl Graph {
         let choice = rng.gen_range(1, total + 1);
         let mut acc = 0;
 
-        *labels = hash_set(&[*labels.iter().skip_while(|label| {
+        // we have to sort the labels to ensure deterministic choice of collapsed label.
+        let mut sorted_labels = Vec::from_iter(labels.iter());
+        sorted_labels.sort();
+        *labels = hash_set(&[**sorted_labels.iter().skip_while(|label| {
             acc += *frequencies.index(label);
             acc < choice
         }).next().unwrap()]);

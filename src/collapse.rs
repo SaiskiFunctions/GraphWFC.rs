@@ -328,7 +328,7 @@ mod tests {
 
         let result = collapse.exec().unwrap();
         let expected = Vec::from_iter(
-            [1, 0, 0, 1, 1, 1].iter().map(|n: &i32| hash_set(&[*n]))
+            [1, 1, 0, 1, 1, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
         assert_eq!(result.vertices, expected);
     }
