@@ -46,11 +46,7 @@ impl Collapse<'_> {
         for (_index, labels) in vertices_iter {
             let from_index = _index as i32;
             if labels.is_subset(all_labels) && labels != all_labels { // <-- labels is proper subset of all_labels
-                out_graph.connections(&from_index).iter().for_each(|(to_index, direction)| {
-                    if !observed.contains(to_index) {
-                        propagations.push(Propagate::new(from_index, *to_index, *direction))
-                    }
-                });
+                generate_propagations(&mut propagations, &observed, &out_graph, &from_index);
             }
         }
 
@@ -92,11 +88,7 @@ impl Collapse<'_> {
                 if !observed.contains(&observe.index) {
                     out_graph.observe(self.rng, &observe.index, frequencies);
 
-                    out_graph.connections(&observe.index).iter().for_each(|(to_index, direction)| {
-                        if !observed.contains(to_index) {
-                            propagations.push(Propagate::new(observe.index, *to_index, *direction))
-                        }
-                    });
+                    generate_propagations(propagations, observed, out_graph, &observe.index);
                 }
             } else {
                 let propagate = propagations.pop().unwrap();
@@ -107,10 +99,30 @@ impl Collapse<'_> {
                     cst
                 });
 
-                out_graph.constrain(&propagate.to, &constraint);
+                if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
+                    if labels.is_empty() {
+                        return None
+                    } else if labels.len() == 1 {
+                        // add to observe
+                        observed.insert(propagate.to);
+                    } else {
+                        // add to gen
+                        gen_observe.insert(propagate.to);
+                    }
+
+                    generate_propagations(propagations, observed, out_graph, &propagate.to);
+                }
             }
         }
     }
+}
+
+fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph, from_index: &VertexIndex) {
+    out_graph.connections(from_index).iter().for_each(|(to_index, direction)| {
+        if !observed.contains(to_index) {
+            propagations.push(Propagate::new(*from_index, *to_index, *direction))
+        }
+    });
 }
 
 #[cfg(test)]
