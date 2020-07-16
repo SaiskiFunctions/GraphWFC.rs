@@ -3,6 +3,9 @@ use std::cmp::Ordering;
 use rand::prelude::*;
 use crate::utils::{hash_map, hash_set};
 
+// Lower and upper bounds for use in generating slightly different
+// entropy values for the initial set of Observe structs generated
+// before running collapse.
 static FUZZ_LB: f32 = 0.000001;
 static FUZZ_UB: f32 = 0.0005;
 
@@ -51,8 +54,9 @@ impl PartialEq for Observe {
     }
 }
 
+/// Calculate the shannon entropy for a given set of labels and label frequencies.
 fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
-    let label_frequencies =  labels.iter().map(|label| frequencies.get(label).unwrap());
+    let label_frequencies = labels.iter().map(|label| frequencies.get(label).unwrap());
     let total: i32 = label_frequencies.clone().sum();
     - label_frequencies.fold(0.0, |mut acc, frequency| {
         let prob = *frequency as f32 / total as f32;

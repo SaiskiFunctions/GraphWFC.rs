@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
+use std::ops::Index;
 use rand::prelude::*;
 
 use crate::utils::{hash_map, hash_set};
 
-pub type VertexLabel = i32;           // labels that a vertex can contain
-pub type VertexIndex = i32;           // each unique vertex in a graph
+pub type VertexLabel = i32;         // labels that a vertex can contain
+pub type VertexIndex = i32;         // each unique vertex in a graph
 pub type EdgeDirection = u16;       // the directional relationship between two vertices
 pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
@@ -14,21 +15,17 @@ pub type Frequencies = HashMap<VertexLabel, i32>;
 
 #[derive(Debug)]
 pub struct Graph {
-    pub vertices: Vec<HashSet<VertexLabel>>,
+    pub vertices: Vec<Labels>,  // index of vec == vertex index
     edges: Edges
 }
 
 impl Graph {
-    pub fn new(vertices: Vec<HashSet<VertexLabel>>, edges: Edges) -> Graph {
+    pub fn new(vertices: Vec<Labels>, edges: Edges) -> Graph {
         Graph { vertices, edges }
     }
 
-    /*
-    1. Construct rules hash map
-    2. loop through graph directed edges
-    2. for each edge:
-        try add (dir, vertexLabel) to rules, if already in rules, union set labels
-    */
+    /// Construct HashMap of rules for this graph.
+    /// Rules connect a tuple of direction and vertex label to a set of labels.
     pub fn rules(&self) -> Rules {
         let mut rules: Rules = HashMap::new();
         for (from_vertex_index, edges) in self.edges.iter() {
@@ -44,17 +41,17 @@ impl Graph {
         rules
     }
 
+    /// Construct HashMap of label frequencies for this graph.
     pub fn frequencies(&self) -> Frequencies {
-        let mut frequencies = HashMap::new();
-        self.vertices.iter().for_each(|labels| {
+        self.vertices.iter().fold(HashMap::new(), |mut map, labels| {
             labels.iter().for_each(|label| {
-                let frequency = frequencies.entry(*label).or_insert(0);
-                *frequency += 1
+                map.entry(*label).and_modify(|n| *n += 1).or_insert(1); // <-- use and_modify
             });
-        });
-        frequencies
+            map
+        })
     }
 
+    /// Construct the set of all labels for this graph.
     pub fn all_labels(&self) -> Labels {
         self.vertices.iter().fold(HashSet::new(), |mut all, labels| {
             all.extend(labels);
@@ -63,9 +60,10 @@ impl Graph {
     }
 
     // entropoy coonections 🤡
-    // TODO: unwrap/or (unsafe)
+    /// Return all pairs of vertex indexes and directions connected to the
+    /// given index for this graph.
     pub fn connections(&self, index: &VertexIndex) -> &Vec<(VertexIndex, EdgeDirection)> {
-        self.edges.get(index).unwrap()
+        self.edges.index(index)
     }
 
     /*
@@ -74,28 +72,31 @@ impl Graph {
         2. Dependency injected random module ✅
         3. Write BETTER observe tests
         4. cache calculation of total.
-        6. implement all_labels method
+        6. implement all_labels method ✅
     */
+
+    /// Collapses the set of vertex labels at the given index to a singleton set.
     pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {
-        let labels = &self.vertices[*index as usize];
-        
+        let labels = &mut self.vertices[*index as usize];
         let total: i32 = labels.iter().fold(0, |acc, label| {
-            acc + *frequencies.get(label).unwrap()
+            &acc + frequencies.index(label)
         });
         let choice = rng.gen_range(1, total + 1);
         let mut acc = 0;
 
-        self.vertices[*index as usize] = hash_set(&[*labels.iter().skip_while(|label| {
-            acc += *frequencies.get(label).unwrap();
+        *labels = hash_set(&[*labels.iter().skip_while(|label| {
+            acc += *frequencies.index(label);
             acc < choice
         }).next().unwrap()]);
     }
 
-    // return a bool
+    /// Constrain the vertex labels at the given index by intersecting the
+    /// vertex labels with the constraint set.
+    /// Returns a bool to indicate whether the vertex labels set was changed.
     pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> bool {
-        let labels = &self.vertices[*index as usize];
-        if labels.is_subset(constraint) { return false } 
-        self.vertices[*index as usize] = labels.intersection(constraint).map(|x| *x).collect();
+        let labels = &mut self.vertices[*index as usize];
+        if labels.is_subset(constraint) { return false }
+        *labels = labels.intersection(constraint).map(|x| *x).collect();
         true
     }
 }
@@ -277,9 +278,12 @@ mod tests {
     }
 
     #[test]
-    fn test_osbserve() {
+    fn test_observe() {
         let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
-            hash_set(&[0, 1, 2, 3])
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1, 2, 3]),
+            hash_set(&[1, 3]),
+            hash_set(&[0])
         ];
 
         let test_frequencies = hash_map(&[(0, 1), (1, 2), (2, 100), (3, 1)]);
@@ -290,12 +294,13 @@ mod tests {
         };
 
         let mut test_rng = StdRng::seed_from_u64(10);
+        let index = 1;
 
-        test_graph.observe(&mut test_rng, &0, &test_frequencies);
+        test_graph.observe(&mut test_rng, &index, &test_frequencies);
 
         let expected: HashSet<i32> = hash_set(&[2]);
 
-        assert_eq!(*test_graph.vertices.get(0).unwrap(), expected);
+        assert_eq!(*test_graph.vertices.get(index as usize).unwrap(), expected);
     }
 
     #[test]

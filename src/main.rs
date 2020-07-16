@@ -52,7 +52,7 @@ fn collapse_algorithm(rng: &mut StdRng, rules: &Rules, frequencies: &Frequencies
                 let labels = out_graph.vertices.get(index as usize).unwrap();
                 heap.push(Observe::new(&index, labels, frequencies))
             });
-            
+
             //heap.pop().unwrap()
         } else {
             // do propagate
@@ -73,12 +73,12 @@ fn initialize(
 ) {
     for (_index, labels) in out_graph.vertices.iter().enumerate() {
         let from_index = _index as i32;
-        if labels.is_subset(all_labels) && labels != all_labels {
+        if labels.is_subset(all_labels) && labels != all_labels { // <-- labels is proper subset of all_labels
             out_graph.connections(&from_index).iter().for_each(|(to_index, direction)| {
                 propagations.push(Propagate::new(from_index, *to_index, *direction))
             });
 
-            if labels.len() == 1 {
+            if labels.len() == 1 { // <-- labels is singleton set
                 observed.insert(from_index);
                 continue
             }
