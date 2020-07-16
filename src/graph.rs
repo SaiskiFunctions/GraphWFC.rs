@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
 use std::ops::Index;
 use rand::prelude::*;
 
-use crate::utils::{hash_map, hash_set};
+use crate::utils::hash_set;
 
 pub type VertexLabel = i32;         // labels that a vertex can contain
 pub type VertexIndex = i32;         // each unique vertex in a graph
@@ -108,6 +107,8 @@ impl Graph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::hash_map;
+    use std::iter::FromIterator;
 
     fn graph_edges() -> Edges {
         hash_map(&[

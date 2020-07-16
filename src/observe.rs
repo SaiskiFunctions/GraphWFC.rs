@@ -1,7 +1,7 @@
-use crate::graph::{Graph, VertexIndex, Labels, Frequencies};
+use crate::graph::{VertexIndex, Labels, Frequencies};
 use std::cmp::Ordering;
 use rand::prelude::*;
-use crate::utils::{hash_map, hash_set};
+
 
 // Lower and upper bounds for use in generating slightly different
 // entropy values for the initial set of Observe structs generated
@@ -54,7 +54,7 @@ impl PartialEq for Observe {
 fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
     let label_frequencies = labels.iter().map(|label| frequencies.get(label).unwrap());
     let total: i32 = label_frequencies.clone().sum();
-    - label_frequencies.fold(0.0, |mut acc, frequency| {
+    - label_frequencies.fold(0.0, |acc, frequency| {
         let prob = *frequency as f32 / total as f32;
         acc + prob * prob.log2()
     })
@@ -64,6 +64,7 @@ fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
 mod tests {
     use super::*;
     use std::collections::BinaryHeap;
+    use crate::utils::{hash_set, hash_map};
 
     #[test]
     fn test_calculate_entropy_one() {
