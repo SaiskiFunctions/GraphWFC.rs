@@ -344,7 +344,7 @@ mod tests {
             North = 0, South = 1, East = 2, West = 3
         */
 
-        let mut rng = StdRng::seed_from_u64(1);
+        let mut rng = StdRng::seed_from_u64(14392);
 
         let input_edges = hash_map(&[
             (0, vec![(1, 2), (4, 1)]),
@@ -407,7 +407,6 @@ mod tests {
             hash_set(&[0, 1]),
             hash_set(&[0, 1]),
             hash_set(&[0, 1]),
-            hash_set(&[0, 1]),
         ];
 
         let output_graph = Graph::new(output_vertices, output_edges);
@@ -420,7 +419,7 @@ mod tests {
 
         let result = collapse.exec().unwrap();
         let expected = Vec::from_iter(
-        [1, 1, 0, 1, 1, 1].iter().map(|n: &i32| hash_set(&[*n]))
+            [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
         assert_eq!(result.vertices, expected);
     }
