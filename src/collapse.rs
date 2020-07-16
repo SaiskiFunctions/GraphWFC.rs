@@ -69,10 +69,8 @@ impl Collapse<'_> {
         let out_graph = &mut self.out_graph;
         let gen_observe = &mut self.gen_observe;
         let propagations = &mut self.propagations;
-
         let frequencies = &self.frequencies;
         let rules = &self.rules;
-        //let vertices = &mut out_graph.vertices;
 
         loop {
             if observed.len() == out_graph.vertices.len() || heap.is_empty() {
@@ -82,34 +80,27 @@ impl Collapse<'_> {
                 gen_observe.drain().for_each(|index| {  // algo: 4.2
                     let labels = out_graph.vertices.index(index as usize);
                     heap.push(Observe::new(&index, labels, frequencies))
-                });
-                
+                });               
                 let observe = heap.pop().unwrap();
                 if !observed.contains(&observe.index) {
                     out_graph.observe(self.rng, &observe.index, frequencies);
-
                     generate_propagations(propagations, observed, out_graph, &observe.index);
                 }
             } else {
                 let propagate = propagations.pop().unwrap();
-
                 let constraint = out_graph.vertices.index(propagate.from as usize).iter()
                 .fold(HashSet::new(), |mut cst, label| {
                     cst.extend(rules.index(&(propagate.direction, *label)));
                     cst
                 });
-
                 if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
                     if labels.is_empty() {
                         return None
                     } else if labels.len() == 1 {
-                        // add to observe
                         observed.insert(propagate.to);
                     } else {
-                        // add to gen
                         gen_observe.insert(propagate.to);
                     }
-
                     generate_propagations(propagations, observed, out_graph, &propagate.to);
                 }
             }
@@ -221,5 +212,55 @@ mod tests {
         assert_eq!(collapse.heap.len(), 3);
         assert_eq!(collapse.propagations.len(), 3);
         assert_eq!(collapse.observed, hash_set(&[0]));
+    }
+
+    #[test]
+    fn test_exec() {
+        /* Seed Values:
+            3 -> Some([{0}, {1}, {2}, {1}])
+            1 -> None
+        */
+        let mut rng = StdRng::seed_from_u64(3);
+
+        let edges = hash_map(&[
+            (0, vec![(1, 0), (3, 2)]),
+            (1, vec![(0, 1), (2, 2)]),
+            (2, vec![(3, 1), (1, 3)]),
+            (3, vec![(0, 3), (2, 0)])
+        ]);
+
+        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2])
+        ];
+
+        let out_graph = Graph::new(graph_vertices, edges);
+
+        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+            ((0, 0), hash_set(&[1])),
+            ((0, 1), hash_set(&[2])),
+            ((1, 1), hash_set(&[0])),
+            ((1, 2), hash_set(&[1])),
+            ((2, 0), hash_set(&[1])),
+            ((2, 1), hash_set(&[2])),
+            ((3, 1), hash_set(&[0])),
+            ((3, 2), hash_set(&[1])),
+        ]);
+
+        let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
+
+        let all_labels = hash_set(&[0, 1, 2]);
+
+        let mut collapse = Collapse::new(&mut rng,
+            &rules,
+            &frequencies,
+            &all_labels,
+            out_graph);
+        
+        let result = collapse.exec().unwrap();
+        let expected = Graph::empty();
+        assert_eq!(result.vertices, expected.vertices);
     }
 }
