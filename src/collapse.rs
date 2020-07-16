@@ -30,18 +30,28 @@ impl Collapse<'_> {
         let mut observed: HashSet<VertexIndex> = HashSet::new();
         let mut propagations: Vec<Propagate> = Vec::new();
 
-        for (_index, labels) in out_graph.vertices.iter().enumerate() {
+        let vertices_iter = out_graph.vertices.iter().enumerate();
+        
+        // initialize heap and observed
+        for (_index, labels) in vertices_iter.clone() {
+            let from_index = _index as i32;
+            if labels.len() == 1 { // <-- labels is singleton set
+                observed.insert(from_index);
+                continue
+            }
+            heap.push(Observe::new_fuzz(rng, &from_index, labels, frequencies))
+        }
+
+        // initialize propagates
+        for (_index, labels) in vertices_iter {
             let from_index = _index as i32;
             if labels.is_subset(all_labels) && labels != all_labels { // <-- labels is proper subset of all_labels
                 out_graph.connections(&from_index).iter().for_each(|(to_index, direction)| {
-                    propagations.push(Propagate::new(from_index, *to_index, *direction))
+                    if !observed.contains(to_index) {
+                        propagations.push(Propagate::new(from_index, *to_index, *direction))
+                    }
                 });
-                if labels.len() == 1 { // <-- labels is singleton set
-                    observed.insert(from_index);
-                    continue;
-                }
             }
-            heap.push(Observe::new_fuzz(rng, &from_index, labels, frequencies))
         }
 
         Collapse {
@@ -76,7 +86,8 @@ impl Collapse<'_> {
                     let labels = vertices.index(index as usize);
                     heap.push(Observe::new(&index, labels, frequencies))
                 });
-                //heap.pop().unwrap()
+                
+                
             } else {
                 // do propagate
             }
@@ -178,7 +189,7 @@ mod tests {
                    out_graph);
 
         assert_eq!(collapse.heap.len(), 3);
-        assert_eq!(collapse.propagations.len(), 4);
+        assert_eq!(collapse.propagations.len(), 3);
         assert_eq!(collapse.observed, hash_set(&[0]));
     }
 }

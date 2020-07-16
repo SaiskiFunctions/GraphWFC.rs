@@ -73,7 +73,7 @@ PROPAGATIONS: Vec<PROPAGATE_ACTION>
 4. IF HEAP is empty:
     1. return SUCCESS!
    ELSE IF PROPAGATIONS is empty:
-    2. IF GEN_OBSERVE is not empty:
+    2. IF GEN_OBSERVE is not empty: // drain
         1. Add OBSERVE_ACTION's onto the HEAP FOR EACH vertexIndex in GEN_OBSERVE and empty GEN_OBSERVE set.
     3. Pop an OBSERVE_ACTION off of the HEAP
     4. Collapse the vertexLabel of the vertexIndex this action references to a singleton set.
