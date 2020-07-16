@@ -1,4 +1,5 @@
 use std::collections::{HashSet, BinaryHeap, HashMap};
+use std::mem::replace;
 use std::ops::Index;
 use rand::prelude::*;
 use crate::observe::Observe;
@@ -68,7 +69,7 @@ impl Collapse<'_> {
 
         loop {
             if observed.len() == vertices.len() || heap.is_empty() {
-                return Some(std::mem::replace(out_graph, Graph::new(Vec::new(), HashMap::new())));
+                return Some(replace(out_graph, Graph::empty()));
             }
             if propagations.is_empty() {
                 gen_observe.drain().for_each(|index| {  // algo: 4.2

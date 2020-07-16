@@ -24,6 +24,10 @@ impl Graph {
         Graph { vertices, edges }
     }
 
+    pub fn empty() -> Graph {
+        Graph { vertices: Vec::new(), edges: HashMap::new() }
+    }
+
     /// Construct HashMap of rules for this graph.
     /// Rules connect a tuple of direction and vertex label to a set of labels.
     pub fn rules(&self) -> Rules {
