@@ -83,3 +83,102 @@ impl Collapse<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::graph::EdgeDirection;
+
+    #[test]
+    fn test_new() {
+        let mut rng = StdRng::seed_from_u64(10);
+
+        let edges = hash_map(&[
+            (0, vec![(1, 0), (3, 2)]),
+            (1, vec![(0, 1), (2, 2)]),
+            (2, vec![(3, 1), (1, 3)]),
+            (3, vec![(0, 3), (2, 0)])
+        ]);
+
+        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2])
+        ];
+
+        let out_graph = Graph::new(graph_vertices, edges);
+
+        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+            ((0, 0), hash_set(&[1])),
+            ((0, 1), hash_set(&[2])),
+            ((1, 1), hash_set(&[0])),
+            ((1, 2), hash_set(&[1])),
+            ((2, 0), hash_set(&[1])),
+            ((2, 1), hash_set(&[2])),
+            ((3, 1), hash_set(&[0])),
+            ((3, 2), hash_set(&[1])),
+        ]);
+
+        let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
+
+        let all_labels = hash_set(&[0, 1, 2]);
+
+
+        let collapse = Collapse::new(&mut rng,
+                   &rules,
+                   &frequencies,
+                   &all_labels,
+                   out_graph);
+
+        assert_eq!(collapse.heap.len(), 4);
+    }
+
+    #[test]
+    fn test_new_partial() {
+        let mut rng = StdRng::seed_from_u64(10);
+
+        let edges = hash_map(&[
+            (0, vec![(1, 0), (3, 2)]),
+            (1, vec![(0, 1), (2, 2)]),
+            (2, vec![(3, 1), (1, 3)]),
+            (3, vec![(0, 3), (2, 0)])
+        ]);
+
+        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0]),
+            hash_set(&[0, 2]),
+            hash_set(&[0, 1, 2]),
+            hash_set(&[0, 1, 2])
+        ];
+
+        let out_graph = Graph::new(graph_vertices, edges);
+
+        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+            ((0, 0), hash_set(&[1])),
+            ((0, 1), hash_set(&[2])),
+            ((1, 1), hash_set(&[0])),
+            ((1, 2), hash_set(&[1])),
+            ((2, 0), hash_set(&[1])),
+            ((2, 1), hash_set(&[2])),
+            ((3, 1), hash_set(&[0])),
+            ((3, 2), hash_set(&[1])),
+        ]);
+
+        let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
+
+        let all_labels = hash_set(&[0, 1, 2]);
+
+
+        let collapse = Collapse::new(&mut rng,
+                   &rules,
+                   &frequencies,
+                   &all_labels,
+                   out_graph);
+
+        assert_eq!(collapse.heap.len(), 3);
+        assert_eq!(collapse.propagations.len(), 4);
+        assert_eq!(collapse.observed, hash_set(&[0]));
+    }
+}
