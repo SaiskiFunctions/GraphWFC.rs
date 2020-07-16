@@ -95,6 +95,7 @@ impl Collapse<'_> {
                 });
                 if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
                     if labels.is_empty() {
+                        println!("{:?}", out_graph.vertices);
                         return None
                     } else if labels.len() == 1 {
                         observed.insert(propagate.to);
@@ -121,6 +122,7 @@ mod tests {
 
     use super::*;
     use crate::graph::EdgeDirection;
+    use std::iter::FromIterator;
 
     #[test]
     fn test_new() {
@@ -215,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn test_exec() {
+    fn test_exec_simple() {
         /* Seed Values:
             3 -> Some([{0}, {1}, {2}, {1}])
             1 -> None
@@ -252,6 +254,81 @@ mod tests {
         let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
 
         let all_labels = hash_set(&[0, 1, 2]);
+
+        let mut collapse = Collapse::new(&mut rng,
+            &rules,
+            &frequencies,
+            &all_labels,
+            out_graph);
+        
+        let result = collapse.exec().unwrap();
+        let expected = Vec::from_iter(
+            [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
+        );
+
+        assert_eq!(result.vertices, expected);
+    }
+
+    #[test]
+    fn test_exec_med() {
+        /* Seed Values:
+            3 -> Some([{0}, {1}, {2}, {1}])
+            1 -> None
+
+            INPUT:
+            0b --- 1b --- 2a
+            |      |      |
+            3a --- 4b --- 5a
+
+            0a --- 1b --- 2a
+            |      |      |
+            3a --- 4b --- 5a
+
+            Output structure same as input structure.
+
+            North = 0, South = 1, East = 2, West = 3
+        */
+        let mut rng = StdRng::seed_from_u64(87);
+
+        let edges = hash_map(&[
+            (0, vec![(3, 0), (4, 1), (5, 2)]),
+            (1, vec![(0, 3), (1, 4), (2, 5)]),
+            (2, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
+            (3, vec![(1, 0), (2, 1), (4, 3), (5, 4)])
+        ]);
+
+        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1])
+        ];
+
+        let out_graph = Graph::new(graph_vertices, edges);
+
+
+            // 0b --- 1b --- 2a
+            // |      |      |
+            // 3a --- 4b --- 5a
+            // North = 0, South = 1, East = 2, West = 3
+            // 0
+
+        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+            ((0, 0), hash_set(&[0, 1])),
+            ((0, 1), hash_set(&[1])),
+            ((1, 0), hash_set(&[0])),
+            ((1, 1), hash_set(&[0, 1])),
+            ((2, 0), hash_set(&[1])),
+            ((2, 1), hash_set(&[0, 1])),
+            ((3, 0), hash_set(&[1])),
+            ((3, 1), hash_set(&[0, 1])),
+        ]);
+
+        let frequencies = hash_map(&[(0, 3), (1, 3)]);
+
+        let all_labels = hash_set(&[0, 1]);
 
         let mut collapse = Collapse::new(&mut rng,
             &rules,
