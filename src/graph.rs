@@ -96,12 +96,12 @@ impl Graph {
 
     /// Constrain the vertex labels at the given index by intersecting the
     /// vertex labels with the constraint set.
-    /// Returns a bool to indicate whether the vertex labels set was changed.
-    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> bool {
+    /// Returns Some(labels) to indicate whether the vertex labels set was changed.
+    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels> {
         let labels = &mut self.vertices[*index as usize];
-        if labels.is_subset(constraint) { return false }
+        if labels.is_subset(constraint) { return None }
         *labels = labels.intersection(constraint).map(|x| *x).collect();
-        true
+        Some(labels)
     }
 }
 
@@ -320,7 +320,7 @@ mod tests {
             edges: HashMap::new()
         };
 
-        assert!(test_graph.constrain(&0, &test_constraint));
+        assert_eq!(test_graph.constrain(&0, &test_constraint), Some(&hash_set(&[0, 1])));
 
         assert_eq!(*test_graph.vertices.get(0).unwrap(), test_constraint);
     }
@@ -338,7 +338,7 @@ mod tests {
             edges: HashMap::new()
         };
 
-        assert!(!test_graph.constrain(&0, &test_constraint));
+        assert_eq!(test_graph.constrain(&0, &test_constraint), None);
 
         assert_eq!(*test_graph.vertices.get(0).unwrap(), hash_set(&[0, 1]));
     }

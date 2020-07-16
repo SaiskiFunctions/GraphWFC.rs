@@ -75,21 +75,39 @@ impl Collapse<'_> {
         let propagations = &mut self.propagations;
 
         let frequencies = &self.frequencies;
-        let vertices = &out_graph.vertices;
+        let rules = &self.rules;
+        //let vertices = &mut out_graph.vertices;
 
         loop {
-            if observed.len() == vertices.len() || heap.is_empty() {
+            if observed.len() == out_graph.vertices.len() || heap.is_empty() {
                 return Some(replace(out_graph, Graph::empty()));
             }
             if propagations.is_empty() {
                 gen_observe.drain().for_each(|index| {  // algo: 4.2
-                    let labels = vertices.index(index as usize);
+                    let labels = out_graph.vertices.index(index as usize);
                     heap.push(Observe::new(&index, labels, frequencies))
                 });
                 
-                
+                let observe = heap.pop().unwrap();
+                if !observed.contains(&observe.index) {
+                    out_graph.observe(self.rng, &observe.index, frequencies);
+
+                    out_graph.connections(&observe.index).iter().for_each(|(to_index, direction)| {
+                        if !observed.contains(to_index) {
+                            propagations.push(Propagate::new(observe.index, *to_index, *direction))
+                        }
+                    });
+                }
             } else {
-                // do propagate
+                let propagate = propagations.pop().unwrap();
+
+                let constraint = out_graph.vertices.index(propagate.from as usize).iter()
+                .fold(HashSet::new(), |mut cst, label| {
+                    cst.extend(rules.index(&(propagate.direction, *label)));
+                    cst
+                });
+
+                out_graph.constrain(&propagate.to, &constraint);
             }
         }
     }

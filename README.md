@@ -76,8 +76,8 @@ PROPAGATIONS: Vec<PROPAGATE_ACTION>
     2. IF GEN_OBSERVE is not empty: // drain
         1. Add OBSERVE_ACTION's onto the HEAP FOR EACH vertexIndex in GEN_OBSERVE and empty GEN_OBSERVE set.
     3. Pop an OBSERVE_ACTION off of the HEAP
-    4. Collapse the vertexLabel of the vertexIndex this action references to a singleton set.
-    5. IF the vertexLabel at vertexIndex changed:
+    4. IF OBSERVE_ACTION's vertexIndex is NOT in OBSERVED:
+        1. Collapse the vertexLabel of the vertexIndex this action references to a singleton set.
         2. Find vertices connected to this vertexIndex using the out_graph edges property.
         3. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
     6. GOTO 3.
@@ -92,7 +92,9 @@ PROPAGATIONS: Vec<PROPAGATE_ACTION>
            ELSE:
             3. Add vertexIndex to OBSERVED.
         2. Find vertices connected to this.vertexIndex using the out_graph edges property.
-        3. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
+        2. For each connected vertex.
+            1. If vertex is not in OBSERVED:
+                1. push a PROPAGATE_ACTION to PROPAGATIONS
     10. GOTO 3.
 
 

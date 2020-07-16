@@ -12,7 +12,7 @@ static FUZZ_UB: f32 = 0.0005;
 #[derive(Debug)]
 pub struct Observe {
     entropy: f32,
-    index: VertexIndex
+    pub index: VertexIndex
 }
 
 impl Observe {
@@ -23,10 +23,6 @@ impl Observe {
     pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels, frequencies: &Frequencies) -> Observe {
         let entropy = calculate_entropy(labels, frequencies);
         Observe { entropy: entropy + rng.gen_range(FUZZ_LB, FUZZ_UB), index: *index }
-    }
-
-    fn constrain(&self, graph: &Graph) {
-        // code to do collapse or propagate
     }
 }
 
