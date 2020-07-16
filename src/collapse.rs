@@ -332,4 +332,96 @@ mod tests {
         );
         assert_eq!(result.vertices, expected);
     }
+
+    #[test]
+    fn test_exec_complex() {
+        /* Seed Values:
+            INPUT:
+                   0a --- 1b --- 2b
+                   |      | 
+            3a --- 4a --- 5b
+
+            North = 0, South = 1, East = 2, West = 3
+        */
+
+        let mut rng = StdRng::seed_from_u64(1);
+
+        let input_edges = hash_map(&[
+            (0, vec![(1, 2), (4, 1)]),
+            (1, vec![(0, 3), (5, 1), (2, 2)]),
+            (2, vec![(1, 3)]),
+            (3, vec![(4, 2)]),
+            (4, vec![(3, 3), (0, 0), (5, 2)]),
+            (5, vec![(4, 3), (1, 0)])
+        ]);
+
+        let input_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0]),
+            hash_set(&[1]),
+            hash_set(&[1]),
+            hash_set(&[0]),
+            hash_set(&[0]),
+            hash_set(&[1])
+        ];
+
+        let input_graph = Graph::new(input_vertices, input_edges);
+
+        let rules = input_graph.rules();
+        let frequencies = input_graph.frequencies();
+        let all_labels = input_graph.all_labels();
+
+        /*
+            OUTPUT STRUCTURE:
+            0 ---- 1 ---- 2 ---- 3
+            |      |      |      |
+            4 ---- 5 ---- 6 ---- 7
+            |      |      |      |
+            8 ---- 9 ---- 10 --- 11
+        */
+
+        let output_edges = hash_map(&[
+            (0, vec![(1, 2), (4, 1)]),
+            (1, vec![(0, 3), (5, 1), (2, 2)]),
+            (2, vec![(1, 3), (6, 1), (3, 2)]),
+            (3, vec![(2, 3), (7, 1)]),
+            (4, vec![(0, 0), (8, 1), (5, 2)]),
+            (5, vec![(4, 3), (1, 0), (6, 2), (9, 1)]),
+            (6, vec![(5, 3), (2, 0), (7, 2), (10, 1)]),
+            (7, vec![(6, 3), (3, 0), (11, 1)]),
+            (8, vec![(4, 0), (9, 2)]),
+            (9, vec![(8, 3), (5, 0), (10, 2)]),
+            (10, vec![(9, 3), (6, 0), (11, 2)]),
+            (11, vec![(10, 3), (7, 0)])
+        ]);
+
+        let output_vertices: Vec<HashSet<VertexLabel>> = vec![
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+            hash_set(&[0, 1]),
+        ];
+
+        let output_graph = Graph::new(output_vertices, output_edges);
+
+        let mut collapse = Collapse::new(&mut rng,
+            &rules,
+            &frequencies,
+            &all_labels,
+            output_graph);
+
+        let result = collapse.exec().unwrap();
+        let expected = Vec::from_iter(
+        [1, 1, 0, 1, 1, 1].iter().map(|n: &i32| hash_set(&[*n]))
+        );
+        assert_eq!(result.vertices, expected);
+    }
 }
