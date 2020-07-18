@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use rand::thread_rng;
 use std::collections::{HashSet, BinaryHeap};
 use std::mem::replace;
 use std::ops::Index;
@@ -117,6 +118,34 @@ fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<V
             propagations.push(Propagate::new(*from_index, *to_index, *direction))
         }
     });
+}
+
+pub fn collapse(input_graph: Graph, output_graph: Graph, seed: Option<u64>, tries: Option<u16>) -> Option<Graph> {
+    let mut rng = match seed {
+        Some(_seed) => StdRng::seed_from_u64(_seed),
+        None => StdRng::seed_from_u64(thread_rng().next_u64())
+    };
+
+    let tries = match tries {
+        Some(n) => n,
+        None => 10 // default tries
+    };
+
+    let rules = input_graph.rules();
+    let frequencies = input_graph.frequencies();
+    let all_labels = input_graph.all_labels();
+
+    let mut try_counter = 0;
+
+    while try_counter < tries {
+        let collapse_try = Collapse::new(&mut rng, &rules, &frequencies, &all_labels, output_graph.clone());
+        if let Some(graph) = collapse_try.exec() {
+            return Some(graph);
+        }
+        try_counter += 1;
+    }
+
+    None
 }
 
 #[cfg(test)]

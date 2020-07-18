@@ -284,3 +284,87 @@ input conforms to a linear space for input
 🌊🌊🌊🌊🌊🌊🌊
 🌊🌊🌊🌊🌊🌊🌊
 
+😅😅😅😅😅😅😅
+😅😅😅😅😅😅😅
+🌳🌳🌳⛩🌳🌳🌳
+🌊🌊🌊🌊🌊🌊🌊
+🌊🌊🌊🌊🌊🌊🌊
+🌊🌊🌊🌊🌊🌊🌊
+
+# Parser / Renderer
+
+Pass `Parser-Renderer` pair to the algorithm constructor. But both parts can be switched out.
+
+You have to provide a mapping between input and output labels.
+
+
+The input and output must be fully mapped. The output space can be "smaller" than the input space. Meaning we can map multiple input elements to a single output element.
+
+injective function - mapping from set A to set B, every element of A goes to an element B, its a one way mapping
+ 
+Input labels -> Output labels (Content Mapping)
+Input directions -> Output Directions (Structural Mapping)
+
+Mapping can be applied before or after the actual collapse algorithm.
+
+PMR
+
+pixel data -> graph (parser)
+mapping: optional
+collapse
+graph -> pixel data (renderer)
+
+quad directional pixel space NSEW -> 
+bi directional pixel space LR: NS -> L EW -> R
+
+renderer
+
+homomorphism 
+
+1. Parse input to input graph
+2. Optionally map input graph to output formatted input graph
+3. Run collapse on output graph with input data
+4. Render the output into the output format
+
+    Pixels(Red, Black) -> 
+    Graph(Red -> 0, Black -> 1)
+    Graph(0 -> 1, 1 -> 1) (Black: 1) -> |-------+
+    Derive Rules, Frequencies, All labels ->    |
+    Collapse Output graph ->                    |
+    Render Output graph ->  <-------------------+
+    Pixels(Black)
+
+No mapping provided: renderer is INVERSE of parser
+
+@ -> 0
+& -> 1
+
+@ -> &
+& -> &
+
+fn pix_to_graph(pixel_data) -> graph, output_key
+
+output_key
+
+collapse stuff here
+
+
+fn graph_to_pix(graph, output_key) -> pixel_data
+
+
+@@
+&&
+
+@ -> &
+fn text_to_graph(string) -> graph, key {
+    key: HashMap;
+
+    string.
+}
+
+Parser-Mapping-Renderer 4x4
+
+
+
+
+
