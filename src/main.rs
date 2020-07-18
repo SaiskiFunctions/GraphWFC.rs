@@ -1,13 +1,9 @@
 mod collapse;
+mod graph;
 mod observe;
 mod propagate;
 mod utils;
-mod graph;
 
-/*
-TODO:
-    1. Conversion between usize and i32 should be couched in an unwrap()
-*/
 
 fn main() {
     // turn input into a graph

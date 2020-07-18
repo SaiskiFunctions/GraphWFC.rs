@@ -1,6 +1,7 @@
-use crate::graph::{VertexIndex, Labels, Frequencies};
 use std::cmp::Ordering;
 use rand::prelude::*;
+use crate::graph::{VertexIndex, Labels, Frequencies};
+use std::ops::Index;
 
 
 // Lower and upper bounds for use in generating slightly different
@@ -20,7 +21,8 @@ impl Observe {
         Observe { entropy: calculate_entropy(labels, frequencies), index: *index }
     }
 
-    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels, frequencies: &Frequencies) -> Observe {
+    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels,
+                    frequencies: &Frequencies) -> Observe {
         let entropy = calculate_entropy(labels, frequencies);
         let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
         Observe { entropy: entropy + fuzz, index: *index }
@@ -37,13 +39,13 @@ impl Ord for Observe {
     }
 }
 
-impl Eq for Observe {}
-
 impl PartialOrd for Observe {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
+
+impl Eq for Observe {}
 
 impl PartialEq for Observe {
     fn eq(&self, other: &Self) -> bool {
@@ -53,7 +55,7 @@ impl PartialEq for Observe {
 
 /// Calculate the shannon entropy for a given set of labels and label frequencies.
 fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
-    let label_frequencies = labels.iter().map(|label| frequencies.get(label).unwrap());
+    let label_frequencies = labels.iter().map(|label| frequencies.index(label));
     let total: i32 = label_frequencies.clone().sum();
     - label_frequencies.fold(0.0, |acc, frequency| {
         let prob = *frequency as f32 / total as f32;

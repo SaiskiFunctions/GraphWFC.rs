@@ -1,13 +1,13 @@
-use std::collections::{HashMap, HashSet};
-use std::ops::Index;
 use rand::prelude::*;
-
-use crate::utils::hash_set;
+use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
+use std::ops::Index;
+use crate::utils::hash_set;
 
-pub type VertexLabel = i32;         // labels that a vertex can contain
-pub type VertexIndex = i32;         // each unique vertex in a graph
-pub type EdgeDirection = u16;       // the directional relationship between two vertices
+
+pub type VertexLabel = i32;     // labels that a vertex can contain
+pub type VertexIndex = i32;     // each unique vertex in a graph
+pub type EdgeDirection = u16;   // the directional relationship between two vertices
 pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
@@ -15,8 +15,8 @@ pub type Frequencies = HashMap<VertexLabel, i32>;
 
 #[derive(Debug)]
 pub struct Graph {
-    pub vertices: Vec<Labels>,  // index of vec == vertex index
-    edges: Edges
+    pub vertices: Vec<Labels>, // index of vec == vertex index
+    edges: Edges,
 }
 
 impl Graph {
@@ -49,7 +49,7 @@ impl Graph {
     pub fn frequencies(&self) -> Frequencies {
         self.vertices.iter().fold(HashMap::new(), |mut map, labels| {
             labels.iter().for_each(|label| {
-                map.entry(*label).and_modify(|n| *n += 1).or_insert(1); // <-- use and_modify
+                map.entry(*label).and_modify(|n| *n += 1).or_insert(1);
             });
             map
         })
@@ -88,9 +88,10 @@ impl Graph {
         let choice = rng.gen_range(1, total + 1);
         let mut acc = 0;
 
-        // we have to sort the labels to ensure deterministic choice of collapsed label.
+        // We have to sort the labels to ensure deterministic choice of collapsed label.
         let mut sorted_labels = Vec::from_iter(labels.iter());
         sorted_labels.sort();
+
         *labels = hash_set(&[**sorted_labels.iter().skip_while(|label| {
             acc += *frequencies.index(label);
             acc < choice
@@ -99,10 +100,10 @@ impl Graph {
 
     /// Constrain the vertex labels at the given index by intersecting the
     /// vertex labels with the constraint set.
-    /// Returns Some(labels) to indicate whether the vertex labels set was changed.
+    /// Return Some(labels) if the labels set was changed else return None.
     pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels> {
         let labels = &mut self.vertices[*index as usize];
-        if labels.is_subset(constraint) { return None }
+        if labels.is_subset(constraint) { return None; }
         *labels = labels.intersection(constraint).map(|x| *x).collect();
         Some(labels)
     }
@@ -133,13 +134,13 @@ mod tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
+        let test_graph_vertices: Vec<Labels> = Vec::from_iter(
             [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
 
         let test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: graph_edges()
+            edges: graph_edges(),
         };
 
         // (0: N, 0: a) -> (1: b)
@@ -151,7 +152,7 @@ mod tests {
         // (3: W, 1: b) -> (0: a)
         // (3: W, 2: c) -> (1: b)
 
-        let result: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+        let result: Rules = hash_map(&[
             ((0, 0), hash_set(&[1])),
             ((0, 1), hash_set(&[2])),
             ((1, 1), hash_set(&[0])),
@@ -175,13 +176,13 @@ mod tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
+        let test_graph_vertices: Vec<Labels> = Vec::from_iter(
             [0, 1, 2, 0].iter().map(|n: &i32| hash_set(&[*n]))
         );
 
         let test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: graph_edges()
+            edges: graph_edges(),
         };
 
         /*
@@ -194,7 +195,7 @@ mod tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+        let result: Rules = hash_map(&[
             ((0, 0), hash_set(&[1, 2])),
             ((1, 1), hash_set(&[0])),
             ((1, 2), hash_set(&[0])),
@@ -217,7 +218,7 @@ mod tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let test_graph_vertices: Vec<Labels> = vec![
             hash_set(&[0, 1]),
             hash_set(&[1]),
             hash_set(&[2]),
@@ -226,7 +227,7 @@ mod tests {
 
         let test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: graph_edges()
+            edges: graph_edges(),
         };
 
         /*
@@ -240,7 +241,7 @@ mod tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+        let result: Rules = hash_map(&[
             ((0, 0), hash_set(&[1, 2])),
             ((0, 1), hash_set(&[1])),
             ((1, 1), hash_set(&[0, 1])),
@@ -256,13 +257,13 @@ mod tests {
 
     #[test]
     fn test_frequencies() {
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
+        let test_graph_vertices: Vec<Labels> = Vec::from_iter(
             [0, 1, 2, 1].iter().map(|n: &i32| hash_set(&[*n]))
         );
 
         let test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: HashMap::new()
+            edges: HashMap::new(),
         };
 
         let result = hash_map(&[(0, 1), (1, 2), (2, 1)]);
@@ -272,13 +273,13 @@ mod tests {
 
     #[test]
     fn test_frequencies_complex() {
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = Vec::from_iter(
+        let test_graph_vertices: Vec<Labels> = Vec::from_iter(
             [0, 1, 2, 1, 1, 1, 2, 3, 4, 5, 5, 0, 0, 1, 2, 4, 5, 6, 0].iter().map(|n: &i32| hash_set(&[*n]))
         );
 
         let test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: HashMap::new()
+            edges: HashMap::new(),
         };
 
         let result = hash_map(&[(0, 4), (1, 5), (2, 3), (3, 1), (4, 2), (5, 3), (6, 1)]);
@@ -288,7 +289,7 @@ mod tests {
 
     #[test]
     fn test_observe() {
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let test_graph_vertices: Vec<Labels> = vec![
             hash_set(&[0, 1]),
             hash_set(&[0, 1, 2, 3]),
             hash_set(&[1, 3]),
@@ -299,7 +300,7 @@ mod tests {
 
         let mut test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: HashMap::new()
+            edges: HashMap::new(),
         };
 
         let mut test_rng = StdRng::seed_from_u64(10);
@@ -314,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_constrain_true() {
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let test_graph_vertices: Vec<Labels> = vec![
             hash_set(&[0, 1, 2, 3])
         ];
 
@@ -322,7 +323,7 @@ mod tests {
 
         let mut test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: HashMap::new()
+            edges: HashMap::new(),
         };
 
         assert_eq!(test_graph.constrain(&0, &test_constraint), Some(&hash_set(&[0, 1])));
@@ -332,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_constrain_false() {
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let test_graph_vertices: Vec<Labels> = vec![
             hash_set(&[0, 1])
         ];
 
@@ -340,7 +341,7 @@ mod tests {
 
         let mut test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: HashMap::new()
+            edges: HashMap::new(),
         };
 
         assert_eq!(test_graph.constrain(&0, &test_constraint), None);
@@ -350,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_all_labels() {
-        let test_graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let test_graph_vertices: Vec<Labels> = vec![
             hash_set(&[0, 1]),
             hash_set(&[1, 2]),
             hash_set(&[0, 2, 3, 4]),
@@ -360,7 +361,7 @@ mod tests {
 
         let test_graph = Graph {
             vertices: test_graph_vertices,
-            edges: HashMap::new()
+            edges: HashMap::new(),
         };
 
         assert_eq!(test_graph.all_labels(), hash_set(&[0, 1, 2, 3, 4, 5, 6]));
@@ -370,7 +371,7 @@ mod tests {
     fn test_connections() {
         let test_graph = Graph {
             vertices: Vec::new(),
-            edges: graph_edges()
+            edges: graph_edges(),
         };
 
         assert_eq!(test_graph.connections(&3), &vec![(0, 3), (2, 0)])

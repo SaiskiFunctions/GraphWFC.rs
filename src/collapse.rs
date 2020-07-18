@@ -1,10 +1,10 @@
+use rand::prelude::*;
 use std::collections::{HashSet, BinaryHeap};
 use std::mem::replace;
 use std::ops::Index;
-use rand::prelude::*;
+use crate::graph::{Rules, Graph, VertexIndex, Frequencies, Labels};
 use crate::observe::Observe;
 use crate::propagate::Propagate;
-use crate::graph::{Rules, Graph, VertexIndex, Frequencies, Labels};
 
 
 struct Collapse<'a> {
@@ -33,19 +33,19 @@ impl Collapse<'_> {
         let vertices_iter = out_graph.vertices.iter().enumerate();
 
         // initialize heap and observed
+        // todo:
+        //  Should we even initialize the heap? Maybe it would be better
+        //  to only make these Observe elements when necessary.
         for (_index, labels) in vertices_iter.clone() {
             let from_index = _index as i32;
-            if labels.len() == 1 { // <-- labels is singleton set
-                observed.insert(from_index);
-                continue;
-            }
-            heap.push(Observe::new_fuzz(rng, &from_index, labels, frequencies))
+            if labels.len() == 1 { observed.insert(from_index); }
+            else { heap.push(Observe::new_fuzz(rng, &from_index, labels, frequencies)) }
         }
 
         // initialize propagates
         for (_index, labels) in vertices_iter {
             let from_index = _index as i32;
-            if labels.is_subset(all_labels) && labels != all_labels { // <-- labels is proper subset of all_labels
+            if labels != all_labels && labels.is_subset(all_labels) { // <-- labels is proper subset of all_labels
                 generate_propagations(&mut propagations, &observed, &out_graph, &from_index);
             }
         }
@@ -82,12 +82,16 @@ impl Collapse<'_> {
                     heap.push(Observe::new(&index, labels, frequencies))
                 });
                 let observe = heap.pop().unwrap();
-                if observed.contains(&observe.index) { continue; }
+                if observed.contains(&observe.index) { continue }
                 out_graph.observe(self.rng, &observe.index, frequencies);
                 observed.insert(observe.index);
                 generate_propagations(propagations, observed, out_graph, &observe.index);
             } else {
                 let propagate = propagations.pop().unwrap();
+                // todo:
+                //  wrap constraint building in a function which returns
+                //  Some(constraint) if the constraint subset is a proper
+                //  subset of all_labels, else returns None. Also for caching.
                 let constraint = out_graph.vertices
                     .index(propagate.from as usize).iter()
                     .fold(HashSet::new(), |mut cst, label| {
@@ -95,13 +99,9 @@ impl Collapse<'_> {
                         cst
                     });
                 if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
-                    if labels.is_empty() {
-                        return None;
-                    } else if labels.len() == 1 {
-                        observed.insert(propagate.to);
-                    } else {
-                        gen_observe.insert(propagate.to);
-                    }
+                    if labels.is_empty() { return None }
+                    else if labels.len() == 1 { observed.insert(propagate.to); }
+                    else { gen_observe.insert(propagate.to); }
                     generate_propagations(propagations, observed, out_graph, &propagate.to);
                 }
             }
@@ -109,6 +109,8 @@ impl Collapse<'_> {
     }
 }
 
+
+// todo: change this to a pure function?
 fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph, from_index: &VertexIndex) {
     out_graph.connections(from_index).iter().for_each(|(to_index, direction)| {
         if !observed.contains(to_index) {
@@ -120,32 +122,30 @@ fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<V
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{EdgeDirection, VertexLabel};
-    use std::iter::FromIterator;
+    use crate::graph::Edges;
     use crate::utils::{hash_map, hash_set};
-    use std::collections::HashMap;
+    use std::iter::FromIterator;
 
-    #[test]
-    fn test_new() {
-        let mut rng = StdRng::seed_from_u64(10);
-
-        let edges = hash_map(&[
+    fn simple_edges() -> Edges {
+        hash_map(&[
             (0, vec![(1, 0), (3, 2)]),
             (1, vec![(0, 1), (2, 2)]),
             (2, vec![(3, 1), (1, 3)]),
             (3, vec![(0, 3), (2, 0)])
-        ]);
+        ])
+    }
 
-        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+    fn simple_vertices() -> Vec<Labels> {
+        vec![
             hash_set(&[0, 1, 2]),
             hash_set(&[0, 1, 2]),
             hash_set(&[0, 1, 2]),
             hash_set(&[0, 1, 2])
-        ];
+        ]
+    }
 
-        let out_graph = Graph::new(graph_vertices, edges);
-
-        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+    fn simple_rules() -> Rules {
+        hash_map(&[
             ((0, 0), hash_set(&[1])),
             ((0, 1), hash_set(&[2])),
             ((1, 1), hash_set(&[0])),
@@ -154,12 +154,20 @@ mod tests {
             ((2, 1), hash_set(&[2])),
             ((3, 1), hash_set(&[0])),
             ((3, 2), hash_set(&[1])),
-        ]);
+        ])
+    }
 
+    #[test]
+    fn test_new() {
+        let mut rng = StdRng::seed_from_u64(10);
+
+        let edges = simple_edges();
+        let graph_vertices: Vec<Labels> = simple_vertices();
+        let out_graph = Graph::new(graph_vertices, edges);
+
+        let rules: Rules = simple_rules();
         let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
-
         let all_labels = hash_set(&[0, 1, 2]);
-
 
         let collapse = Collapse::new(&mut rng,
                                      &rules,
@@ -174,37 +182,18 @@ mod tests {
     fn test_new_partial() {
         let mut rng = StdRng::seed_from_u64(10);
 
-        let edges = hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)])
-        ]);
-
-        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let edges = simple_edges();
+        let vertices: Vec<Labels> = vec![
             hash_set(&[0]),
             hash_set(&[0, 2]),
             hash_set(&[0, 1, 2]),
             hash_set(&[0, 1, 2])
         ];
+        let out_graph = Graph::new(vertices, edges);
 
-        let out_graph = Graph::new(graph_vertices, edges);
-
-        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
-            ((0, 0), hash_set(&[1])),
-            ((0, 1), hash_set(&[2])),
-            ((1, 1), hash_set(&[0])),
-            ((1, 2), hash_set(&[1])),
-            ((2, 0), hash_set(&[1])),
-            ((2, 1), hash_set(&[2])),
-            ((3, 1), hash_set(&[0])),
-            ((3, 2), hash_set(&[1])),
-        ]);
-
+        let rules: Rules = simple_rules();
         let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
-
         let all_labels = hash_set(&[0, 1, 2]);
-
 
         let collapse = Collapse::new(&mut rng,
                                      &rules,
@@ -225,35 +214,12 @@ mod tests {
         */
         let mut rng = StdRng::seed_from_u64(3);
 
-        let edges = hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)])
-        ]);
+        let edges = simple_edges();
+        let vertices: Vec<Labels> = simple_vertices();
+        let out_graph = Graph::new(vertices, edges);
 
-        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
-            hash_set(&[0, 1, 2]),
-            hash_set(&[0, 1, 2]),
-            hash_set(&[0, 1, 2]),
-            hash_set(&[0, 1, 2])
-        ];
-
-        let out_graph = Graph::new(graph_vertices, edges);
-
-        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
-            ((0, 0), hash_set(&[1])),
-            ((0, 1), hash_set(&[2])),
-            ((1, 1), hash_set(&[0])),
-            ((1, 2), hash_set(&[1])),
-            ((2, 0), hash_set(&[1])),
-            ((2, 1), hash_set(&[2])),
-            ((3, 1), hash_set(&[0])),
-            ((3, 2), hash_set(&[1])),
-        ]);
-
+        let rules: Rules = simple_rules();
         let frequencies = hash_map(&[(0, 1), (1, 2), (2, 1)]);
-
         let all_labels = hash_set(&[0, 1, 2]);
 
         let mut collapse = Collapse::new(&mut rng,
@@ -277,8 +243,6 @@ mod tests {
             0b --- 1b --- 2a
             |      |      |
             3a --- 4b --- 5a
-            |      |      |
-            4b --- 5a --- 6a
 
             Output structure same as input structure.
             North = 0, South = 1, East = 2, West = 3
@@ -294,7 +258,7 @@ mod tests {
             (5, vec![(4, 3), (2, 0)])
         ]);
 
-        let graph_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let vertices: Vec<Labels> = vec![
             hash_set(&[0, 1]),
             hash_set(&[0, 1]),
             hash_set(&[0, 1]),
@@ -303,9 +267,9 @@ mod tests {
             hash_set(&[0, 1])
         ];
 
-        let out_graph = Graph::new(graph_vertices, edges);
+        let out_graph = Graph::new(vertices, edges);
 
-        let rules: HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>> = hash_map(&[
+        let rules: Rules = hash_map(&[
             ((0, 0), hash_set(&[0, 1])),
             ((0, 1), hash_set(&[0, 1])),
             ((1, 0), hash_set(&[0, 1])),
@@ -315,9 +279,7 @@ mod tests {
             ((3, 0), hash_set(&[0, 1])),
             ((3, 1), hash_set(&[0, 1])),
         ]);
-
         let frequencies = hash_map(&[(0, 3), (1, 3)]);
-
         let all_labels = hash_set(&[0, 1]);
 
         let mut collapse = Collapse::new(&mut rng,
@@ -335,13 +297,13 @@ mod tests {
 
     #[test]
     fn test_exec_complex() {
-        /* Seed Values:
-            INPUT:
+        /*
+            INPUT graph:
                    0a --- 1b --- 2b
                    |      | 
             3a --- 4a --- 5b
 
-            North = 0, South = 1, East = 2, West = 3
+            Directions: North = 0, South = 1, East = 2, West = 3
         */
 
         let mut rng = StdRng::seed_from_u64(14392);
@@ -355,7 +317,7 @@ mod tests {
             (5, vec![(4, 3), (1, 0)])
         ]);
 
-        let input_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let input_vertices: Vec<Labels> = vec![
             hash_set(&[0]),
             hash_set(&[1]),
             hash_set(&[1]),
@@ -379,7 +341,7 @@ mod tests {
             8 ---- 9 ---- 10 --- 11
         */
 
-        let output_edges = hash_map(&[
+        let output_edges: Edges = hash_map(&[
             (0, vec![(1, 2), (4, 1)]),
             (1, vec![(0, 3), (5, 1), (2, 2)]),
             (2, vec![(1, 3), (6, 1), (3, 2)]),
@@ -394,7 +356,7 @@ mod tests {
             (11, vec![(10, 3), (7, 0)])
         ]);
 
-        let output_vertices: Vec<HashSet<VertexLabel>> = vec![
+        let output_vertices: Vec<Labels> = vec![
             hash_set(&[0, 1]),
             hash_set(&[0, 1]),
             hash_set(&[0, 1]),
@@ -412,14 +374,18 @@ mod tests {
         let output_graph = Graph::new(output_vertices, output_edges);
 
         let mut collapse = Collapse::new(&mut rng,
-            &rules,
-            &frequencies,
-            &all_labels,
-            output_graph);
+                                         &rules,
+                                         &frequencies,
+                                         &all_labels,
+                                         output_graph);
 
         let result = collapse.exec().unwrap();
         let expected = Vec::from_iter(
-            [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1].iter().map(|n: &i32| hash_set(&[*n]))
+            [
+                0, 0, 1, 1,
+                0, 0, 1, 1,
+                0, 0, 1, 1
+            ].iter().map(|n: &i32| hash_set(&[*n]))
         );
         assert_eq!(result.vertices, expected);
     }
