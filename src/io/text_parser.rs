@@ -1,5 +1,5 @@
 use std::collections::{HashSet, HashMap};
-use std::fs::read_to_string;
+use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
 use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, VertexLabel};
@@ -78,6 +78,52 @@ pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
     })
 }
 
+pub fn make_nsew_grid_edges(width: usize, depth: usize) -> Edges {
+    let mut edges: Edges = HashMap::new();
+    for depth_index in 0..depth {
+        for width_index in 0..width {
+
+            let mut direction_pairs = Vec::new();
+            //NORTH = 0
+            if depth_index > 0 {
+                direction_pairs.push(((depth_index - 1) * width + width_index, 0))
+            }
+            //SOUTH = 1
+            if depth_index < depth - 1 {
+                direction_pairs.push(((depth_index + 1) * width + width_index, 1))
+            }
+            //WEST = 3
+            if width_index > 0 {
+                direction_pairs.push(((width_index - 1) + depth_index * width, 3))
+            }
+            //EAST = 2
+            if width_index < width - 1 {
+                direction_pairs.push(((width_index + 1) + depth_index * width, 2))
+            }
+
+            let direction_pairs = direction_pairs.into_iter().map(|(i, d)| {
+                (i as VertexIndex, d as EdgeDirection)
+            }).collect::<Vec<(VertexIndex, EdgeDirection)>>();
+
+            let this_vertex_index = ((depth_index * width) + width_index) as VertexIndex;
+            edges.insert(this_vertex_index, direction_pairs);
+        };
+    };
+    edges
+}
+
+pub fn render(filename: &str, graph: &Graph, key: &HashMap<usize, char>, width: usize) {
+    println!("GRAPH: {:?}", graph);
+    let rendered_vertices: Vec<char> = graph.vertices.iter().map(|labels| {
+        let k = *labels.iter().next().unwrap() as usize;
+        *key.index(&k)
+    }).collect();
+    let lines: String = rendered_vertices.chunks_exact(width).map(|chunk| {
+        chunk.iter().collect::<String>() + "\n"
+    }).collect::<String>();
+    if let Ok(_) = write(filename, lines) {};
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -98,8 +144,8 @@ mod tests {
         if let Ok((graph, keys)) = parse("resources/test/medium_emoji.txt") {
             println!("{:?}", keys);
             println!("{:?}", graph);
-            assert_eq!(keys.len(), 5);
-            assert_eq!(graph.vertices.len(), 54);
+            assert_eq!(keys.len(), 7);
+            assert_eq!(graph.vertices.len(), 108);
         }
     }
 }

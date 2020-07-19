@@ -6,61 +6,22 @@ mod wfc;
 use crate::wfc::collapse::collapse;
 use crate::graph::graph::{Graph, Edges, Labels};
 use crate::utils::{hash_set, hash_map};
+use crate::io::text_parser::{parse, make_nsew_grid_edges, render};
 
 
 fn main() {
+    let out_width = 20;
+    let out_depth = 100;
 
-    let input_edges = hash_map(&[
-        (0, vec![(1, 2), (4, 1)]),
-        (1, vec![(0, 3), (5, 1), (2, 2)]),
-        (2, vec![(1, 3)]),
-        (3, vec![(4, 2)]),
-        (4, vec![(3, 3), (0, 0), (5, 2)]),
-        (5, vec![(4, 3), (1, 0)])
-    ]);
-
-    let input_vertices: Vec<Labels> = vec![
-        hash_set(&[0]),
-        hash_set(&[1]),
-        hash_set(&[1]),
-        hash_set(&[0]),
-        hash_set(&[0]),
-        hash_set(&[1])
-    ];
-
-    let input_graph = Graph::new(input_vertices, input_edges);
-
-    let output_edges: Edges = hash_map(&[
-        (0, vec![(1, 2), (4, 1)]),
-        (1, vec![(0, 3), (5, 1), (2, 2)]),
-        (2, vec![(1, 3), (6, 1), (3, 2)]),
-        (3, vec![(2, 3), (7, 1)]),
-        (4, vec![(0, 0), (8, 1), (5, 2)]),
-        (5, vec![(4, 3), (1, 0), (6, 2), (9, 1)]),
-        (6, vec![(5, 3), (2, 0), (7, 2), (10, 1)]),
-        (7, vec![(6, 3), (3, 0), (11, 1)]),
-        (8, vec![(4, 0), (9, 2)]),
-        (9, vec![(8, 3), (5, 0), (10, 2)]),
-        (10, vec![(9, 3), (6, 0), (11, 2)]),
-        (11, vec![(10, 3), (7, 0)])
-    ]);
-
-    let output_vertices: Vec<Labels> = vec![
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-        hash_set(&[0, 1]),
-    ];
-
-    let output_graph = Graph::new(output_vertices, output_edges);
-
-    collapse(input_graph, output_graph, Some(134522), None);
+    if let Ok((input_graph, keys)) = parse("resources/test/medium_emoji.txt") {
+        println!("rules: {:?}", input_graph.rules());
+        println!("Key: {:?}", keys);
+        let all_labels = input_graph.all_labels();
+        let output_vertices: Vec<Labels> = vec![all_labels; out_width * out_depth];
+        let output_edges = make_nsew_grid_edges(out_width, out_depth);
+        let output_graph = Graph::new(output_vertices, output_edges);
+        if let Some(collapsed_graph) = collapse(input_graph, output_graph, Some(134522), None) {
+            render("resources/test/render_emoji2.txt", &collapsed_graph, &keys, out_width);
+        }
+    }
 }

@@ -94,7 +94,8 @@ impl Collapse<'_> {
                 let constraint = out_graph.vertices
                     .index(propagate.from as usize).iter()
                     .fold(HashSet::new(), |mut cst, label| {
-                        cst.extend(rules.index(&(propagate.direction, *label)));
+                        println!("rules key: {:?}", (propagate.direction, *label));
+                        cst.extend(rules.get(&(propagate.direction, *label)).unwrap_or(&HashSet::new()));
                         cst
                     });
                 if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
@@ -131,6 +132,7 @@ pub fn collapse(input_graph: Graph, output_graph: Graph, seed: Option<u64>, trie
             return opt_graph;
         }
     }
+    println!("CONTRADICTION!");
     None
 }
 
