@@ -1,9 +1,10 @@
+mod graph;
 mod io;
 mod utils;
 mod wfc;
 
 use crate::wfc::collapse::collapse;
-use crate::wfc::graph::{Graph, Edges, Labels};
+use crate::graph::graph::{Graph, Edges, Labels};
 use crate::utils::{hash_set, hash_map};
 
 

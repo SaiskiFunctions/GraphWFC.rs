@@ -1,8 +1,9 @@
+use std::collections::{HashSet, HashMap};
 use std::fs::read_to_string;
 use std::io::Error;
-use std::collections::{HashSet, HashMap};
-use crate::wfc::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, VertexLabel};
-use crate::utils::{hash_set};
+use std::ops::Index;
+use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, VertexLabel};
+use crate::utils::hash_set;
 
 // 1. Load file into string
 // 2. Parse string into graph
@@ -26,7 +27,9 @@ use crate::utils::{hash_set};
 
 pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
     read_to_string(filename).map(|string| {
-        let lines: Vec<&str> = string.split('\n').collect();
+        let lines: Vec<&str> = string.split('\n').filter(|l| !l.is_empty()).collect();
+        let num_lines = lines.len();
+        let line_len = lines.index(0).chars().count();
 
         let mut edges: Edges = HashMap::new();
         let mut key_set: HashSet<char> = HashSet::new();
@@ -35,32 +38,29 @@ pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
             line.chars().enumerate().for_each(|(character_index, character)| {
                 key_set.insert(character);
 
-                let this_vertex_index: VertexIndex = ((line_index + 1) * character_index) as VertexIndex;
                 let mut direction_pairs = Vec::new();
                 //NORTH = 0
-                if lines.get(line_index - 1).is_some() {
-                    direction_pairs.push(((line_index - 1) * character_index, 0))
+                if line_index > 0 {
+                    direction_pairs.push(((line_index - 1) * line_len + character_index, 0))
                 }
-
                 //SOUTH = 1
-                if lines.get(line_index + 1).is_some() {
-                    direction_pairs.push(((line_index + 1) * character_index, 1))
+                if line_index < num_lines - 1 {
+                    direction_pairs.push(((line_index + 1) * line_len + character_index, 1))
+                }
+                //WEST = 3
+                if character_index > 0 {
+                    direction_pairs.push(((character_index - 1) + line_index * line_len, 3))
+                }
+                //EAST = 2
+                if character_index < line_len - 1 {
+                    direction_pairs.push(((character_index + 1) + line_index * line_len, 2))
                 }
 
-                //EAST
-                if line.get((character_index + 1)..character_index).is_some() {
-                    direction_pairs.push(((character_index + 1) * (line_index + 1), 2))
-                }
+                let direction_pairs = direction_pairs.into_iter().map(|(i, d)| {
+                    (i as VertexIndex, d as EdgeDirection)
+                }).collect::<Vec<(VertexIndex, EdgeDirection)>>();
 
-                //WEST
-                if line.get((character_index - 1)..character_index).is_some() {
-                    direction_pairs.push(((character_index - 1) * (line_index + 1), 3))
-                }
-
-                let direction_pairs: Vec<(VertexIndex, EdgeDirection)> = direction_pairs.iter().map(|(i, d)| {
-                    (*i as VertexIndex, *d as EdgeDirection)
-                }).collect();
-
+                let this_vertex_index = ((line_index * line_len) + character_index) as VertexIndex;
                 edges.insert(this_vertex_index, direction_pairs);
             });
         });
@@ -84,10 +84,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse() {
-        if let Ok((graph, keys)) = parse("resources/test/emoji.txt") {
+    fn test_parse_easy() {
+        if let Ok((graph, keys)) = parse("resources/test/easy_emoji.txt") {
+            println!("{:?}", keys);
+            println!("{:?}", graph);
             assert_eq!(keys.len(), 3);
             assert_eq!(graph.vertices.len(), 4);
+        }
+    }
+
+    #[test]
+    fn test_parse_medium() {
+        if let Ok((graph, keys)) = parse("resources/test/medium_emoji.txt") {
+            println!("{:?}", keys);
+            println!("{:?}", graph);
+            assert_eq!(keys.len(), 5);
+            assert_eq!(graph.vertices.len(), 54);
         }
     }
 }

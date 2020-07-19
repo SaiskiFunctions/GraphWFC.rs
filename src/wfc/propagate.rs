@@ -1,4 +1,4 @@
-use crate::wfc::graph::{VertexIndex, EdgeDirection};
+use crate::graph::graph::{VertexIndex, EdgeDirection};
 
 
 #[derive(Debug)]

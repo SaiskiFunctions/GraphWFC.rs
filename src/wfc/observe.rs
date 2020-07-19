@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::ops::Index;
 use rand::prelude::*;
-use crate::wfc::graph::{VertexIndex, Labels, Frequencies};
+use crate::graph::graph::{VertexIndex, Labels, Frequencies};
 
 
 // Lower and upper bounds for use in generating slightly different
