@@ -3,9 +3,9 @@ use rand::thread_rng;
 use std::collections::{HashSet, BinaryHeap};
 use std::mem::replace;
 use std::ops::Index;
-use crate::graph::{Rules, Graph, VertexIndex, Frequencies, Labels};
-use crate::observe::Observe;
-use crate::propagate::Propagate;
+use crate::wfc::graph::{Rules, Graph, VertexIndex, Frequencies, Labels};
+use crate::wfc::observe::Observe;
+use crate::wfc::propagate::Propagate;
 
 
 struct Collapse<'a> {
@@ -137,7 +137,7 @@ pub fn collapse(input_graph: Graph, output_graph: Graph, seed: Option<u64>, trie
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::Edges;
+    use crate::wfc::graph::Edges;
     use crate::utils::{hash_map, hash_set};
     use std::iter::FromIterator;
 

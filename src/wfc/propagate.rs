@@ -1,4 +1,5 @@
-use crate::graph::{VertexIndex, EdgeDirection};
+use crate::wfc::graph::{VertexIndex, EdgeDirection};
+
 
 #[derive(Debug)]
 pub struct Propagate {

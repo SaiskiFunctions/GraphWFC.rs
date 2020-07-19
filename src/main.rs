@@ -1,12 +1,10 @@
-mod collapse;
-mod graph;
-mod observe;
-mod propagate;
+mod io;
 mod utils;
+mod wfc;
 
-use collapse::collapse;
-use utils::{hash_set, hash_map};
-use graph::{Graph, Labels, Edges};
+use crate::wfc::collapse::collapse;
+use crate::wfc::graph::{Graph, Edges, Labels};
+use crate::utils::{hash_set, hash_map};
 
 
 fn main() {
