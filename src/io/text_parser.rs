@@ -2,6 +2,7 @@ use std::fs::read_to_string;
 use std::io::Error;
 use std::collections::{HashSet, HashMap};
 use crate::wfc::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, VertexLabel};
+use crate::utils::{hash_set};
 
 // 1. Load file into string
 // 2. Parse string into graph
@@ -23,20 +24,16 @@ use crate::wfc::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, Vertex
 
 */
 
-pub fn parse(filename: &str) -> Result<Graph, Error> {
+pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
     read_to_string(filename).map(|string| {
         let lines: Vec<&str> = string.split('\n').collect();
 
-        let mut vertices: Vec<Labels> = Vec::new();
         let mut edges: Edges = HashMap::new();
-        let mut key: HashSet<char> = HashSet::new();
+        let mut key_set: HashSet<char> = HashSet::new();
 
         lines.iter().enumerate().for_each(|(line_index, line)| {
             line.chars().enumerate().for_each(|(character_index, character)| {
-                key.insert(character);
-
-                // let line_index = line_index as i32;
-                // let character_index = character_index as i32;
+                key_set.insert(character);
 
                 let this_vertex_index: VertexIndex = ((line_index + 1) * character_index) as VertexIndex;
                 let mut direction_pairs = Vec::new();
@@ -68,12 +65,16 @@ pub fn parse(filename: &str) -> Result<Graph, Error> {
             });
         });
 
-        /*
-        lines.flatten()
-        key.to_vec();
-        */
+        let key_vec: Vec<_> = key_set.into_iter().collect();
 
-        Graph::empty()
+        let vertices: Vec<Labels> = string.chars().filter(|c| c != &'\n').map(|c| {
+            let label = key_vec.iter().position(|&e| e == c).unwrap();
+            hash_set(&[label as i32])
+        }).collect();
+
+        let keys: HashMap<_, _> = key_vec.into_iter().enumerate().collect();
+
+        (Graph::new(vertices, edges), keys)
     })
 }
 
@@ -83,10 +84,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read() {
-        match parse("resources/test/emoji.txt") {
-            Ok(string) => println!("{}", string),
-            Err(e) => println!("hi {}", e)
-        };
+    fn test_parse() {
+        if let Ok((graph, keys)) = parse("resources/test/emoji.txt") {
+            assert_eq!(keys.len(), 3);
+            assert_eq!(graph.vertices.len(), 4);
+        }
     }
 }
