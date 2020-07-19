@@ -13,7 +13,7 @@ pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
 pub type Frequencies = HashMap<VertexLabel, i32>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Graph {
     pub vertices: Vec<Labels>, // index of vec == vertex index
     edges: Edges,

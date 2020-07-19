@@ -1,4 +1,4 @@
-[![travis build](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/github/dpwdec/wfc-rust)
+[![Build Status](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/dpwdec/wfc-rust)
 
 # Wave Function Collapse
 

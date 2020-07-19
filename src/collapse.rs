@@ -16,7 +16,6 @@ struct Collapse<'a> {
     rng: &'a mut StdRng,
     rules: &'a Rules,
     frequencies: &'a Frequencies,
-    all_labels: &'a Labels,
     out_graph: Graph,
 }
 
@@ -59,7 +58,6 @@ impl Collapse<'_> {
             rng,
             rules,
             frequencies,
-            all_labels,
             out_graph,
         }
     }
@@ -110,7 +108,6 @@ impl Collapse<'_> {
     }
 }
 
-
 // todo: change this to a pure function?
 fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph, from_index: &VertexIndex) {
     out_graph.connections(from_index).iter().for_each(|(to_index, direction)| {
@@ -121,30 +118,19 @@ fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<V
 }
 
 pub fn collapse(input_graph: Graph, output_graph: Graph, seed: Option<u64>, tries: Option<u16>) -> Option<Graph> {
-    let mut rng = match seed {
-        Some(_seed) => StdRng::seed_from_u64(_seed),
-        None => StdRng::seed_from_u64(thread_rng().next_u64())
-    };
-
-    let tries = match tries {
-        Some(n) => n,
-        None => 10 // default tries
-    };
+    let mut rng = StdRng::seed_from_u64(seed.unwrap_or(thread_rng().next_u64()));
+    let tries = tries.unwrap_or(10);
 
     let rules = input_graph.rules();
     let frequencies = input_graph.frequencies();
     let all_labels = input_graph.all_labels();
 
-    let mut try_counter = 0;
-
-    while try_counter < tries {
-        let collapse_try = Collapse::new(&mut rng, &rules, &frequencies, &all_labels, output_graph.clone());
-        if let Some(graph) = collapse_try.exec() {
-            return Some(graph);
+    for _ in 0..tries {
+        let mut collapse_try = Collapse::new(&mut rng, &rules, &frequencies, &all_labels, output_graph.clone());
+        if let opt_graph @ Some(_) = collapse_try.exec() {
+            return opt_graph;
         }
-        try_counter += 1;
     }
-
     None
 }
 
