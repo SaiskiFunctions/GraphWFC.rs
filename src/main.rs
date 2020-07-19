@@ -14,8 +14,8 @@ fn main() {
     let out_depth = 20;
 
     if let Ok((input_graph, keys)) = parse("resources/test/another_emoji.txt") {
-        println!("rules: {:?}", input_graph.rules());
-        println!("Key: {:?}", keys);
+        // println!("rules: {:?}", input_graph.rules());
+        // println!("Key: {:?}", keys);
         let all_labels = input_graph.all_labels();
         let output_vertices: Vec<Labels> = vec![all_labels; out_width * out_depth];
         let output_edges = make_nsew_grid_edges(out_width, out_depth);

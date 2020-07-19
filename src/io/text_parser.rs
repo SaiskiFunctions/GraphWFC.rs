@@ -113,7 +113,7 @@ pub fn make_nsew_grid_edges(width: usize, depth: usize) -> Edges {
 }
 
 pub fn render(filename: &str, graph: &Graph, key: &HashMap<usize, char>, width: usize) {
-    println!("GRAPH: {:?}", graph);
+    // println!("GRAPH: {:?}", graph);
     let rendered_vertices: Vec<char> = graph.vertices.iter().map(|labels| {
         let k = *labels.iter().next().unwrap() as usize;
         *key.index(&k)
