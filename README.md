@@ -43,9 +43,9 @@ The algorithm takes in some form of input (image, sound, model data etc.) parses
 │ Collapse Graph (Core WFC)│
 ┕━━━━━━━━━━━━━━━━━━━━━━━━━━┙
        ⬇
-┍━━━━━━━━━━━━━━━━━━━━━━━━━━┑
-│ Collapse Graph (Core WFC)│
-┕━━━━━━━━━━━━━━━━━━━━━━━━━━┙
+┍━━━━━━━━━━━━━━┑
+│ Output Media │
+┕━━━━━━━━━━━━━━┙
 ```
 
 ## Method
