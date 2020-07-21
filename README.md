@@ -1,16 +1,23 @@
 [![Build Status](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/dpwdec/wfc-rust)
 
-# Wave Function Collapse
 
+A graph-based implementation of Maxim Gumin's Wave Function Collapse algorithm. This project improves on the flexibility and speed of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
 
+The goal of this implementation was to:
+1. Generalise and bring clarity to the constraint solving core of the algorithm.
+2. Allow for input / output between arbitrary media types. For example, inputting image data for constraint generation and outputting sound data.
+3. Modularise the structure of algorithm to improve run time on distributed services and make profiling and performance optimisation easier.
 
-`vertexLabel = i32`
-`EdgeDirection = i32`
-`vertex_labels: Set<vertexLabel>`: Set of possible labels that a vertex could take
-`output_matrices: Map<EdgeDirection, AdjencyMatrix>`:
-  `diagonal`: Stores collapsed vertex output labels
-  `non-diagonal`: Stores relationships between vertices
-`rules: Map<Tuple<EdgeDirection, vertexLabel>, Set<vertexLabel>>`: Stores which vertices can be next to other vertices in a direction
+## Background
+
+The Wave Function Collapse algorithm is a constraint solving algorithm created by Maxim Gumin based on Paul Merrell's work in model generation and Paul F. Harrison's work in texture synthesis. Its primary application has been in generative media and games as a method for procedurally generating large amounts of original content from a small set of human defined inputs.
+
+`INPUT OUTPUT IMAGE EXAMPLE HERE`
+
+Since its release the algorithm has been ported across to many languages and content creation systems, however, because of the algorithms traditional area of application it has generally been implemented with fairly obfuscated data structures (such as nested three dimensional arrays) and strongly coupled with the process of parsing in input data making it difficult for users to understand how the constraint solving elements of the algorithm work and how to implement the algorithm in arbitrary n dimensional spaces and across many media types.
+
+## Method
+
 
 ## Example Process (Images)
 
