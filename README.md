@@ -42,6 +42,25 @@ loop:
 Renderer (Transform output into Image):
 Ouput array -> Image
 
+## Understanding the Core of WFC
+
+At its core this implementation of WFC takes some uncollapsed graph, assigns an entropy value to each vertex on the graph based on its set of labels and uses a process of elimination to remove possibilities of vertex positions until the algorithm reaches a contradition, in which case it fails or the graph is fully collapsed.
+
+
+```
+LOOP:
+  IF the information in the graph changed due to a collapse or propagation:
+    PROPAGATE information (constraints) between connected vertices
+
+  ELSE IF there are vertices to collapse
+    COLLAPSE the vertex with the lowest entropy
+
+  ELSE IF there are no vertices left to collapse
+    OUTPUT the collapsed graph
+
+```
+In the interest of simplicty for readers to understand the core solving loop of the algorithm the pseudo code above does not show the failure case which occures if a propagation constrains the set of possible labels at a vertex to be empty (i.e. a labels set of size `0`) which would mean that the algorithm reached a contradiction in its constraint solving and failed. This check for a label set of `0` occurs after the `PROPAGATE` step.
+
 
 ```
 ==== RUN COLLAPSE FUNCTION ====
