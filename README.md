@@ -18,7 +18,15 @@ Since its release the algorithm has been ported across to many languages and con
 
 ## Method
 
+Because Graphs are a flexible, n-dimensional data structure they can be used to intuitively encode almost any set of the input data that you would want to generate more of and the connections between the elements in that data.
 
+By writing the core WFC constraint solving algorithm in terms of abstract n-dimensional Graph structures that get inputted, analyzed and collapsed it means that ANY media (providing it can be effectively parsed as a graph) can be generated with only a single algorithm.
+
+This leads to more maintainable code, as only one core algorithm has be maintained as optimised to improve the running of wfc on all types of data.
+
+Furthermore it allows us to run graph manipulation methods.
+
+The algorithm is also modularised in terms of input and output. It works well with spot processes that could kill its function at any time because it can work on completely uncollapsed, partially collapsed or entirely collapsed graphs exactly the same. No matter what the state of the graph, the output of any stage can be fed back into the algorithm and it will continue to constrain the graph until it finds a solution or contradiction.
 
 # Structure
 
@@ -147,7 +155,7 @@ LOOP:
 
 ## Method
 
-##### How does using graphs improve the algorithm?
+#### How does using graphs improve the algorithm?
 
 Because Graphs are inherently n-dimensional it means that implementing the algorithm for any n-dimensional graph removes the need to re-write the algorithm for different input media types. Each new media type only needs to have a renderer parser pair added to it
 
@@ -180,7 +188,7 @@ The algorithm takes in an uncollapsed graph and outputs a collapsed graph based 
 
 An uncollapsed grap
 
-
+#### What is entropy and how is it calculated?
 
 The algorithm takes in some form of input (image, sound, model data etc.) parses it into a graph structure, deri
 ## Example Process (Images)
