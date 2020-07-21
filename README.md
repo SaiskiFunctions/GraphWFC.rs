@@ -3,10 +3,10 @@
 
 A graph-based implementation of Maxim Gumin's Wave Function Collapse algorithm. This project improves on the flexibility and speed of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
 
-The goal of this implementation was to:
-1. Generalise and bring clarity to the constraint solving core of the algorithm.
-2. Allow for input / output between arbitrary media types. For example, inputting image data for constraint generation and outputting sound data.
-3. Modularise the structure of algorithm to improve run time on distributed services and make profiling and performance optimisation easier.
+This implementation:
+1. Generalises and brings clarity to the constraint solving core of the algorithm.
+2. Allows for input / output between arbitrary media types. For example, inputting image data for constraint generation and outputting sound data.
+3. Modularises the structure of algorithm to improve run time on distributed services and make profiling and performance optimisation easier.
 
 ## Background
 
@@ -16,11 +16,19 @@ The Wave Function Collapse algorithm is a constraint solving algorithm created b
 
 Since its release the algorithm has been ported across to many languages and content creation systems, however, because of the algorithms traditional area of application it has generally been implemented with fairly obfuscated data structures (such as nested three dimensional arrays) and strongly coupled with the process of parsing in input data making it difficult for users to understand how the constraint solving elements of the algorithm work and how to implement the algorithm in arbitrary n dimensional spaces and across many media types.
 
+## Method
+
+
+
+# Structure
+
+This section describes how each different part of the algorithm works. A primary goal with this implementation was to make WFC more transparent and extensible for other developers, if you are confused about the terms or concepts used here please see the `Q&A` section below where I attempt to explain some of the foundational concepts. If you are not at all familiar with WFC it might be helpful to start there.
+
 ## Overview
 
-Below is a high level overview of the structure of this implementation of WFC with the goal of offering a basic understanding of the flow of the application and an explanation as to why using Graphs as the foundational data structure for the algorithm works so well. If you don't understand any of the terms used please consult the `FAQ` section.
+The algorithm takes in some form of input (image, sound, model data etc.) parses that input into a graph structure (the `input graph`) and then uses that graph structure to derive a set of constraints. Next the algorithm creates a differently sized (usually much larger) graph structure (the `output graph`) that has its vertices set to a superposition of all possible labels in the input graph. 
 
-The algorithm takes in some form of input (image, sound, model data etc.) parses that input into a graph structure (the `input graph`) and then uses that graph structure to derive a set of constraints. Next the algorithm creates a differently sized (usually much larger) graph structure (the `output graph`) that has its vertices set to a superposition of all possible labels in the input graph. It then proceeds to collapse each set of labels at a vertex down to a single label by computing the entropy at a vertex's position and collapsing the least entropic vertices first. Finally when all vertices have only a single label the algorithm parses the `output graph` back into some useful form of real world output (not necessarily the same as input media type) and outputs it to the user.
+It then proceeds to collapse each set of labels at a vertex down to a single label by computing the entropy at a vertex's position and collapsing the least entropic vertices first. Finally when all vertices have only a single label the algorithm parses the `output graph` back into some useful form of real world output (not necessarily the same as input media type) and outputs it to the user.
 
 ```
 ┍━━━━━━━━━━━━━┑
@@ -48,7 +56,100 @@ The algorithm takes in some form of input (image, sound, model data etc.) parses
 ┕━━━━━━━━━━━━━━┙
 ```
 
+## Parser-Renderer Pairs
+
+Discussion of how input and output work.
+
+## Constraint Solving Loop
+
+### Overview
+
+At its core this implementation of WFC takes some uncollapsed graph, assigns an entropy value to each vertex on the graph based on its set of labels and uses a process of elimination to remove possibilities of vertex positions until the algorithm reaches a contradition, in which case it fails or the graph is fully collapsed.
+
+
+```
+LOOP:
+  IF the information in the graph changed due to a collapse or propagation:
+    PROPAGATE information (constraints) between connected vertices
+
+  ELSE IF there are vertices to collapse
+    COLLAPSE the vertex with the lowest entropy
+
+  ELSE IF there are no vertices left to collapse
+    OUTPUT the collapsed graph
+
+```
+In the interest of simplicty and to help readers to understand the core solving loop of the algorithm the pseudo code above does not show the failure case which occures if a propagation constrains the set of possible labels at a vertex to be empty (i.e. a labels set of size `0`) which would mean that the algorithm reached a contradiction in its constraint solving and failed. This check for a label set of `0` occurs after the `PROPAGATE` step.
+
+### Data Structures
+
+- `Observe`: A structure which represents an observation and the entropy of a vertex.
+- `Propagate`: A propagate which represents a propagation `from` a vertex `to` another vertex in a direction.
+- `Heap: BinaryHeap<Observe>`: A [min heap] of `Observe` actions storing the Observe with the lowest entropy on top.
+- `Observed: Set<VertexIndex>`: A list recording which vertices have been collapsed to a singleton set.
+- `Propagations: Vec<Propagate>`: A stack of `Propagate` actions representing a queue of constraint propagations that need to take place.
+
+### Initialization
+This the pseudocode for initialization of the algorithm
+```
+FOR EACH vertex IN output_graph:
+    IF vertex.labels EQUAL TO PROPER SUBSET OF all_labels:
+        FOR EACH other_vertex IN vertex.connections:
+            PUSH Propagate.new ONTO Propagations
+
+    IF vertex.labels IS SINGLETON SET:
+        ADD vertex TO Observed
+        CONTINUE // Skips last command in this FOR EACH
+    
+    PUSH Observe.new FOR vertex ONTO Heap
+```
+
+### Constraint Solving Loop Deep Dive
+```
+LOOP:
+    IF Observed.length == Graph.vertices.length:
+        RETURN Graph // Success!
+
+    IF Heap.is_empty:
+        RETURN Graph // Success!
+
+    ELSE IF Propagations.is_empty:
+        IF gen_observe.not_empty:
+            FOR EACH vertex IN gen_observe:
+                PUSH Observe.new FOR vertex ONTO Heap
+            
+            EMPTY gen_observe
+
+        POP Observe OFF Heap // Returns lowest entropy Observe
+
+        COLLAPSE Observe.vertex.labels // Labels -> Singleton Set
+        FOR EACH other_vertex IN Observe.vertex.connections:
+            PUSH Propagate.new ONTO Propagations
+            
+    ELSE:
+        POP a Propagate OFF Propagations
+
+        COMPOSE SET OF LABEL constraints // Set up constraints
+
+        INTERSECT Propagate.to_vertex.labels WITH constraints
+        IF Propagate.to_vertex.labels CHANGED:
+            IF Propagate.to_vertex.labels.is_empty:
+                RETURN Error // Failure!
+            ELSE IF Propagate.to_vertex.labels.is_singleton:
+                ADD Propagate.to_vertex TO observed
+            ELSE:
+                ADD Propagate.to_vertex TO gen_observe
+            
+            FOR EACH other_vertex IN Observe.to_vertex.connections:
+                IF other_vertex NOT IN Observed:
+                    PUSH Propagate.new ONTO Propagations
+```
+
 ## Method
+
+##### How does using graphs improve the algorithm?
+
+Because Graphs are inherently n-dimensional it means that implementing the algorithm for any n-dimensional graph removes the need to re-write the algorithm for different input media types. Each new media type only needs to have a renderer parser pair added to it
 
 **What is a graph?**
 
@@ -108,25 +209,6 @@ Ouput array -> Image
 ## Pipeline
 
 This implementation follows a process of
-
-## Constraint Solving Loop
-
-At its core this implementation of WFC takes some uncollapsed graph, assigns an entropy value to each vertex on the graph based on its set of labels and uses a process of elimination to remove possibilities of vertex positions until the algorithm reaches a contradition, in which case it fails or the graph is fully collapsed.
-
-
-```
-LOOP:
-  IF the information in the graph changed due to a collapse or propagation:
-    PROPAGATE information (constraints) between connected vertices
-
-  ELSE IF there are vertices to collapse
-    COLLAPSE the vertex with the lowest entropy
-
-  ELSE IF there are no vertices left to collapse
-    OUTPUT the collapsed graph
-
-```
-In the interest of simplicty for readers to understand the core solving loop of the algorithm the pseudo code above does not show the failure case which occures if a propagation constrains the set of possible labels at a vertex to be empty (i.e. a labels set of size `0`) which would mean that the algorithm reached a contradiction in its constraint solving and failed. This check for a label set of `0` occurs after the `PROPAGATE` step.
 
 
 ```
@@ -189,8 +271,9 @@ PROPAGATIONS: Vec<PROPAGATE_ACTION>
             1. If vertex is not in OBSERVED:
                 1. push a PROPAGATE_ACTION to PROPAGATIONS
     10. GOTO 3.
+```
 
-
+```
 === EXAMPLE ===
 
 1abc --- 2abc       HEAP: collapse(0), collapse(1), collapse(2), collapse(3)
