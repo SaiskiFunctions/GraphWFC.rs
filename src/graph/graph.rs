@@ -63,21 +63,11 @@ impl Graph {
         })
     }
 
-    // entropoy coonections 🤡
     /// Return all pairs of vertex indexes and directions connected to the
     /// given index for this graph.
     pub fn connections(&self, index: &VertexIndex) -> &Vec<(VertexIndex, EdgeDirection)> {
         self.edges.index(index)
     }
-
-    /*
-    TODO:
-        1. Seedable randomness ✅
-        2. Dependency injected random module ✅
-        3. Write BETTER observe tests
-        4. cache calculation of total.
-        6. implement all_labels method ✅
-    */
 
     /// Collapses the set of vertex labels at the given index to a singleton set.
     pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {

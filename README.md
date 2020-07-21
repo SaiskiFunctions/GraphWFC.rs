@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/dpwdec/wfc-rust)
 
 
-A graph-based implementation of Maxim Gumin's Wave Function Collapse algorithm. This project improves on the flexibility and speed of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
+A graph-based implementation of the Wave Function Collapse algorithm. This project improves on the flexibility and speed of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
 
 This implementation:
 1. Generalises and brings clarity to the constraint solving core of the algorithm.

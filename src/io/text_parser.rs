@@ -5,26 +5,6 @@ use std::ops::Index;
 use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, VertexLabel};
 use crate::utils::hash_set;
 
-// 1. Load file into string
-// 2. Parse string into graph
-/*
-    Grid with 4 directions
-    \n -> vertical spacing
-
-    aaaa   \n
-    aaaaaaa\n
-    aaaa   \n
-
-    Vec<Vec<Char>>
-
-
-    HashMap<Chars, Label>
-
-    input.string("\n")
-
-
-*/
-
 pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
     read_to_string(filename).map(|string| {
         let lines: Vec<&str> = string.split('\n').filter(|l| !l.is_empty()).collect();
