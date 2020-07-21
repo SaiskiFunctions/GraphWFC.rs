@@ -16,9 +16,72 @@ The Wave Function Collapse algorithm is a constraint solving algorithm created b
 
 Since its release the algorithm has been ported across to many languages and content creation systems, however, because of the algorithms traditional area of application it has generally been implemented with fairly obfuscated data structures (such as nested three dimensional arrays) and strongly coupled with the process of parsing in input data making it difficult for users to understand how the constraint solving elements of the algorithm work and how to implement the algorithm in arbitrary n dimensional spaces and across many media types.
 
+## Overview
+
+Below is a high level overview of the structure of this implementation of WFC with the goal of offering a basic understanding of the flow of the application and an explanation as to why using Graphs as the foundational data structure for the algorithm works so well. If you don't understand any of the terms used please consult the `FAQ` section.
+
+The algorithm takes in some form of input (image, sound, model data etc.) parses that input into a graph structure (the `input graph`) and then uses that graph structure to derive a set of constraints. Next the algorithm creates a differently sized (usually much larger) graph structure (the `output graph`) that has its vertices set to a superposition of all possible labels in the input graph. It then proceeds to collapse each set of labels at a vertex down to a single label by computing the entropy at a vertex's position and collapsing the least entropic vertices first. Finally when all vertices have only a single label the algorithm parses the `output graph` back into some useful form of real world output (not necessarily the same as input media type) and outputs it to the user.
+
+```
+┍━━━━━━━━━━━━━┑
+│ Input Media │
+┕━━━━━━━━━━━━━┙
+       ⬇ (Parsed to)
+┍━━━━━━━━━━━━━┑
+│ Input Graph │
+┕━━━━━━━━━━━━━┙
+       ⬇
+┍━━━━━━━━━━━━━━━━━━━━━━━━━┑
+│ Derive Constraint Rules │
+┕━━━━━━━━━━━━━━━━━━━━━━━━━┙
+       ⬇
+┍━━━━━━━━━━━━━━━━━━━━━┑
+│ Create Output Graph │
+┕━━━━━━━━━━━━━━━━━━━━━┙
+       ⬇
+┍━━━━━━━━━━━━━━━━━━━━━━━━━━┑
+│ Collapse Graph (Core WFC)│
+┕━━━━━━━━━━━━━━━━━━━━━━━━━━┙
+       ⬇
+┍━━━━━━━━━━━━━━━━━━━━━━━━━━┑
+│ Collapse Graph (Core WFC)│
+┕━━━━━━━━━━━━━━━━━━━━━━━━━━┙
+```
+
 ## Method
 
+**What is a graph?**
 
+The term graph used in the context of this implementation of the algorithm refers to the definition of a graph used in the mathematical field of Graph Theory. A graph is a structure consisting of *vertices*, *edges* and *labels*. The set of vertices of a graph are connected by a set edges. Each vertex can be *labelled* with a value. Edges can also be labelled with a direction.
+
+In the `simple graph` example below there are six vertices connected by a number of edges. The vertices are labelled with numbers 1 through 6.
+
+`A simple graph`:
+<a href="https://en.wikipedia.org/wiki/Graph_theory#/media/File:6n-graf.svg">
+<img src="basic_graph.png" alt="Graph" style="height:150px;">
+</a>
+
+It's important to understand the label of a vertex is separate from absolute information about a vertex. The `text rendered` graph below makes this more clear. There are four vertices in this graph indexed 1 through 4, however the *labels* of these vertices are `a`, `b`, and `c`. I.e. the label of the vertex identified as `1` is `a`. 
+
+`A graph rendered as text`:
+```
+1a --- 2b
+|      |
+|      |
+3c --- 4a
+```
+
+**What does the core constraint algorithm actually do?**
+
+The algorithm takes in an uncollapsed graph and outputs a collapsed graph based on a set of constraint solving rules.
+
+**What is an uncollapsed graph?**
+
+An uncollapsed grap
+
+
+
+The algorithm takes in some form of input (image, sound, model data etc.) parses it into a graph structure, deri
 ## Example Process (Images)
 
 INPUT: Image, Output Size
@@ -42,7 +105,11 @@ loop:
 Renderer (Transform output into Image):
 Ouput array -> Image
 
-## Understanding the Core of WFC
+## Pipeline
+
+This implementation follows a process of
+
+## Constraint Solving Loop
 
 At its core this implementation of WFC takes some uncollapsed graph, assigns an entropy value to each vertex on the graph based on its set of labels and uses a process of elimination to remove possibilities of vertex positions until the algorithm reaches a contradition, in which case it fails or the graph is fully collapsed.
 
