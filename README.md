@@ -87,6 +87,15 @@ The parser-renderer pair function as a prelude and coda to the core `collapse` a
 - `Renderer`: implements a process that takes a Graph and a Map as input and uses it render the Graph into a human readable output.
 - `Mapping`: An optional secondary Map that maps between differnent media types of dimensional spaces.
 
+## Rules Generation
+
+After the input has been parsed into a graph format a set of rules can be generated fairly simply by searching for each unique label and edge direction pairs and the possible set of labels they can connect to in the model graph.
+```rust
+// Rules data structure
+HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>
+```
+This is encoded as a Map that takes a tuple of a directed edge and a label as a key and has a set of possible labels as its value.
+
 ## The `collapse` Constraint Solving Loop
 
 ### Overview
@@ -224,12 +233,13 @@ The equation basically says that entropy of a specific set is the negative sum o
 
 #### What is an adjacency matrix?
 
-## Example Process (Images)
+## Walkthrough of `collapse`
 
-## Example
+The following is a step by step walkthrough of the core `collapse` algorithm process on a very simple input as a way to help users understand what is going on when they use this tool.
 
-The following is is a walkthrough step by step of the core `collapse` algorithm process on a very simple input as a way to help users understand what is going on when they use this tool.
+The model graph below shows an example input that the `collapse` algorithm might receieve as input. This graph is intended to represent a 2-dimensional space with 4 directions for edge labelling: North, South, East and West.
 
+`Model graph`:
 ```
 1b --- 2b
 |      |
@@ -237,84 +247,117 @@ The following is is a walkthrough step by step of the core `collapse` algorithm 
 0a --- 3b
 ```
 
+Therefore the rules that this model graph would generate are as follows:
+
+`Rules`:
 ```
-=== EXAMPLE ===
+Key         Value
+━━━━━━━━━━━╋━━━━━━━━━━
+(North, a) ┃  {b}
+(North, b) ┃  {c}
+(South, b) ┃  {a}
+(South, c) ┃  {b}
+(East, a)  ┃  {b}
+(East, b)  ┃  {c}
+(West, b)  ┃  {a}
+(West, c)  ┃  {b}
+```
 
-1abc --- 2abc       HEAP: collapse(0), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: []
-|        |          OBSERVED: []
-0abc --- 3abc
+After this initialisation the algorithm can then begin to run and generate constraints until it results in an entirely collapsed graph.
 
-RUN collapse(0) {
+`Collapse loop process`:
+```
+1abc --- 2abc       Heap: Observe(0), Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: []
+|        |          observed: []
+0abc --- 3abc       propagations: []
 
-}
+POP Observe(0) OFF Heap // Vertex with lowest entropy to collapse
 
-1abc --- 2abc       HEAP: propagate(0, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: []
-|        |          OBSERVED: [0]
-0a ----- 3abc
+RUN Observe(0) // collapse the vertex to a singleton set
 
-RUN propagate(0, 1) {
+FOR EACH vertex CONNECTED TO Observe(0).vertex:
+    PUSH Propagate.new TO propagations
+```
 
-}
+```
+1abc --- 2abc       Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: []
+|        |          observed: 0
+0a ----- 3abc       propagations: Propagate(0, 1), Propagate(0, 3)
 
-1ab ---- 2abc       HEAP: propagate(1, 2), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: [1]
-|        |          OBSERVED: [0]
-0a ----- 3abc
+POP Propagate(0, 1) OFF propagations
 
-RUN propagate(1, 2) {
+RUN Propagate(0, 1) // propagate constraints from vertex 0 to vertex 1
 
-}
+FOR EACH vertex CONNECTED TO Propagate(0, 1).to_vertex:
+    PUSH Propagate.new TO propagations // in this case vertex 1 is conncted to vertex 2
+```
 
-1ab ---- 2c         HEAP: propagate(2, 3), propagate(2, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: [1]
-|        |          OBSERVED: [0, 2]
-0a ----- 3abc
+```
+1ab ---- 2abc       Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: [1]
+|        |          observed: [0]
+0a ----- 3abc       propagations: Propagate(1, 2), Propagate(0, 3)
 
-RUN propagate(2, 3) {
-    
-}
+RUN Propagate(1, 2)
+```
 
-1ab ---- 2c         HEAP: propagate(2, 1), propagate(0, 3), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: [1, 3]
-|        |          OBSERVED: [0, 2]
-0a ----- 3ab
+```
 
-RUN propagate(2, 1) {
-    
-}
+1ab ---- 2c         Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: [1]
+|        |          observed: [0, 2]
+0a ----- 3abc       propagations: Propagate(2, 3), Propagate(2, 1), Propagate(0, 3),
 
-1ab ---- 2c         HEAP: propagate(0, 3), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: [1, 3]
-|        |          OBSERVED: [0, 2]
-0a ----- 3ab
+RUN Propagate(2, 3)
+```
 
-RUN propagate(0, 3) {
-    
-}
+```
+1ab ---- 2c         Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: [1, 3]
+|        |          observed: [0, 2]
+0a ----- 3ab        propagations: Propagate(2, 1), Propagate(0, 3)
 
-1ab ---- 2c         HEAP: collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: [1, 3]
-|        |          OBSERVED: [0, 2, 3]
+RUN Propagate(2, 1)
+```
+
+```
+1ab ---- 2c         Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: [1, 3]
+|        |          observed: [0, 2]
+0a ----- 3ab        propagations: Propagate(0, 3)
+
+RUN Propagate(0, 3)
+```
+
+```
+
+1ab ---- 2c         Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: [1, 3]
+|        |          observed: [0, 2, 3]
+0a ----- 3b         propagations: []
+
+IF propagations.is_empty:
+    FOR EACH vertex IN gen_observe:
+        IF vertex NOT IN observed:
+            PUSH Observe.new TO Heap
+```
+```
+
+1ab ---- 2c         Heap: Observe(1), Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: []
+|        |          observed: [0, 2, 3]
 0a ----- 3b
 
-PEAK collapse {
-    RUN GEN_OBSERVE
-}
+RUN Observe(1)
+```
 
-1ab ---- 2c         HEAP: collapse(1), collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: []
-|        |          OBSERVED: [0, 2, 3]
-0a ----- 3b
+```
 
-RUN collapse(1) {
-
-}
-
-1b ----- 2c         HEAP: collapse(1), collapse(2), collapse(3)
-|        |          GEN_OBSERVE: []
-|        |          OBSERVED: [0, 1, 2, 3]
+1b ----- 2c         Heap: Observe(1), Observe(2), Observe(3)
+|        |          gen_observe: []
+|        |          observed: [0, 1, 2, 3]
 0a ----- 3b
 
 ALL vertices OBSERVED -> RETURN
@@ -332,8 +375,8 @@ Why are we using this data structure for connections and directions?
 // (3: W, 1: b) -> (0: a)
 // (3: W, 2: c) -> (1: b)
 
-This means when we look up further propagations from a collapse or a propagate action we have to log
-the label that has been propagated/collapsed, then go to the graph's edges, iterate through it and look
+This means when we look up further propagations from a Collapse or a Propagate action we have to log
+the label that has been propagated/Observed, then go to the graph's edges, iterate through it and look
 in each label in the edges map for hash_sets that contain the desired "from" vertex as their first label
 and do this for four separate entries (more if we are in higher dimensions) in the map.
 
