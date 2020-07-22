@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/dpwdec/wfc-rust)
 
 
-A graph-based implementation of the Wave Function Collapse algorithm. This project improves on the flexibility and speed of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
+A graph based implementation of the Wave Function Collapse algorithm. This project improves on the flexibility and speed of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
 
 This implementation:
 1. Generalises and brings clarity to the constraint solving core of the algorithm.
@@ -18,15 +18,21 @@ Since its release the algorithm has been ported across to many languages and con
 
 ## Method
 
-Because Graphs are a flexible, n-dimensional data structure they can be used to intuitively encode almost any set of the input data that you would want to generate more of and the connections between the elements in that data.
+This implementation of WFC uses only Graph structures in the algorithm's `collapse` loop where the core constraint solving functionality occurs.
 
-By writing the core WFC constraint solving algorithm in terms of abstract n-dimensional Graph structures that get inputted, analyzed and collapsed it means that ANY media (providing it can be effectively parsed as a graph) can be generated with only a single algorithm.
+Graphs are an incredibly flexible data (and mathematical) structure that can be used to represent a wide range of input structures. We can use the edge-vertex structure of Graphs to represent n-dimensional spaces through n number of directed edges. For example, in a 1-dimensional space (a line), graph vertexes are connected by edges labelled with forwards and backwards. This approach generalises to higher input dimensions with the number of edge labels correlating with the number of discrete directions across each dimension. Furthermore, Graph structures can encode non-spatial discrete relationships, such as sequential relationship between words and word classes, or even temporal changes.
 
-This leads to more maintainable code, as only one core algorithm has be maintained as optimised to improve the running of wfc on all types of data.
+It follows that anything that can be reasonably parsed into Graph data can be constraint solved with this single implementation of the WFC algorithm; images, music, text, topological data etc. all with a single `collapse` loop. There are several advantages to this:
+1. Code is DRY-er as a result and more easily maintainable.
+2. Domain specific implementation details are entirely decoupled from the generative elements of the algorithm making it far more flexible.
+3. The "hottest" part of the code is small and modularised making profiling and optimisation much easier.
+4. Extending and debugging the algorithms core functionality is centralised into a single set of modules. Extending Graph `collapse` functionality once extends functionality for all possible input types.
 
-Furthermore it allows us to run graph manipulation methods.
+The algorithm is also generalised to be agnostic as to the state of the graph that is submitted for collapse, with the constraint solving core able to accept partially collapsed graphs as input as well as entirely uncollapsed graphs. This implementation of a more general input schema allows the aglorithm to:
+1. Support checkpointing and spot processes in the code. The `collapse` process is a fairly computationally intensive task, so, should a process fail or have to be killed at some point along its run time the constraint `collapse` process will accept a partially collapsed Graph as input and continue constraint solving from that point
+2. Work effectively with manipulated Graph data between the parse and collapse stages. Should you want to run further manipulations on Graph data, such as combining or filtering graphs, that alter the structure of the Graph or labels then `collapse` will still accept a manipulated graph as input to solve.
 
-The algorithm is also modularised in terms of input and output. It works well with spot processes that could kill its function at any time because it can work on completely uncollapsed, partially collapsed or entirely collapsed graphs exactly the same. No matter what the state of the graph, the output of any stage can be fed back into the algorithm and it will continue to constrain the graph until it finds a solution or contradiction.
+A final piece of modularisation is the entropy function and observation sorting. We implemented Shanon Entropy as our complexity heuristic, however the aglorithm's complexity heuristic is entirely modular. Sorting the complexity of vertices is done using a BinaryHeap data structure (as a min heap) such that the lowest entropy vertex to be observed is always at the top of the heap. This means, that we can easily implement and extend different methods for defining a complexity heuristic for vertices in the Graph as sorting is done automatically by the BinaryHeap.
 
 # Structure
 
