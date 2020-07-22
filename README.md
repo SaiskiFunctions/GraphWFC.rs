@@ -28,7 +28,14 @@ It follows that anything that can be reasonably parsed into Graph data can be co
 3. The "hottest" part of the code is small and modularised making profiling and optimisation much easier.
 4. Extending and debugging the algorithms core functionality is centralised into a single set of modules. Extending Graph `collapse` functionality once extends functionality for all possible input types.
 
-Talk about simplicity of Graph structure and adjacency matrices
+A further advantage of using Graphs as the primary data structure for `collapse` is its simplicity and maintainability. `Graph` is a very simple `struct` with the indexes of `vertices` representing the index of an actual vertex in the graph with the value at that index composed of a set of possible labels. This implementation uses an adjacency matrix to represent `edges` implemented as an opinionated sparse matrix (to save on menmory) which supports access *from* one vertex to another in a discrete direction.
+
+```rust
+struct Graph {
+    vertices: Vec<HashSet<i32>>,
+    edges: HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>,
+}
+```
 
 The algorithm is also generalised to be agnostic as to the state of the graph that is submitted for collapse, with the constraint solving core able to accept partially collapsed graphs as input as well as entirely uncollapsed graphs. This implementation of a more general input schema allows the aglorithm to:
 1. Support checkpointing and spot processes in the code. The `collapse` process is a fairly computationally intensive task, so, should a process fail or have to be killed at some point along its run time the constraint `collapse` process will accept a partially collapsed Graph as input and continue constraint solving from that point
@@ -86,6 +93,9 @@ The parser-renderer pair function as a prelude and coda to the core `collapse` a
 
 At its core this implementation of WFC takes some uncollapsed graph, assigns an entropy value to each vertex on the graph based on its set of labels and uses a process of elimination to remove possibilities of vertex positions until the algorithm reaches a contradition, in which case it fails or the graph is fully collapsed.
 
+`OBSERVE`-ing a vertex means to collapse its set of possible labels down to singleton set.
+
+`PROPAGATE`-ing a vertex's information means to find vertices that are connected to vertex where information has changed and constrain them based on the new information.
 
 ```
 LOOP:
@@ -93,7 +103,7 @@ LOOP:
     PROPAGATE information (constraints) between connected vertices
 
   ELSE IF there are vertices to collapse
-    COLLAPSE the vertex with the lowest entropy
+    OBSERVE the vertex with the lowest entropy
 
   ELSE IF there are no vertices left to collapse
     OUTPUT the collapsed graph
@@ -167,47 +177,58 @@ LOOP:
                     PUSH Propagate.new ONTO Propagations
 ```
 
-## Method
-
-#### How does using graphs improve the algorithm?
-
-Because Graphs are inherently n-dimensional it means that implementing the algorithm for any n-dimensional graph removes the need to re-write the algorithm for different input media types. Each new media type only needs to have a renderer parser pair added to it
+## Explanations
 
 #### What is a graph?
 
 The term graph used in the context of this implementation of the algorithm refers to the definition of a graph used in the mathematical field of Graph Theory. A graph is a structure consisting of *vertices*, *edges* and *labels*. The set of vertices of a graph are connected by a set edges. Each vertex can be *labelled* with a value. Edges can also be labelled with a direction.
 
-In the `simple graph` example below there are six vertices connected by a number of edges. The vertices are labelled with numbers 1 through 6.
-
-`A simple graph`:
-<a href="https://en.wikipedia.org/wiki/Graph_theory#/media/File:6n-graf.svg">
-<img src="basic_graph.png" alt="Graph" style="height:150px;">
-</a>
-
-It's important to understand the label of a vertex is separate from absolute information about a vertex. The `text rendered` graph below makes this more clear. There are four vertices in this graph indexed 1 through 4, however the *labels* of these vertices are `a`, `b`, and `c`. I.e. the label of the vertex identified as `1` is `a`. 
-
-`A graph rendered as text`:
 ```
 1a --- 2b
 |      |
 |      |
 3c --- 4a
 ```
+Above is a simple rendering in text of a very simple Graph that might be use as a model for the `collapse` process. It has four vertices with indexes `1 - 4`. Each vertex is labelled with a letter, `a`, `b` or `c`. Vertices are connected by edges, for example, vertex `1` is connected to vertex `3` and `2`. 
 
-**What does the core constraint algorithm actually do?**
+Although not labelled here we could imply that there are certain directional relationships between the vertices as well. For example, vertex `3` connects to vertex `4` to the `East` and vertex `4` connects to vertex `2` to the `North`.
 
-The algorithm takes in an uncollapsed graph and outputs a collapsed graph based on a set of constraint solving rules.
+The Graph structure in the algorithm would have these edge directions explicitly labelled for it but for the purposes of understanding a basic Graph they have been omitted. However, its worth noting that edge labels are highly arbitrary and could be used to encode almost any discrete relationship between two pieces of information, it has simply been used to encode a spatial (NSEW) example here.
 
 #### What is an uncollapsed Graph?
 
 An uncollapsed grap
 
-#### What is entropy and how is it calculated?
+#### What is entropy and why is it useful?
 
-The algorithm takes in some form of input (image, sound, model data etc.) parses it into a graph structure, deri
+This implementation of WFC uses classical shannon entropy as a complexity heuristic for ordering vertices. 
+
+A complexity heuristic is simply a method for simulating the natural human ability to assesss and pick the simplest most invariant parts of a problem to solve first before moving onto the more complex less predictable parts of a problem.
+
+For example, if you try to solve a sodoku puzzle you generally begin by finding all the the numbers you can fill in with 100% certainty before moving onto parts of the problem that has a possible set of numbers that you could fill in. The entropy complexity heuristic mirrors this natural human problem solving heuristic by assign a numeric value to how many possibilities and how likely those possibilities are at a vertex in the output graph and there how likely collapsing the label set at a particular vertex is to lead to a contradiction.
+
+For example, if a vertex has a set of labels that appear very frequently in the input Graph then its likely that that vertex has fairly low entropy because the high frequency in the input correlates to compatability with many other possible labels. However, if the vertex only contains very rare labels its entropy will be high as collapsing it down before constraining other parts of the output space is likely to lead to cotradictions.
+
+
+#### How is shannon entropy calculated?
+
+Shannon entropy is given by the equation below and describes abstract informational entropy.
+
+![Shannon entropy](resources/ref_images/entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
+
+`H(X)`: The input to the equation.
+`n`: The number of total possible labels.
+`P(x)`: The probability of the input element `x` appearing in the set which is calculate by `frequency of x / entire set`
+
+The equation basically says that entropy of a specific set is the negative sum of all labels.
+
+#### What is an adjacency matrix?
+
 ## Example Process (Images)
 
 ## Example
+
+The following is is a walkthrough step by step of the core `collapse` algorithm process on a very simple input as a way to help users understand what is going on when they use this tool.
 
 ```
 1b --- 2b
@@ -358,41 +379,7 @@ set logic stuff tm
 
 Collapse calculation is arbitrary <- 
 
-Modularising graph metadata generation:
-Method on graph:
-pub fn metadata(&self, function<Graph, U>) -> U 
-
-![Shannon entropy](resources/ref_images/entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
-
-H(X) -> shanon entropy
-
-Sum of expression
-
-P is probability for a element in a set of possible values
-
-Map {
-    0: 4,
-    1: 5,
-    2: 10,
-    3: 20
-}
-
-{0, 1} P(0) = 4/4+5
-
-{}
-
-bc
-ab
-
-b -> c -> a -> b
-
-=>
-
-1-2
-| |
-0-1
-
-=>
+#### What is a vertex in superposition?
 
 input conforms to a linear space for input
 
@@ -409,79 +396,6 @@ input conforms to a linear space for input
 🌊🌊🌊🌊🌊🌊🌊
 🌊🌊🌊🌊🌊🌊🌊
 🌊🌊🌊🌊🌊🌊🌊
-
-# Parser / Renderer
-
-Pass `Parser-Renderer` pair to the algorithm constructor. But both parts can be switched out.
-
-You have to provide a mapping between input and output labels.
-
-
-The input and output must be fully mapped. The output space can be "smaller" than the input space. Meaning we can map multiple input elements to a single output element.
-
-injective function - mapping from set A to set B, every element of A goes to an element B, its a one way mapping
- 
-Input labels -> Output labels (Content Mapping)
-Input directions -> Output Directions (Structural Mapping)
-
-Mapping can be applied before or after the actual collapse algorithm.
-
-PMR
-
-pixel data -> graph (parser)
-mapping: optional
-collapse
-graph -> pixel data (renderer)
-
-quad directional pixel space NSEW -> 
-bi directional pixel space LR: NS -> L EW -> R
-
-renderer
-
-homomorphism 
-
-1. Parse input to input graph
-2. Optionally map input graph to output formatted input graph
-3. Run collapse on output graph with input data
-4. Render the output into the output format
-
-    Pixels(Red, Black) -> 
-    Graph(Red -> 0, Black -> 1)
-    Graph(0 -> 1, 1 -> 1) (Black: 1) -> |-------+
-    Derive Rules, Frequencies, All labels ->    |
-    Collapse Output graph ->                    |
-    Render Output graph ->  <-------------------+
-    Pixels(Black)
-
-No mapping provided: renderer is INVERSE of parser
-
-@ -> 0
-& -> 1
-
-@ -> &
-& -> &
-
-fn pix_to_graph(pixel_data) -> graph, output_key
-
-output_key
-
-collapse stuff here
-
-
-fn graph_to_pix(graph, output_key) -> pixel_data
-
-
-@@
-&&
-
-@ -> &
-fn text_to_graph(string) -> graph, key {
-    key: HashMap;
-
-    string.
-}
-
-Parser-Mapping-Renderer 4x4
 
 
 
