@@ -28,6 +28,8 @@ It follows that anything that can be reasonably parsed into Graph data can be co
 3. The "hottest" part of the code is small and modularised making profiling and optimisation much easier.
 4. Extending and debugging the algorithms core functionality is centralised into a single set of modules. Extending Graph `collapse` functionality once extends functionality for all possible input types.
 
+Talk about simplicity of Graph structure and adjacency matrices
+
 The algorithm is also generalised to be agnostic as to the state of the graph that is submitted for collapse, with the constraint solving core able to accept partially collapsed graphs as input as well as entirely uncollapsed graphs. This implementation of a more general input schema allows the aglorithm to:
 1. Support checkpointing and spot processes in the code. The `collapse` process is a fairly computationally intensive task, so, should a process fail or have to be killed at some point along its run time the constraint `collapse` process will accept a partially collapsed Graph as input and continue constraint solving from that point
 2. Work effectively with manipulated Graph data between the parse and collapse stages. Should you want to run further manipulations on Graph data, such as combining or filtering graphs, that alter the structure of the Graph or labels then `collapse` will still accept a manipulated graph as input to solve.
@@ -171,7 +173,7 @@ LOOP:
 
 Because Graphs are inherently n-dimensional it means that implementing the algorithm for any n-dimensional graph removes the need to re-write the algorithm for different input media types. Each new media type only needs to have a renderer parser pair added to it
 
-**What is a graph?**
+#### What is a graph?
 
 The term graph used in the context of this implementation of the algorithm refers to the definition of a graph used in the mathematical field of Graph Theory. A graph is a structure consisting of *vertices*, *edges* and *labels*. The set of vertices of a graph are connected by a set edges. Each vertex can be *labelled* with a value. Edges can also be labelled with a direction.
 
@@ -196,7 +198,7 @@ It's important to understand the label of a vertex is separate from absolute inf
 
 The algorithm takes in an uncollapsed graph and outputs a collapsed graph based on a set of constraint solving rules.
 
-**What is an uncollapsed graph?**
+#### What is an uncollapsed Graph?
 
 An uncollapsed grap
 
@@ -205,92 +207,13 @@ An uncollapsed grap
 The algorithm takes in some form of input (image, sound, model data etc.) parses it into a graph structure, deri
 ## Example Process (Images)
 
-INPUT: Image, Output Size
-
-Preamble (Transform Image into Graph):
-Image -> Graph
-Graph -> Rules
-Collect collapse calculation metrics
-        classic wfc: vertex frequency
-Set up an output structure of adjency matrices
-
-The Meat (Wave Function Collapse):
-loop:
-  if can propagate:
-    propagate
-  else if can collapse:
-    collapse
-  else
-    output
-
-Renderer (Transform output into Image):
-Ouput array -> Image
-
-## Pipeline
-
-This implementation follows a process of
-
+## Example
 
 ```
-==== RUN COLLAPSE FUNCTION ====
-INPUT: input_graph, output_graph, retry_count
-
-rules = input_graph.rules()
-all_labels = input_graph.all_labels()
-try_count = 0
-rng.seed.start
-WHILE try_count <= retry_count:
-    MATCH COLLAPSE_ALGORITHM(rng, rules, frequencies, all_labels, output_graph.clone()) {
-        Some(result) => result
-        None => try_count += 1; continue
-    }
-
-==== COLLAPSE ALGORITHM ====
-INPUT: input_graph_rules, output_graph
-RETURN Option<Graph>:
-    Some: output_graph (collapsed)
-    None:
-HEAP: BinaryHeap<OBSERVE_ACTION>
-GEN_OBSERVE: HashSet<VertexIndex>
-OBSERVED: HashSet<VertexIndex>
-PROPAGATIONS: Vec<PROPAGATE_ACTION>
-1. Create a new binary HEAP.
-2. FOR EACH vertex in output_graph: // Create a number of OBSERVE_ACTION's equal to the number of vertices onto the HEAP.
-    1. IF vertex labels is a <proper subset> of all_labels:
-        1. Find vertices connected to this.vertexIndex using the out_graph edges property.
-        2. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
-        3. IF vertex labels is a singleton set:
-            1. Add vertexIndex to OBSERVED
-            2. CONTINUE
-    2. Push vertex OBSERVE_ACTION onto the HEAP.
-3. IF length of OBSERVED == Graph.vertices.length:
-    return SUCCESS!
-4. IF HEAP is empty:
-    1. return SUCCESS!
-   ELSE IF PROPAGATIONS is empty:
-    2. IF GEN_OBSERVE is not empty: // drain
-        1. Add OBSERVE_ACTION's onto the HEAP FOR EACH vertexIndex in GEN_OBSERVE and empty GEN_OBSERVE set.
-    3. Pop an OBSERVE_ACTION off of the HEAP
-    4. IF OBSERVE_ACTION's vertexIndex is NOT in OBSERVED:
-        1. Collapse the vertexLabel of the vertexIndex this action references to a singleton set.
-        2. Find vertices connected to this vertexIndex using the out_graph edges property.
-        3. For each connected vertex, push a PROPAGATE_ACTION to PROPAGATIONS.
-    6. GOTO 3.
-   ELSE:
-    7. Pop a PROPAGATE_ACTION off of PROPAGATIONS.
-    8. Constrain vertexLabel according to propagation.
-    9. IF the vertexLabel at vertexIndex changed:
-        1. IF vertexLabel == {}:
-            1. return FAILURE!
-           ELSE IF vertexLabel != singleton:
-            2. Add vertexIndex to GEN_OBSERVE.
-           ELSE:
-            3. Add vertexIndex to OBSERVED.
-        2. Find vertices connected to this.vertexIndex using the out_graph edges property.
-        2. For each connected vertex.
-            1. If vertex is not in OBSERVED:
-                1. push a PROPAGATE_ACTION to PROPAGATIONS
-    10. GOTO 3.
+1b --- 2b
+|      |
+|      |
+0a --- 3b
 ```
 
 ```
@@ -439,7 +362,7 @@ Modularising graph metadata generation:
 Method on graph:
 pub fn metadata(&self, function<Graph, U>) -> U 
 
-![Shannon entropy](entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
+![Shannon entropy](resources/ref_images/entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
 
 H(X) -> shanon entropy
 
