@@ -64,7 +64,7 @@ It then proceeds to collapse each set of labels at a vertex down to a single lab
 ┍━━━━━━━━━━━━━━━━━━━━━━━━━━┑
 │ Collapse Graph (Core WFC)│
 ┕━━━━━━━━━━━━━━━━━━━━━━━━━━┙
-       ⬇
+       ⬇ (Rendered to)
 ┍━━━━━━━━━━━━━━┑
 │ Output Media │
 ┕━━━━━━━━━━━━━━┙
@@ -72,9 +72,13 @@ It then proceeds to collapse each set of labels at a vertex down to a single lab
 
 ## Parser-Renderer Pairs
 
-Discussion of how input and output work.
+The parser-renderer pair function as a prelude and coda to the core `collapse` algorithm making rule specification and i/o easier for human users. When input is submitted by a user it must come with a parser-renderer pair and an optional mapping.
 
-## Constraint Solving Loop
+- `Parser`: implements a process that accepts some input and outputs a Graph and Map that describes how to decode Graph.
+- `Renderer`: implements a process that takes a Graph and a Map as input and uses it render the Graph into a human readable output.
+- `Mapping`: An optional secondary Map that maps between differnent media types of dimensional spaces.
+
+## The `collapse` Constraint Solving Loop
 
 ### Overview
 
@@ -97,14 +101,15 @@ In the interest of simplicty and to help readers to understand the core solving 
 
 ### Data Structures
 
-- `Observe`: A structure which represents an observation and the entropy of a vertex.
-- `Propagate`: A propagate which represents a propagation `from` a vertex `to` another vertex in a direction.
+- `Observe`: Represents a possible observation and the entropy of a vertex to be observed at the time it was created.
+- `Propagate`: Represents a propagation `from` a vertex `to` another vertex in along a a directed edge.
 - `Heap: BinaryHeap<Observe>`: A [min heap] of `Observe` actions storing the Observe with the lowest entropy on top.
 - `Observed: Set<VertexIndex>`: A list recording which vertices have been collapsed to a singleton set.
 - `Propagations: Vec<Propagate>`: A stack of `Propagate` actions representing a queue of constraint propagations that need to take place.
+- `gen_observe: Vec<VertexIndex>`: An array of vertexes the entropy of which has changed during the propagation process and need to have new `Observe` operations generated for them.
 
 ### Initialization
-This the pseudocode for initialization of the algorithm
+This the pseudocode for initialization of the algorithm. The main function of this code is to initialise the `Heap` of `Observe` actions and the initial entropy of the Graph's vertices as well as allow for partially collapsed Graphs as input.
 ```
 FOR EACH vertex IN output_graph:
     IF vertex.labels EQUAL TO PROPER SUBSET OF all_labels:
@@ -118,7 +123,8 @@ FOR EACH vertex IN output_graph:
     PUSH Observe.new FOR vertex ONTO Heap
 ```
 
-### Constraint Solving Loop Deep Dive
+### Constraint Solving `collapse` Loop Deep Dive
+This pseudocode shows the basic logic for the core loop of the `collapse` algorithm and how constraint solving is used to collapse the Graph. 
 ```
 LOOP:
     IF Observed.length == Graph.vertices.length:
