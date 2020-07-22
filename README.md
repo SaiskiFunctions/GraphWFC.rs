@@ -8,11 +8,17 @@ This implementation:
 2. Allows for input / output between arbitrary media types. For example, inputting image data for constraint generation and outputting sound data.
 3. Modularises the structure of algorithm to improve run time on distributed services and make profiling and performance optimisation easier.
 
+## Quick Start
+
+1. `clone` this repo.
+2. Create a new file with a valid input model inside `resources/test`. (See examples section for input examples) - or use one of the existing example files
+3. `
+
 ## Background
 
 The Wave Function Collapse algorithm is a constraint solving algorithm created by Maxim Gumin based on Paul Merrell's work in model generation and Paul F. Harrison's work in texture synthesis. Its primary application has been in generative media and games as a method for procedurally generating large amounts of original content from a small set of human defined inputs.
 
-`INPUT OUTPUT IMAGE EXAMPLE HERE`
+![wfc_examples](resources/ref_images/mxgmn_examples.gif "Maxim Examples")
 
 Since its release the algorithm has been ported across to many languages and content creation systems, however, because of the algorithms traditional area of application it has generally been implemented with fairly obfuscated data structures (such as nested three dimensional arrays) and strongly coupled with the process of parsing in input data making it difficult for users to understand how the constraint solving elements of the algorithm work and how to implement the algorithm in arbitrary n dimensional spaces and across many media types.
 
@@ -28,7 +34,7 @@ It follows that anything that can be reasonably parsed into Graph data can be co
 3. The "hottest" part of the code is small and modularised making profiling and optimisation much easier.
 4. Extending and debugging the algorithms core functionality is centralised into a single set of modules. Extending Graph `collapse` functionality once extends functionality for all possible input types.
 
-A further advantage of using Graphs as the primary data structure for `collapse` is its simplicity and maintainability. `Graph` is a very simple `struct` with the indexes of `vertices` representing the index of an actual vertex in the graph with the value at that index composed of a set of possible labels. This implementation uses an adjacency matrix to represent `edges` implemented as an opinionated sparse matrix (to save on menmory) which supports access *from* one vertex to another in a discrete direction.
+A further advantage of using Graphs as the primary data structure for `collapse` is its simplicity and maintainability. `Graph` is a very simple `struct` with the indexes of `vertices` representing the index of an actual vertex in the graph with the value at that index composed of a set of possible labels. This implementation uses an adjacency matrix to represent `edges` implemented as an opinionated sparse matrix (to save on menmory) which supports access *from* one vertex to another in a discrete direction. We made the decision to implement the adjacencies in this more opinionated way because the edges are essentially only use to propagate information *from* one vertex *to* another and so we only require an injective function to move information from one part of the Graph to another.
 
 ```rust
 struct Graph {
@@ -206,7 +212,7 @@ The Graph structure in the algorithm would have these edge directions explicitly
 
 #### What is an uncollapsed Graph?
 
-An uncollapsed grap
+An uncollapsed graph is a graph in which one or more vertices of the graph is in some superposition i.e. contains a set of labels great than one. The term superposition is used because it refers to the WFC algorithm's modelling of the constraint solving possibility space as similar to a quantum particle that can be in many states until it is observed at which point it collapses down to a *definite* position; the process of reducing a set of possible labels to a singleton set.
 
 #### What is entropy and why is it useful?
 
@@ -225,13 +231,39 @@ Shannon entropy is given by the equation below and describes abstract informatio
 
 ![Shannon entropy](resources/ref_images/entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
 
-`H(X)`: The input to the equation.
-`n`: The number of total possible labels.
-`P(x)`: The probability of the input element `x` appearing in the set which is calculate by `frequency of x / entire set`
-
-The equation basically says that entropy of a specific set is the negative sum of all labels.
+- `H(X)`: The input to the equation.
+- `n`: The number of total possible labels.
+- `P(x)`: The probability of the input element `x` appearing in the set which is calculate by `frequency of x / entire set`
+- `log(b)`: Converts the output entropy of the function to different significant units. For the purposes of this algorithm we use `log2`.
 
 #### What is an adjacency matrix?
+
+An adjacency matrix is a method for simply encoding directions and connections between different nodes.
+`Example Graph`:
+```
+1b --- 2c
+|      |
+0a --- 3b
+```
+
+Given the example graph above the directional relationship between the nodes in the graph can be encode in the adjacency matrix below. This is assuming that the graph encodes 4 cardinal directions in 2-dimensional space. As we can see, vertex `3` connects to vertex `2` in the north and does not connected to vertex `1`. If we read down the `3` column we can see that at row `1` there is a `0`, indicating no connection between these two nodes. In row `2` there is a `1` which encodes the `North` direction.
+
+`Adjacency Matrix`:
+```
+North: 1, South: 2, East: 3, West: 4, No connection: 0
+
+    0     1     2     3  ⬅ FROM vertex index
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+0 ┃  0  ┃  2  ┃  0  ┃ 4
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+1 ┃  1  ┃  0  ┃  4  ┃ 0
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+2 ┃  0  ┃  3  ┃  0  ┃ 1
+ ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
+3 ┃  3  ┃  0  ┃  2  ┃ 0
+⬆
+TO vertex index
+```
 
 ## Walkthrough of `collapse`
 
@@ -363,82 +395,36 @@ RUN Observe(1)
 ALL vertices OBSERVED -> RETURN
 ```
 
+
+## Examples
+
+### Text based tile maps:
+
+`Input`:
 ```
-Why are we using this data structure for connections and directions?
-
-// (0: N, 0: a) -> (1: b)
-// (0: N, 1: b) -> (2: c)
-// (1: S, 1: b) -> (0: a)
-// (1: S, 2: c) -> (1: b)
-// (2: E, 0: a) -> (1: b)
-// (2: E, 1: b) -> (2: c)
-// (3: W, 1: b) -> (0: a)
-// (3: W, 2: c) -> (1: b)
-
-This means when we look up further propagations from a Collapse or a Propagate action we have to log
-the label that has been propagated/Observed, then go to the graph's edges, iterate through it and look
-in each label in the edges map for hash_sets that contain the desired "from" vertex as their first label
-and do this for four separate entries (more if we are in higher dimensions) in the map.
-
-Could we not just combine all of this edge and connection information into a single (sparse) matrix making it
-much simpler to look up connections and generate rules.
-
-    1b --- 2c
-    |      |
-    0a --- 3b
-
-    1:n, 2:s, 3:e, 4:w, 5, 6, 
-
-    0     1     2     3   <-- FROM
- ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
-0 ┃ 0   ┃ 2:S ┃ 0   ┃ 4:W
- ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
-1 ┃ 1:N ┃ 0   ┃ 4:W ┃ 0
- ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
-2 ┃ 0   ┃ 3:E ┃ 0   ┃ 1:N
- ━╋━━━━━╋━━━━━╋━━━━━╋━━━━
-3 ┃ 3:E ┃ 0   ┃ 2:S ┃ 0
-⟰
-TO
-
-Then store as sparse matrix and query directly to get vertex connection AND direction information immediately.
+🗻🗻🗻⛩🗻🗻🗻
+🗻🌳🗻🗻🗻🗻🗻
+🌳🌳🌳🌳🌳🌳🌳
+🌳🌳🌳⛩🌳🌊🌳
+🌊🌊🌊🌊🌊🌊🌊
+🌊🌊🌊🌊🌊🌊🌊
+🌊🌊🌊🌊🌊🌊🌊
 ```
 
-
-
-
-Adjency matrix structures the relationships, its only used for propagating information
-
-Adjency matrices have to have a subset (or equal) relationships to the input.
-
-Turning input into
-Learning rules from input graph
-Building an output structure of adjency matrices
-Applying propagation
-
-Unions and intersections 
-possibilities are output as a set
-set logic stuff tm
-
-Collapse calculation is arbitrary <- 
-
-#### What is a vertex in superposition?
-
-input conforms to a linear space for input
-
-🍂🍂🍂🍂🍂🍂🍂
-🍂🍂🍂🍂🍂🍂🍂
-🌳🌳🌳⛩🌳🌳🌳
-🌊🌊🌊🌊🌊🌊🌊
-🌊🌊🌊🌊🌊🌊🌊
-🌊🌊🌊🌊🌊🌊🌊
-
-😅😅😅😅😅😅😅
-😅😅😅😅😅😅😅
-🌳🌳🌳⛩🌳🌳🌳
-🌊🌊🌊🌊🌊🌊🌊
-🌊🌊🌊🌊🌊🌊🌊
-🌊🌊🌊🌊🌊🌊🌊
+`Output`:
+```
+🌳🗻🗻🗻⛩🗻🗻⛩🌳⛩🗻🗻🗻🗻🗻🗻🗻🗻🗻🗻
+⛩🗻🗻🗻🗻🗻🗻🗻🌳🗻🌳🗻🗻🗻🗻🗻🗻🗻🗻🗻
+🗻🌳🗻🗻🗻🗻🗻🗻🌳🌳🌳🌳🗻🌳🗻🗻🗻🗻🌳🗻
+🗻⛩🗻🗻🗻🗻🗻🌳🌳🌳🌳🌳🗻🌳🗻🗻🌳🗻🌳🌳
+🗻🗻🗻🗻🌳🗻🌳🌳🌳🌳🌳🌳🗻🌳🗻🌳🌳🗻🌳⛩
+🗻🌳🗻🌳⛩🗻🌳⛩🌳🌳🌳🌊🌳🌳🗻🌳🌊🌳🌊🌊
+🗻🌳🗻🌳🗻🌳🌳🌊🌳🌳🌊🌊🌳⛩🗻🌳🌊🌳🌊🌊
+🌳⛩🌳🌳🗻🌳🌳🌊🌳🌳🌊🌊🌳🗻🌳🌊🌊🌳🌊🌊
+🌊🌊🌳🌊🌳🌊🌳🌊🌊🌳🌊🌊🌳🗻🌳🌊🌊🌊🌊🌊
+🌊🌊🌳🌊🌳🌊🌊🌊🌊🌊🌊🌊🌳🌳🌳🌊🌊🌊🌊🌊
+🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
+```
 
 
 
