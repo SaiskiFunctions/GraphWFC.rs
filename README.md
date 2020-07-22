@@ -12,7 +12,8 @@ This implementation:
 
 1. `clone` this repo.
 2. Create a new file with a valid input model inside `resources/test`. (See examples section for input examples) - or use one of the existing example files
-3. `
+3. Edit the arguments to the `parse` and `render` functions in `main.rs`.
+4. `$ cargo run` in project directory.
 
 ## Background
 
