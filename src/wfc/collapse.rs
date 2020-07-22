@@ -42,10 +42,13 @@ impl Collapse<'_> {
             else { heap.push(Observe::new_fuzz(rng, &from_index, labels, frequencies)) }
         }
 
-        // initialize propagates
+        // Ensure that output graph is fully propagated before starting loop.
+        // Generate Propagates for every vertex whose label set is a proper
+        // subset of the set of all labels.
         for (_index, labels) in vertices_iter {
             let from_index = _index as i32;
-            if labels != all_labels && labels.is_subset(all_labels) { // <-- labels is proper subset of all_labels
+            assert!(labels.is_subset(all_labels));
+            if labels != all_labels { // labels is proper subset of all_labels
                 generate_propagations(&mut propagations, &observed, &out_graph, &from_index);
             }
         }
