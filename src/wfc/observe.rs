@@ -1,3 +1,4 @@
+use cached::proc_macro::cached;
 use std::cmp::Ordering;
 use std::ops::Index;
 use rand::prelude::*;
@@ -53,7 +54,10 @@ impl PartialEq for Observe {
     }
 }
 
+// make labels set a vec holding frequencies at positions in the vec where the index corresponds to a label.
+
 /// Calculate the shannon entropy for a given set of labels and label frequencies.
+#[cached]
 fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
     let label_frequencies = labels.iter().map(|label| frequencies.index(label));
     let total: i32 = label_frequencies.clone().sum();

@@ -9,6 +9,8 @@ repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 
 [dependencies]
 rand = "0.7.3"
+cached = "0.17.0"
+
 bencher = "0.1.5"
 
 [[bench]]
