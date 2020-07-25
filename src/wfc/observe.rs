@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::ops::Index;
 use rand::prelude::*;
 use crate::graph::graph::{VertexIndex, Labels, Frequencies};
+use nalgebra::DVector;
 
 
 // Lower and upper bounds for use in generating slightly different
@@ -57,12 +58,21 @@ impl PartialEq for Observe {
 // make labels set a vec holding frequencies at positions in the vec where the index corresponds to a label.
 
 /// Calculate the shannon entropy for a given set of labels and label frequencies.
-#[cached]
 fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
     let label_frequencies = labels.iter().map(|label| frequencies.index(label));
     let total: i32 = label_frequencies.clone().sum();
     - label_frequencies.fold(0.0, |acc, frequency| {
         let prob = *frequency as f32 / total as f32;
+        acc + prob * prob.log2()
+    })
+}
+
+/// Calculate the shannon entropy, in bits, for a vector of label frequencies.
+#[cached]
+fn calculate_entropy2(labels: DVector<u32>) -> f32 {
+    let total: u32 = labels.iter().sum();
+    - labels.fold(0.0, |acc, frequency| {
+        let prob = frequency as f32 / total as f32;
         acc + prob * prob.log2()
     })
 }
@@ -74,6 +84,14 @@ mod tests {
     use crate::utils::{hash_set, hash_map};
 
     #[test]
+    fn test_vector_entropy_one() {
+        let labels = vec![200];
+        let a = DVector::from_iterator(labels.len(), labels.into_iter());
+        let entropy = calculate_entropy2(a);
+        assert_eq!(entropy, 0.0)
+    }
+
+    #[test]
     fn test_calculate_entropy_one() {
         let test_labels = hash_set(&[1]);
         let test_frequencies = hash_map(&[(1, 200)]);
@@ -83,12 +101,30 @@ mod tests {
     }
 
     #[test]
+    fn test_vector_entropy_small() {
+        let labels = vec![2, 1, 1];
+        let a = DVector::from_iterator(labels.len(), labels.into_iter());
+        let entropy = calculate_entropy2(a);
+        assert_eq!(entropy, 1.5)
+    }
+
+    #[test]
     fn test_calculate_entropy_small() {
         let test_labels = hash_set(&[0, 1, 2]);
         let test_frequencies = hash_map(&[(0, 2), (1, 1), (2, 1)]);
         let entropy = calculate_entropy(&test_labels, &test_frequencies);
 
         assert_eq!(entropy, 1.5);
+    }
+
+    #[test]
+    fn test_vector_entropy_multiple() {
+        let labels = vec![4, 6, 1, 6];
+        let a = DVector::from_iterator(labels.len(), labels.into_iter());
+        let entropy = calculate_entropy2(a);
+        let lt = 1.79219;
+        let gt = 1.79220;
+        assert!(lt < entropy && entropy < gt);
     }
 
     #[test]
