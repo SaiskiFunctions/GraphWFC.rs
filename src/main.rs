@@ -4,7 +4,7 @@ mod utils;
 mod wfc;
 
 use crate::wfc::collapse::collapse;
-use crate::graph::graph::{Graph, Edges, Labels};
+use crate::graph::graph::{Graph, Edges, Labels, GraphGen};
 use crate::utils::{hash_set, hash_map};
 use crate::io::text_parser::{parse, make_nsew_grid_edges, render};
 

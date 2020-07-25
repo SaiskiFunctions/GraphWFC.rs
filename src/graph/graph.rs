@@ -13,6 +13,15 @@ pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
 pub type Frequencies = HashMap<VertexLabel, i32>;
 
+pub trait GraphGen {
+    fn rules(&self) -> Rules;
+    fn frequencies(&self) -> Frequencies;
+    fn all_labels(&self) -> Labels;
+    fn connections(&self, index: &VertexIndex) -> &Vec<(VertexIndex, EdgeDirection)>;
+    fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies);
+    fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels>;
+}
+
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub vertices: Vec<Labels>, // index of vec == vertex index
@@ -27,10 +36,12 @@ impl Graph {
     pub fn empty() -> Graph {
         Graph { vertices: Vec::new(), edges: HashMap::new() }
     }
+}
 
+impl GraphGen for Graph {
     /// Construct HashMap of rules for this graph.
     /// Rules connect a tuple of direction and vertex label to a set of labels.
-    pub fn rules(&self) -> Rules {
+    fn rules(&self) -> Rules {
         let mut rules: Rules = HashMap::new();
         for (from_vertex_index, edges) in self.edges.iter() {
             for (to_vertex_index, direction) in edges.iter() {
@@ -46,7 +57,7 @@ impl Graph {
     }
 
     /// Construct HashMap of label frequencies for this graph.
-    pub fn frequencies(&self) -> Frequencies {
+    fn frequencies(&self) -> Frequencies {
         self.vertices.iter().fold(HashMap::new(), |mut map, labels| {
             labels.iter().for_each(|label| {
                 map.entry(*label).and_modify(|n| *n += 1).or_insert(1);
@@ -56,7 +67,7 @@ impl Graph {
     }
 
     /// Construct the set of all labels for this graph.
-    pub fn all_labels(&self) -> Labels {
+    fn all_labels(&self) -> Labels {
         self.vertices.iter().fold(HashSet::new(), |mut all, labels| {
             all.extend(labels);
             all
@@ -65,12 +76,12 @@ impl Graph {
 
     /// Return all pairs of vertex indexes and directions connected to the
     /// given index for this graph.
-    pub fn connections(&self, index: &VertexIndex) -> &Vec<(VertexIndex, EdgeDirection)> {
+    fn connections(&self, index: &VertexIndex) -> &Vec<(VertexIndex, EdgeDirection)> {
         self.edges.index(index)
     }
 
     /// Collapses the set of vertex labels at the given index to a singleton set.
-    pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {
+    fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {
         let labels = &mut self.vertices[*index as usize];
         let total: i32 = labels.iter().fold(0, |acc, label| {
             &acc + frequencies.index(label)
@@ -91,7 +102,7 @@ impl Graph {
     /// Constrain the vertex labels at the given index by intersecting the
     /// vertex labels with the constraint set.
     /// Return Some(labels) if the labels set was changed else return None.
-    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels> {
+    fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels> {
         let labels = &mut self.vertices[*index as usize];
         if labels.is_subset(constraint) { return None; }
         *labels = labels.intersection(constraint).map(|x| *x).collect();
