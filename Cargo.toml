@@ -1,8 +1,9 @@
 [package]
 name = "wfc-rust"
 version = "0.1.0"
-authors = ["dpwdec <declankolakowski@gmail.com>"]
+authors = ["dpwdec <declankolakowski@gmail.com>", "Marcus Desai <marcus.desai@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

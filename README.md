@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/dpwdec/wfc-rust)
 
+[![Coverage Status](https://coveralls.io/repos/github/SaiskiFunctions/GraphWFC.rs/badge.svg?branch=master)](https://coveralls.io/github/SaiskiFunctions/GraphWFC.rs?branch=master)
+
 
 A graph based implementation of the Wave Function Collapse algorithm. This project improves on the flexibility and speed [MD NOTES: citation needed (or at least a benchmark)] of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
 

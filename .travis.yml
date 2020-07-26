@@ -1,3 +1,57 @@
 language: rust
+cache: cargo
+sudo: false
+
+os:
+  - linux
+  - osx
+
 rust:
   - stable
+  - beta
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev
+
+before_script:
+  - |
+      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      pip install 'travis-cargo<0.2' --user &&
+      export PATH=$HOME/.local/bin:$PATH
+      fi
+
+script:
+  - |
+      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      travis-cargo build &&
+      travis-cargo test;
+      fi
+  - |
+      if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      cargo build &&
+      cargo test;
+      fi
+
+# Send coverage reports and upload docs
+after_success:
+  - |
+      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      travis-cargo --only stable coveralls --no-sudo --verify;
+      fi
+
+env:
+  global:
+    - TRAVIS_CARGO_NIGHTLY_FEATURE=""
+
+notifications:
+  email:
+    recipients:
+      - declankolakowski@gmail.com
+      - marcus.desai@gmail.com
+    on_success: change
+on_failure: always
