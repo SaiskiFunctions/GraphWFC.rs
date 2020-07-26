@@ -1,6 +1,6 @@
 # GraphWFC
 
-[![Build Status](https://travis-ci.org/dpwdec/wfc-rust.svg?branch=master)](https://travis-ci.org/dpwdec/wfc-rust)
+[![Build Status](https://travis-ci.com/SaiskiFunctions/GraphWFC.rs.svg?branch=master)](https://travis-ci.com/SaiskiFunctions/GraphWFC.rs)
 
 [![Coverage Status](https://coveralls.io/repos/github/SaiskiFunctions/GraphWFC.rs/badge.svg?branch=master)](https://coveralls.io/github/SaiskiFunctions/GraphWFC.rs?branch=master)
 

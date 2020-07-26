@@ -1,7 +1,7 @@
 [package]
 name = "wfc-rust"
 version = "0.1.0"
-authors = ["dpwdec <declankolakowski@gmail.com>", "Marcus Desai <marcus.desai@gmail.com>"]
+authors = ["dpwdec <declankolakowski@gmail.com>", "Marcus Desai <marcusdesai@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 
@@ -9,3 +9,8 @@ repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 
 [dependencies]
 rand = "0.7.3"
+bencher = "0.1.5"
+
+[[bench]]
+name = "collapse"
+harness = false

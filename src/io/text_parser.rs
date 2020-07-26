@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
-use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, VertexLabel};
+use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex};
 use crate::utils::hash_set;
 
 pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {

@@ -122,7 +122,7 @@ fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<V
     });
 }
 
-pub fn collapse(input_graph: Graph, output_graph: Graph, seed: Option<u64>, tries: Option<u16>) -> Option<Graph> {
+pub fn collapse(input_graph: &Graph, output_graph: Graph, seed: Option<u64>, tries: Option<u16>) -> Option<Graph> {
     let mut rng = StdRng::seed_from_u64(seed.unwrap_or(thread_rng().next_u64()));
     let tries = tries.unwrap_or(10);
 

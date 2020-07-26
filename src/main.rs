@@ -1,11 +1,6 @@
-mod graph;
-mod io;
-mod utils;
-mod wfc;
-
-use crate::wfc::collapse::collapse;
-use crate::graph::graph::{Graph, Labels};
-use crate::io::text_parser::{parse, make_nsew_grid_edges, render};
+use wfc_rust::wfc::collapse::collapse;
+use wfc_rust::graph::graph::{Graph, Labels};
+use wfc_rust::io::text_parser::{parse, make_nsew_grid_edges, render};
 
 // BUG: out_width is divded by 2 when rendered
 fn main() {
@@ -17,8 +12,8 @@ fn main() {
         let output_vertices: Vec<Labels> = vec![all_labels; out_width * out_depth];
         let output_edges = make_nsew_grid_edges(out_width, out_depth);
         let output_graph = Graph::new(output_vertices, output_edges);
-        if let Some(collapsed_graph) = collapse(input_graph, output_graph, Some(134522), None) {
-            render("resources/test/tosashimizu_output.txt", &collapsed_graph, &keys, out_width);
+        if let Some(collapsed_graph) = collapse(&input_graph, output_graph, Some(134522), None) {
+            render("resources/test/tosashimizu_output2.txt", &collapsed_graph, &keys, out_width);
         }
     }
 }
