@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::ops::Index;
 use crate::utils::hash_set;
+use nalgebra::DVector;
 
 
 pub type VertexLabel = i32;     // labels that a vertex can contain
@@ -12,6 +13,8 @@ pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
 pub type Frequencies = HashMap<VertexLabel, i32>;
+
+pub type LabelFrequencies = DVector<u32>;
 
 #[derive(Debug, Clone)]
 pub struct Graph {
@@ -104,6 +107,21 @@ mod tests {
     use super::*;
     use crate::utils::hash_map;
     use std::iter::FromIterator;
+    use nalgebra::{Vector3, sup, inf};
+
+    #[test]
+    fn test_matrix_intersect() {
+        let a = DVector::from_iterator(3, vec![1, 0, 1].into_iter());
+        let b = DVector::from_iterator(3, vec![0, 0, 1].into_iter());
+        assert_eq!(b, a.component_mul(&b))
+    }
+
+    #[test]
+    fn test_matrix_union() {
+        let a = DVector::from_iterator(3, vec![1, 0, 1].into_iter());
+        let b = DVector::from_iterator(3, vec![0, 0, 1].into_iter());
+        assert_eq!(a, sup(&a, &b))
+    }
 
     fn graph_edges() -> Edges {
         hash_map(&[
