@@ -1,6 +1,7 @@
 language: rust
-cache: cargo
-sudo: false
+cache:
+  cargo: true
+  timeout: 1000
 
 os:
   - linux
@@ -17,32 +18,25 @@ addons:
       - libelf-dev
       - libdw-dev
       - binutils-dev
+      - libbfd-dev
 
-before_script:
-  - |
-      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      pip install 'travis-cargo<0.2' --user &&
-      export PATH=$HOME/.local/bin:$PATH
-      fi
+before_script: |
+  PKGNAME="wfc-rust" # must match with cargo.toml
+  LOCAL="~/.local" # install here to avoid `sudo`
+  export PATH=$LOCAL/bin:$PATH
 
-script:
-  - |
-      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      travis-cargo build &&
-      travis-cargo test;
-      fi
-  - |
-      if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      cargo build &&
-      cargo test;
-      fi
+after_success: |
+  if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
+      tar xzf master.tar.gz && mkdir kcov-master/build && cd kcov-master/build &&
+      cmake -DCMAKE_INSTALL_PREFIX:PATH=$LOCAL .. && make &&
+      make install && cd ../.. &&
 
-# Send coverage reports and upload docs
-after_success:
-  - |
-      if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      travis-cargo --only stable coveralls --no-sudo --verify;
-      fi
+      kcov --verify \
+           --coveralls-id=$TRAVIS_JOB_ID \
+           --exclude-pattern=/.cargo \
+           target/kcov target/debug/${PKGNAME}
+  fi
 
 env:
   global:
@@ -54,4 +48,4 @@ notifications:
       - declankolakowski@gmail.com
       - marcus.desai@gmail.com
     on_success: change
-on_failure: always
+    on_failure: always
