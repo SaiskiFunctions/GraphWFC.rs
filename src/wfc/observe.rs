@@ -67,12 +67,12 @@ fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
     })
 }
 
-/// Calculate the shannon entropy, in bits, for a vector of label frequencies.
+/// Calculate the shannon entropy, in bits, for a vector of frequencies.
 #[cached]
-fn calculate_entropy2(labels: DVector<u32>) -> f32 {
-    let total: u32 = labels.iter().sum();
-    - labels.fold(0.0, |acc, frequency| {
-        let prob = frequency as f32 / total as f32;
+fn calculate_entropy2(frequencies: DVector<u32>) -> f32 {
+    let total = frequencies.iter().sum::<u32>() as f32;
+    - frequencies.fold(0.0, |acc, frequency| {
+        let prob = frequency as f32 / total;
         acc + prob * prob.log2()
     })
 }
