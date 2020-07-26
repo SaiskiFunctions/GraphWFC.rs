@@ -1,5 +1,7 @@
 language: rust
-cache: cargo
+cache:
+  cargo: true
+  timeout: 1000
 
 os:
   - linux
@@ -33,7 +35,7 @@ after_success: |
       kcov --verify \
            --coveralls-id=$TRAVIS_JOB_ID \
            --exclude-pattern=/.cargo \
-           target/kcov target/debug/$PKGNAME-*
+           target/kcov target/debug/${PKGNAME}
   fi
 
 env:
