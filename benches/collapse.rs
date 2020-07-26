@@ -2,10 +2,9 @@
 extern crate bencher;
 
 use bencher::Bencher;
+use wfc_rust::graph::graph::{Graph, Labels};
+use wfc_rust::io::text_parser::{make_nsew_grid_edges, parse};
 use wfc_rust::wfc::collapse::collapse;
-use wfc_rust::io::text_parser::{parse, make_nsew_grid_edges};
-use wfc_rust::graph::graph::{Labels, Graph};
-
 
 fn bench_collapse(bench: &mut Bencher) {
     let out_width = 10;
@@ -17,10 +16,9 @@ fn bench_collapse(bench: &mut Bencher) {
         let output_edges = make_nsew_grid_edges(out_width, out_depth);
         let output_graph = Graph::new(output_vertices, output_edges);
 
-        bench.iter(|| {collapse(&input_graph, output_graph.clone(), Some(134522), None)})
+        bench.iter(|| collapse(&input_graph, output_graph.clone(), Some(134522), None))
     }
 }
-
 
 benchmark_group!(benches, bench_collapse);
 benchmark_main!(benches);

@@ -38,7 +38,7 @@ impl Graph {
                     let rules_key = (*direction, *from_vertex_label);
                     rules.entry(rules_key)
                         .and_modify(|to_labels| to_labels.extend(&self.vertices[*to_vertex_index as usize]))
-                        .or_insert(self.vertices[*to_vertex_index as usize].clone());
+                        .or_insert_with(|| self.vertices[*to_vertex_index as usize].clone());
                 }
             }
         }
@@ -73,7 +73,7 @@ impl Graph {
     pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {
         let labels = &mut self.vertices[*index as usize];
         let total: i32 = labels.iter().fold(0, |acc, label| {
-            &acc + frequencies.index(label)
+            acc + frequencies.index(label)
         });
         let choice = rng.gen_range(1, total + 1);
         let mut acc = 0;
@@ -82,10 +82,10 @@ impl Graph {
         let mut sorted_labels = Vec::from_iter(labels.iter());
         sorted_labels.sort();
 
-        *labels = hash_set(&[**sorted_labels.iter().skip_while(|label| {
+        *labels = hash_set(&[**sorted_labels.iter().find(|label| {
             acc += *frequencies.index(label);
-            acc < choice
-        }).next().unwrap()]);
+            acc >= choice
+        }).unwrap()]);
     }
 
     /// Constrain the vertex labels at the given index by intersecting the
@@ -94,7 +94,7 @@ impl Graph {
     pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels> {
         let labels = &mut self.vertices[*index as usize];
         if labels.is_subset(constraint) { return None; }
-        *labels = labels.intersection(constraint).map(|x| *x).collect();
+        *labels = labels.intersection(constraint).copied().collect();
         Some(labels)
     }
 }

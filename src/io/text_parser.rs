@@ -101,7 +101,7 @@ pub fn render(filename: &str, graph: &Graph, key: &HashMap<usize, char>, width: 
     let lines: String = rendered_vertices.chunks_exact(width).map(|chunk| {
         chunk.iter().collect::<String>() + "\n"
     }).collect::<String>();
-    if let Ok(_) = write(filename, lines) {};
+    if write(filename, lines).is_ok() {};
 }
 
 

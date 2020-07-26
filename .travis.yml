@@ -26,7 +26,7 @@ before_script: |
   export PATH=$LOCAL/bin:$PATH
 
 after_success: |
-  if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+  if [[ "$TRAVIS_OS_NAME" == "linux" ]] && [[ "$TRAVIS_RUST_VERSION" = "stable" ]]; then
       wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
       tar xzf master.tar.gz && mkdir kcov-master/build && cd kcov-master/build &&
       cmake -DCMAKE_INSTALL_PREFIX:PATH=$LOCAL .. && make &&
