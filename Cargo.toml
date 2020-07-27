@@ -14,5 +14,5 @@ nalgebra = "0.18"
 bencher = "0.1.5"
 
 [[bench]]
-name = "collapse"
+name = "benches"
 harness = false
