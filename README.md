@@ -4,8 +4,9 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/SaiskiFunctions/GraphWFC.rs/badge.svg?branch=master)](https://coveralls.io/github/SaiskiFunctions/GraphWFC.rs?branch=master)
 
+[hello]
 
-A graph based implementation of the Wave Function Collapse algorithm. This project improves on the flexibility and speed [MD NOTES: citation needed (or at least a benchmark)] of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
+A graph based implementation of the Wave Function Collapse algorithm. This project improves on the flexibility <!---(citation needed or at least a benchmark)--> of the algorithm by decoupling its constraint solving functionality from input / output data and generalising parsing and rendering into graph structures allowing for speedy constraint propagation and easy conversion between media types.
 
 This implementation:
 1. Generalises and brings clarity to the constraint solving core of the algorithm.
@@ -14,7 +15,7 @@ This implementation:
 
 ## Quick Start
 
-[MD NOTES: We really should make a minimal cli application for people to use rather than having them change the source code. Altering source requires that they recompile and thus have the rust toolchain installed, which we have not commented here. So I really think a cli is a must.]
+<!---[MD NOTES: We really should make a minimal cli application for people to use rather than having them change the source code. Altering source requires that they recompile and thus have the rust toolchain installed, which we have not commented here. So I really think a cli is a must.]-->
 
 1. `clone` this repo.
 2. Create a new file with a valid input model inside `resources/test` or use one of the existing example files
@@ -27,21 +28,21 @@ The Wave Function Collapse algorithm is a constraint solving algorithm created b
 
 ![wfc_examples](resources/ref_images/mxgmn_examples.gif "Maxim Examples")
 
-[MD NOTES: We should generate our own examples gif rather than using someone else's.]
+<!---[MD NOTES: We should generate our own examples gif rather than using someone else's.]-->
 
 Since its release the algorithm has been ported across to many languages and content creation systems, however, because of the algorithms traditional area of application [MD NOTES: citation needed. We should rephrase this to just state the facts rather than reason why it's the case] it has generally been implemented with fairly obfuscated data structures (such as nested three dimensional arrays) and strongly coupled with the process of parsing in input data making it difficult for users to understand how the constraint solving elements of the algorithm work and how to implement the algorithm in arbitrary n dimensional spaces and across many media types.
 
-[MD NOTES: The above sentence could use some work which we can do :)]
+<!---[MD NOTES: The above sentence could use some work which we can do :)]-->
 
 ## Method
 
 This implementation of WFC uses only Graph structures in the algorithm's `collapse` loop where the core constraint solving functionality occurs.
 
-[MD NOTES: Sorry being really persnickety here, but the above could also use a rewrite.]
+<!---[MD NOTES: Sorry being really persnickety here, but the above could also use a rewrite.]-->
 
 Graphs are an incredibly flexible data (and mathematical) structure [MD NOTES: rephrase] that can be used to represent a wide range of structures. We can use the edge-vertex structure of Graphs to represent n-dimensional spaces through n number of directed edges. For example, in a 1-dimensional space (a line), graph vertexes are connected by edges labelled with forwards and backwards. This approach generalises to higher input dimensions with the number of edge labels correlating with the number of discrete directions across each dimension. Furthermore, Graph structures can encode non-spatial discrete relationships, such as sequential relationship between words and word classes, or even temporal changes.
 
-[MD NOES: We can also slightly rephrase the above as well.]
+<!---[MD NOES: We can also slightly rephrase the above as well.]-->
 
 It follows that anything that can be reasonably parsed into Graph data can be constraint solved with this single implementation of the WFC algorithm; images, music, text, topological data etc. all with a single `collapse` loop. There are several advantages to this:
 1. Code is DRY-er as a result and more easily maintainable.
@@ -49,11 +50,9 @@ It follows that anything that can be reasonably parsed into Graph data can be co
 3. The "hottest" part of the code is small and modularised making profiling and optimisation much easier.
 4. Extending and debugging the algorithms core functionality is centralised into a single set of modules. Extending Graph `collapse` functionality once extends functionality for all possible input types.
 
-[MD NOTES: love these points, I totally agree!! :D]
-
 A further advantage of using Graphs as the primary data structure for `collapse` is its simplicity and maintainability. `Graph` is a very simple `struct` with the indexes of `vertices` representing the index of an actual vertex in the graph with the value at that index composed of a set of possible labels. This implementation uses an adjacency matrix to represent `edges` implemented as an opinionated sparse matrix (to save on menmory) which supports access *from* one vertex to another in a discrete direction. We made the decision to implement the adjacencies in this more opinionated way because the edges are essentially only use to propagate information *from* one vertex *to* another and so we only require an injective function to move information from one part of the Graph to another.
 
-[MD NOTES: The rust code below should be fully explained, so we should include the definitions for the non-standard types (like `VertexIndex`).]
+<!---[MD NOTES: The rust code below should be fully explained, so we should include the definitions for the non-standard types (like `VertexIndex`).]-->
 
 ```rust
 struct Graph {
@@ -157,7 +156,7 @@ In the interest of simplicty and to help readers to understand the core solving 
 ### Initialization
 This the pseudocode for initialization of the algorithm. The main function of this code is to initialise the `Heap` of `Observe` actions and the initial entropy of the Graph's vertices as well as allow for partially collapsed Graphs as input.
 
-[MD NOTES: love the pseudocode, but I think it is actaully too technical still, we should try to use basic english as far as possible, except for the control flow statements (like ELSE, etc...). So that means we should not use "vertex.connections" for example since the '.' is not pseudocode, it's actually code!]
+<!---[MD NOTES: love the pseudocode, but I think it is actaully too technical still, we should try to use basic english as far as possible, except for the control flow statements (like ELSE, etc...). So that means we should not use "vertex.connections" for example since the '.' is not pseudocode, it's actually code!]-->
 
 ```
 FOR EACH vertex IN output_graph:
@@ -238,7 +237,7 @@ An uncollapsed graph is a graph in which one or more vertices of the graph is in
 
 #### What is entropy and why is it useful?
 
-[MD NOTES: Ordering by entropy serves as a heuristic approximating a human choosing to tackle the next simplest problem when drawing. The 'simplest problem' is one where we have the most certainty about what to do. We have more certainty the lower the shannon entropy is.]  
+<!---[MD NOTES: Ordering by entropy serves as a heuristic approximating a human choosing to tackle the next simplest problem when drawing. The 'simplest problem' is one where we have the most certainty about what to do. We have more certainty the lower the shannon entropy is.]--> 
 
 This implementation of WFC uses classical shannon entropy as a complexity heuristic for ordering vertices.
 
@@ -255,10 +254,10 @@ Shannon entropy is given by the equation below and describes abstract informatio
 
 ![Shannon entropy](resources/ref_images/entropy_equation.svg "{\displaystyle \mathrm {H} (X)=-\sum _{i=1}^{n}{\mathrm {P} (x_{i})\log _{b}\mathrm {P} (x_{i})}}")
 
-- `H(X)`: The input to the equation. [MD NOTES: `X` is the input, `H` is the shannon entropy calculation, read it as "The Shannon entropy of the sequence `X`"]
-- `n`: The number of total possible labels. [MD NOTES: rephrase as: "the total number of labels."]
-- `P(x)`: The probability of the input element `x` appearing in the set which is calculate by `frequency of x / entire set` [MD NOTES: rephrase as: "The probability of an item from the sequence `X` being the value of `x`."]
-- `log(b)`: Converts the output entropy of the function to different significant units. For the purposes of this algorithm we use `log2`. [MD NOTES: The log function does something other than unit conversion, so this explanation just needs to be cleared up a little. they type of log does affect the interpretation of the output though yes.]
+- `H(X)`: The input to the equation. <!---[MD NOTES: `X` is the input, `H` is the shannon entropy calculation, read it as "The Shannon entropy of the sequence `X`"]-->
+- `n`: The number of total possible labels. <!---[MD NOTES: rephrase as: "the total number of labels."]-->
+- `P(x)`: The probability of the input element `x` appearing in the set which is calculate by `frequency of x / entire set` <!---[MD NOTES: rephrase as: "The probability of an item from the sequence `X` being the value of `x`."]-->
+- `log(b)`: Converts the output entropy of the function to different significant units. For the purposes of this algorithm we use `log2`. <!---[MD NOTES: The log function does something other than unit conversion, so this explanation just needs to be cleared up a little. they type of log does affect the interpretation of the output though yes.]-->
 
 #### What is an adjacency matrix?
 
@@ -272,7 +271,7 @@ An adjacency matrix is a method for simply encoding directions and connections b
 
 Given the example graph above the directional relationship between the nodes in the graph can be encode in the adjacency matrix below. This is assuming that the graph encodes 4 cardinal directions in 2-dimensional space. As we can see, vertex `3` connects to vertex `2` in the north and does not connected to vertex `1`. If we read down the `3` column we can see that at row `1` there is a `0`, indicating no connection between these two nodes. In row `2` there is a `1` which encodes the `North` direction.
 
-[MD NOTES: The example below is not an adjacency matrix, as such a matrix should contain only ones and zeroes (indicating an edge or not). What we use is a sort of 'extended' definition for an adjacency matrix which we should make clear here.]
+<!---[MD NOTES: The example below is not an adjacency matrix, as such a matrix should contain only ones and zeroes (indicating an edge or not). What we use is a sort of 'extended' definition for an adjacency matrix which we should make clear here.]-->
 
 `Adjacency Matrix`:
 ```
