@@ -1,3 +1,3 @@
 pub mod collapse;
-mod observe;
+pub mod observe;
 mod propagate;
