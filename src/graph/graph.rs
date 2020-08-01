@@ -107,7 +107,7 @@ mod tests {
     use super::*;
     use crate::utils::hash_map;
     use std::iter::FromIterator;
-    use nalgebra::{Vector3, sup, inf};
+    use nalgebra::sup;
 
     #[test]
     fn test_matrix_intersect() {

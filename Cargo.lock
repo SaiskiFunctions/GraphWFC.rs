@@ -886,6 +886,7 @@ version = "0.1.0"
 dependencies = [
  "bencher",
  "cached",
+ "lazy_static",
  "nalgebra",
  "rand 0.7.3",
 ]

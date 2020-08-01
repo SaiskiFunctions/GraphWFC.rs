@@ -4,6 +4,7 @@ use std::ops::Index;
 use rand::prelude::*;
 use crate::graph::graph::{VertexIndex, Labels, Frequencies};
 use nalgebra::DVector;
+use std::fmt::Debug;
 
 
 // Lower and upper bounds for use in generating slightly different
@@ -58,7 +59,7 @@ impl PartialEq for Observe {
 // make labels set a vec holding frequencies at positions in the vec where the index corresponds to a label.
 
 /// Calculate the shannon entropy for a given set of labels and label frequencies.
-fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
+pub fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
     let label_frequencies = labels.iter().map(|label| frequencies.index(label));
     let total: i32 = label_frequencies.clone().sum();
     - label_frequencies.fold(0.0, |acc, frequency| {
@@ -69,12 +70,36 @@ fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
 
 /// Calculate the shannon entropy, in bits, for a vector of frequencies.
 #[cached]
-fn calculate_entropy2(frequencies: DVector<u32>) -> f32 {
+pub fn calculate_entropy2(frequencies: DVector<u32>) -> f32 {
     let total = frequencies.iter().sum::<u32>() as f32;
     - frequencies.fold(0.0, |acc, frequency| {
         let prob = frequency as f32 / total;
         acc + prob * prob.log2()
     })
+}
+
+use std::sync::{RwLock, RwLockWriteGuard};
+use lazy_static::*;
+use std::collections::HashMap;
+
+type EntCache = HashMap<DVector<u32>, f32>;
+
+lazy_static! {
+    static ref CACHE: RwLock<EntCache> = RwLock::new(HashMap::new());
+}
+
+pub fn calculate_entropy3(frequencies: &DVector<u32>) -> f32 {
+    if let Some(result) = CACHE.read().unwrap().get(frequencies) {
+        return *result
+    }
+    let total = frequencies.iter().sum::<u32>() as f32;
+    let result = - frequencies.map(|frequency| {
+        let prob = frequency as f32 / total;
+        prob * prob.log2()
+    }).sum();
+    let mut write_cache: RwLockWriteGuard<EntCache> = CACHE.write().unwrap();
+    (*write_cache).insert(frequencies.clone(), result);
+    result.clone()
 }
 
 #[cfg(test)]
@@ -84,10 +109,16 @@ mod tests {
     use crate::utils::{hash_set, hash_map};
 
     #[test]
+    fn test_cache_vector_entropy_one() {
+        let a: &DVector<u32> = &DVector::from_row_slice(&[200]);
+        let entropy = calculate_entropy3(a);
+        assert_eq!(entropy, 0.0)
+    }
+
+    #[test]
     fn test_vector_entropy_one() {
-        let labels = vec![200];
-        let a = DVector::from_iterator(labels.len(), labels.into_iter());
-        let entropy = calculate_entropy2(a);
+        let a: &DVector<u32> = &DVector::from_row_slice(&[200]);
+        let entropy = calculate_entropy2(a.clone());
         assert_eq!(entropy, 0.0)
     }
 
@@ -102,8 +133,7 @@ mod tests {
 
     #[test]
     fn test_vector_entropy_small() {
-        let labels = vec![2, 1, 1];
-        let a = DVector::from_iterator(labels.len(), labels.into_iter());
+        let a: DVector<u32> = DVector::from_row_slice(&[2, 1, 1]);
         let entropy = calculate_entropy2(a);
         assert_eq!(entropy, 1.5)
     }
@@ -119,8 +149,7 @@ mod tests {
 
     #[test]
     fn test_vector_entropy_multiple() {
-        let labels = vec![4, 6, 1, 6];
-        let a = DVector::from_iterator(labels.len(), labels.into_iter());
+        let a: DVector<u32> = DVector::from_row_slice(&[4, 6, 1, 6]);
         let entropy = calculate_entropy2(a);
         let lt = 1.79219;
         let gt = 1.79220;
