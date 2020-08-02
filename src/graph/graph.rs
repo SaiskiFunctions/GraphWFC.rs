@@ -1,5 +1,5 @@
 use rand::prelude::*;
-use std::collections::{HashMap, HashSet};
+use hashbrown::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::ops::Index;
 use crate::utils::hash_set;

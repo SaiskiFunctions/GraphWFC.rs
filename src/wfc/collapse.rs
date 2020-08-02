@@ -1,6 +1,7 @@
 use rand::prelude::*;
 use rand::thread_rng;
-use std::collections::{HashSet, BinaryHeap};
+use std::collections::{BinaryHeap};
+use hashbrown::HashSet;
 use std::mem::replace;
 use std::ops::Index;
 use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels};
