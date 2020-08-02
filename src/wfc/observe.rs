@@ -80,23 +80,23 @@ pub fn calculate_entropy2(frequencies: DVector<u32>) -> f32 {
 
 use std::sync::{RwLock, RwLockWriteGuard};
 use lazy_static::*;
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 type EntCache = HashMap<DVector<u32>, f32>;
 
 lazy_static! {
-    static ref CACHE: RwLock<EntCache> = RwLock::new(HashMap::new());
+    static ref CACHE: RwLock<EntCache> = RwLock::new(HashMap::with_capacity(32));
 }
 
 pub fn calculate_entropy3(frequencies: &DVector<u32>) -> f32 {
     if let Some(result) = CACHE.read().unwrap().get(frequencies) {
         return *result
     }
-    let total = frequencies.iter().sum::<u32>() as f32;
-    let result = - frequencies.map(|frequency| {
+    let total = frequencies.sum() as f32;
+    let result = - frequencies.fold(0.0, |acc, frequency| {
         let prob = frequency as f32 / total;
-        prob * prob.log2()
-    }).sum();
+        acc + prob * prob.log2()
+    });
     let mut write_cache: RwLockWriteGuard<EntCache> = CACHE.write().unwrap();
     (*write_cache).insert(frequencies.clone(), result);
     result.clone()
@@ -129,6 +129,13 @@ mod tests {
         let entropy = calculate_entropy(&test_labels, &test_frequencies);
 
         assert_eq!(entropy, 0.0);
+    }
+
+    #[test]
+    fn test_cache_vector_entropy_small() {
+        let a: &DVector<u32> = &DVector::from_row_slice(&[2, 1, 1]);
+        let entropy = calculate_entropy3(a);
+        assert_eq!(entropy, 1.5)
     }
 
     #[test]

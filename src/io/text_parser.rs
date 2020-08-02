@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use hashbrown::{HashSet, HashMap};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;

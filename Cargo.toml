@@ -10,10 +10,21 @@ repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 [dependencies]
 rand = "0.7.3"
 cached = "0.17.0"
-nalgebra = "0.18"
+nalgebra = "0.21.1"
 bencher = "0.1.5"
 lazy_static = "1.4.0"
+hashbrown = "0.8.1"
 
 [[bench]]
 name = "benches"
 harness = false
+
+[profile.bench]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = false
+incremental = false
+codegen-units = 16
+rpath = false
