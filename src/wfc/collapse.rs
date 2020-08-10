@@ -1,12 +1,13 @@
 use rand::prelude::*;
 use rand::thread_rng;
 use std::collections::{BinaryHeap};
-use hashbrown::HashSet;
+use hashbrown::{HashSet, HashMap};
 use std::mem::replace;
 use std::ops::Index;
-use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels};
+use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels, LabelFrequencies, Rules2};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
+use nalgebra::DVector;
 
 
 struct Collapse<'a> {
@@ -114,6 +115,41 @@ impl Collapse<'_> {
     }
 }
 
+use std::sync::RwLock;
+use std::hash::{Hash, Hasher, BuildHasher};
+use hashbrown::hash_map::DefaultHashBuilder;
+use lazy_static::*;
+
+fn hash_prop(labels: &LabelFrequencies, direction: &u16) -> u64 {
+    let mut h = DefaultHashBuilder::new().build_hasher();
+    labels.hash(&mut h);
+    direction.hash(&mut h);
+    h.finish()
+}
+
+lazy_static! {
+    static ref CACHE: RwLock<HashMap<u64, DVector<u32>>> = RwLock::new(HashMap::with_capacity(32));
+}
+
+fn constraint(labels: &LabelFrequencies, direction: &u16, rules: &Rules2) -> DVector<u32> {
+    let hash = hash_prop(labels, direction);
+    if let Some(result) = CACHE.read().unwrap().get(&hash) {
+        return result.clone();
+    }
+    let result = labels.iter().enumerate()
+        .fold(DVector::<u32>::zeros(labels.len()), |mut acc, (index, frq)| {
+            if frq > &0 {
+                if let Some(a) = rules.get(&(*direction, index as u32)) {
+                    acc = acc.sup(&a)
+                }
+            }
+            acc
+        });
+    let mut write_cache = CACHE.write().unwrap();
+    (*write_cache).insert(hash, result.clone());
+    result
+}
+
 // todo: change this to a pure function?
 fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph, from_index: &VertexIndex) {
     out_graph.connections(from_index).iter().for_each(|(to_index, direction)| {
@@ -177,6 +213,25 @@ mod tests {
             ((3, 1), hash_set(&[0])),
             ((3, 2), hash_set(&[1])),
         ])
+    }
+
+    #[test]
+    fn test_constraint() {
+        let a: DVector<u32> = DVector::from_row_slice(&[1, 0, 0]);
+        let b: DVector<u32> = DVector::from_row_slice(&[0, 0, 1]);
+        let c: DVector<u32> = DVector::from_row_slice(&[1, 1, 1]);
+        let rules: Rules2 = hash_map(&[
+            ((0, 0), a),
+            ((0, 1), b),
+            ((0, 2), c)
+        ]);
+
+        let labels: &LabelFrequencies = &DVector::from_row_slice(&[2, 4, 0]);
+        let direction: &u16 = &0;
+
+        let result = constraint(labels, direction, &rules);
+        let expected = DVector::from_row_slice(&[1, 0, 1]);
+        assert_eq!(result, expected)
     }
 
     #[test]

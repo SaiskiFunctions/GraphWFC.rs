@@ -25,34 +25,6 @@ mod collapse {
     }
 }
 
-mod nalgebra_test {
-    use bencher::Bencher;
-    use nalgebra::{inf, DVector};
-
-
-    fn make_vecs() -> (DVector<u32>, DVector<u32>) {
-        let a = DVector::from_iterator(5, vec![1, 0, 1, 1, 0].into_iter());
-        let b = DVector::from_iterator(5, vec![0, 0, 1, 1, 0].into_iter());
-        (a, b)
-    }
-
-
-    pub fn vector_inf(bench: &mut Bencher) {
-        let (a, b) = make_vecs();
-        bench.iter(|| {
-            inf(&a, &b)
-        })
-    }
-
-
-    pub fn vector_wise_mul(bench: &mut Bencher) {
-        let (a, b) = make_vecs();
-        bench.iter(|| {
-            a.component_mul(&b)
-        })
-    }
-}
-
 mod entropy_cache {
     use bencher::Bencher;
     use wfc_rust::wfc::observe::*;
@@ -158,7 +130,7 @@ mod entropy_cache {
         })
     }
 
-    pub fn cached_ent2_8(bench: &mut Bencher) {
+    pub fn cached_ent2_08(bench: &mut Bencher) {
         let a: DVector<u32> = DVector::from_row_slice(&[200, 100, 33, 28, 99, 11, 76, 43]);
         bench.iter(|| {
             calculate_entropy2(a.clone())
@@ -249,30 +221,28 @@ mod entropy_cache {
 
 benchmark_group!(
     benches,
-    // collapse::bench_collapse,
-    // nalgebra::vector_inf,
-    // nalgebra_test::vector_wise_mul,
-    entropy_cache::uncached_32,
-    entropy_cache::uncached_16,
-    entropy_cache::uncached_08,
-    entropy_cache::uncached_07,
-    entropy_cache::uncached_06,
-    entropy_cache::uncached_05,
-    entropy_cache::uncached_04,
-    entropy_cache::uncached_03,
-    entropy_cache::uncached_02,
-    entropy_cache::uncached_01,
-    // entropy_cache::cached_ent2_8,
-    entropy_cache::cached_ent3_01,
-    entropy_cache::cached_ent3_02,
-    entropy_cache::cached_ent3_03,
-    entropy_cache::cached_ent3_04,
-    entropy_cache::cached_ent3_05,
-    entropy_cache::cached_ent3_06,
-    entropy_cache::cached_ent3_07,
-    entropy_cache::cached_ent3_08,
-    entropy_cache::cached_ent3_16,
-    entropy_cache::cached_ent3_32,
+    // collapse::bench_collapse
+    // entropy_cache::uncached_32,
+    // entropy_cache::uncached_16,
+    // entropy_cache::uncached_08,
+    // entropy_cache::uncached_07,
+    // entropy_cache::uncached_06,
+    // entropy_cache::uncached_05,
+    // entropy_cache::uncached_04,
+    // entropy_cache::uncached_03,
+    // entropy_cache::uncached_02,
+    // entropy_cache::uncached_01,
+    // entropy_cache::cached_ent2_08,
+    // entropy_cache::cached_ent3_01,
+    // entropy_cache::cached_ent3_02,
+    // entropy_cache::cached_ent3_03,
+    // entropy_cache::cached_ent3_04,
+    // entropy_cache::cached_ent3_05,
+    // entropy_cache::cached_ent3_06,
+    // entropy_cache::cached_ent3_07,
+    // entropy_cache::cached_ent3_08,
+    // entropy_cache::cached_ent3_16,
+    // entropy_cache::cached_ent3_32,
     // entropy_cache::uncached_zeros_8,
     // entropy_cache::cached_ent3_zeroes_8
 );
