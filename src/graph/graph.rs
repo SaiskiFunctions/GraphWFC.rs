@@ -16,6 +16,12 @@ pub type Frequencies = HashMap<VertexLabel, i32>;
 
 pub type LabelFrequencies = DVector<u32>;
 
+//                                         +--- vertex label (index of LabelFrequencies vector)
+//                                         |             +--- 1, 0 constraint value
+//                                         |             |
+//                                         v             v
+pub type Rules2 = HashMap<(EdgeDirection, u32), DVector<u32>>;
+
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub vertices: Vec<Labels>, // index of vec == vertex index
@@ -106,22 +112,6 @@ impl Graph {
 mod tests {
     use super::*;
     use crate::utils::hash_map;
-    use std::iter::FromIterator;
-    use nalgebra::sup;
-
-    #[test]
-    fn test_matrix_intersect() {
-        let a = DVector::from_iterator(3, vec![1, 0, 1].into_iter());
-        let b = DVector::from_iterator(3, vec![0, 0, 1].into_iter());
-        assert_eq!(b, a.component_mul(&b))
-    }
-
-    #[test]
-    fn test_matrix_union() {
-        let a = DVector::from_iterator(3, vec![1, 0, 1].into_iter());
-        let b = DVector::from_iterator(3, vec![0, 0, 1].into_iter());
-        assert_eq!(a, sup(&a, &b))
-    }
 
     fn graph_edges() -> Edges {
         hash_map(&[
