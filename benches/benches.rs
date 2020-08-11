@@ -210,8 +210,18 @@ mod entropy_cache {
         })
     }
 
-    pub fn cached_ent3_zeroes_8(bench: &mut Bencher) {
+    pub fn cached_ent3_zeroes_08(bench: &mut Bencher) {
         let a: &DVector<u32> = &DVector::from_row_slice(&[200, 0, 0, 0, 0, 0, 0, 0]);
+        bench.iter(|| {
+            calculate_entropy3(a)
+        })
+    }
+
+    pub fn cached_ent3_zeroes_32(bench: &mut Bencher) {
+        let a: &DVector<u32> = &DVector::from_row_slice(&[
+            200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        ]);
         bench.iter(|| {
             calculate_entropy3(a)
         })
@@ -233,17 +243,18 @@ benchmark_group!(
     // entropy_cache::uncached_02,
     // entropy_cache::uncached_01,
     // entropy_cache::cached_ent2_08,
-    // entropy_cache::cached_ent3_01,
-    // entropy_cache::cached_ent3_02,
-    // entropy_cache::cached_ent3_03,
-    // entropy_cache::cached_ent3_04,
-    // entropy_cache::cached_ent3_05,
-    // entropy_cache::cached_ent3_06,
-    // entropy_cache::cached_ent3_07,
-    // entropy_cache::cached_ent3_08,
-    // entropy_cache::cached_ent3_16,
-    // entropy_cache::cached_ent3_32,
+    entropy_cache::cached_ent3_01,
+    entropy_cache::cached_ent3_02,
+    entropy_cache::cached_ent3_03,
+    entropy_cache::cached_ent3_04,
+    entropy_cache::cached_ent3_05,
+    entropy_cache::cached_ent3_06,
+    entropy_cache::cached_ent3_07,
+    entropy_cache::cached_ent3_08,
+    entropy_cache::cached_ent3_16,
+    entropy_cache::cached_ent3_32,
     // entropy_cache::uncached_zeros_8,
-    // entropy_cache::cached_ent3_zeroes_8
+    entropy_cache::cached_ent3_zeroes_08,
+    entropy_cache::cached_ent3_zeroes_32
 );
 benchmark_main!(benches);

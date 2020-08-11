@@ -5,25 +5,29 @@ use rand::prelude::*;
 use std::sync::RwLock;
 
 type MultisetScalar = u32;
-type Multiset = DVector<MultisetScalar>;
+pub type Multiset = DVector<MultisetScalar>;
 type EntropyCache = HashMap<Multiset, f32>;
 
 lazy_static! {
     static ref CACHE: RwLock<EntropyCache> = RwLock::new(HashMap::with_capacity(32));
 }
 
-trait MultisetTrait {
+pub trait MultisetTrait {
     fn contains(&self, elem: MultisetScalar) -> bool;
 
     fn union(&self, other: &Multiset) -> Multiset;
 
+    fn union_mut(&mut self, other: &Multiset);
+
     fn intersection(&self, other: &Multiset) -> Multiset;
 
-    fn subset(&self, other: &Multiset) -> bool;
+    fn intersection_mut(&mut self, other: &Multiset);
+
+    fn is_subset(&self, other: &Multiset) -> bool;
 
     fn entropy(&self) -> f32;
 
-    fn choose(&mut self, rng: &mut StdRng) -> &mut Multiset;
+    fn choose(&mut self, rng: &mut StdRng);
 }
 
 impl MultisetTrait for DVector<MultisetScalar> {
@@ -38,11 +42,19 @@ impl MultisetTrait for DVector<MultisetScalar> {
         self.sup(other)
     }
 
+    fn union_mut(&mut self, other: &Multiset) {
+        *self = self.sup(other);
+    }
+
     fn intersection(&self, other: &Multiset) -> Multiset {
         self.inf(other)
     }
 
-    fn subset(&self, other: &Multiset) -> bool {
+    fn intersection_mut(&mut self, other: &Multiset) {
+        *self = self.inf(other);
+    }
+
+    fn is_subset(&self, other: &Multiset) -> bool {
         &(self.intersection(other)) == self
     }
 
@@ -60,7 +72,7 @@ impl MultisetTrait for DVector<MultisetScalar> {
         result.clone()
     }
 
-    fn choose(&mut self, rng: &mut StdRng) -> &mut Multiset {
+    fn choose(&mut self, rng: &mut StdRng) {
         let total = self.sum();
         let choice = rng.gen_range(1, total + 1);
         let mut acc = 0;
@@ -73,7 +85,6 @@ impl MultisetTrait for DVector<MultisetScalar> {
                 else { chosen = true; }
             }
         });
-        self
     }
 }
 
@@ -97,6 +108,15 @@ mod tests {
     }
 
     #[test]
+    fn test_union_mut() {
+        let a = &mut Multiset::from_row_slice(&[1, 0, 0]);
+        let b = Multiset::from_row_slice(&[0, 0, 1]);
+        let result = Multiset::from_row_slice(&[1, 0, 1]);
+        a.union_mut(&b);
+        assert_eq!(*a, result)
+    }
+
+    #[test]
     fn test_intersection() {
         let a = Multiset::from_row_slice(&[1, 0, 1]);
         let b = Multiset::from_row_slice(&[0, 0, 1]);
@@ -104,11 +124,20 @@ mod tests {
     }
 
     #[test]
+    fn test_intersection_mut() {
+        let a = &mut Multiset::from_row_slice(&[1, 0, 0]);
+        let b = Multiset::from_row_slice(&[0, 0, 1]);
+        let result = Multiset::from_row_slice(&[0, 0, 0]);
+        a.intersection_mut(&b);
+        assert_eq!(*a, result)
+    }
+
+    #[test]
     fn test_subset() {
         let a = Multiset::from_row_slice(&[1, 0, 1, 1, 0]);
         let b = Multiset::from_row_slice(&[0, 0, 1, 1, 0]);
-        assert!(b.subset(&a));
-        assert!(!a.subset(&b))
+        assert!(b.is_subset(&a));
+        assert!(!a.is_subset(&b))
     }
 
     #[test]
@@ -135,13 +164,15 @@ mod tests {
     #[test]
     fn test_choose() {
         let a: &mut Multiset = &mut Multiset::from_row_slice(&[2, 1, 3, 4]);
-
         let test_rng1 = &mut StdRng::seed_from_u64(1);
-        let result1 = &mut Multiset::from_row_slice(&[0, 0, 3, 0]);
-        assert_eq!(a.clone().choose(test_rng1), result1);
+        let result1 = Multiset::from_row_slice(&[0, 0, 3, 0]);
+        a.choose(test_rng1);
+        assert_eq!(*a, result1);
 
+        let b: &mut Multiset = &mut Multiset::from_row_slice(&[2, 1, 3, 4]);
         let test_rng2 = &mut StdRng::seed_from_u64(10);
-        let result2 = &mut Multiset::from_row_slice(&[2, 0, 0, 0]);
-        assert_eq!(a.choose(test_rng2), result2)
+        let result2 = Multiset::from_row_slice(&[2, 0, 0, 0]);
+        b.choose(test_rng2);
+        assert_eq!(*b, result2)
     }
 }
