@@ -1,9 +1,10 @@
 use rand::prelude::*;
 use hashbrown::{HashMap, HashSet};
 use std::iter::FromIterator;
-use std::ops::Index;
+use std::ops::{Index, IndexMut};
 use crate::utils::hash_set;
 use nalgebra::DVector;
+use crate::multiset::{Multiset, MultisetTrait};
 
 
 pub type VertexLabel = i32;     // labels that a vertex can contain
@@ -20,7 +21,7 @@ pub type LabelFrequencies = DVector<u32>;
 //                                         |             +--- 1, 0 constraint value
 //                                         |             |
 //                                         v             v
-pub type Rules2 = HashMap<(EdgeDirection, u32), DVector<u32>>;
+pub type Rules2 = HashMap<(EdgeDirection, u32), Multiset>;
 
 #[derive(Debug, Clone)]
 pub struct Graph {
@@ -104,6 +105,59 @@ impl Graph {
         let labels = &mut self.vertices[*index as usize];
         if labels.is_subset(constraint) { return None; }
         *labels = labels.intersection(constraint).map(|x| *x).collect();
+        Some(labels)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Graph2 {
+    pub vertices: Vec<LabelFrequencies>, // index of vec == vertex index
+    edges: Edges,
+    all_labels: LabelFrequencies
+}
+
+impl Graph2 {
+    pub fn new(vertices: Vec<LabelFrequencies>, edges: Edges, all_labels: LabelFrequencies) -> Graph2 {
+        Graph2 { vertices, edges, all_labels }
+    }
+
+    pub fn empty() -> Graph2 {
+        Graph2 { vertices: Vec::new(), edges: HashMap::new(), all_labels: Multiset::zeros(0) }
+    }
+
+    /// Construct HashMap of rules for this graph.
+    /// Rules connect a tuple of direction and vertex label to a set of labels.
+    pub fn rules(&self) -> Rules2 {
+        self.edges.iter().fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
+            edges.iter().for_each(|(to_vertex_index, direction)| {
+               self.vertices.index(*from_vertex_index as usize).iter()
+                   .filter(|&label| label > &0)
+                   .enumerate()
+                   .for_each(|(from_vertex_label, _)| {
+                       let rules_key = (*direction, from_vertex_label as u32);
+                       let union_labels = self.vertices.index(*to_vertex_index as usize);
+                       rules.entry(rules_key)
+                           .and_modify(|to_labels| to_labels.union_mut(union_labels))
+                           .or_insert(union_labels.clone());
+                   })
+            });
+            rules
+        })
+    }
+
+    /// Collapses the set of vertex labels at the given index to a singleton set.
+    pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex) {
+        let labels_multiset = self.vertices.index_mut(*index as usize);
+        labels_multiset.choose(rng);
+    }
+
+    /// Constrain the vertex labels at the given index by intersecting the
+    /// vertex labels with the constraint set.
+    /// Return Some(labels) if the labels set was changed else return None.
+    pub fn constrain(&mut self, index: &VertexIndex, constraint: &LabelFrequencies) -> Option<&LabelFrequencies> {
+        let labels = self.vertices.index_mut(*index as usize);
+        if labels.is_subset(constraint) { return None; }
+        labels.intersection_mut(constraint);
         Some(labels)
     }
 }
