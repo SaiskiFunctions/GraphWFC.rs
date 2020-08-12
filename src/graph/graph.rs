@@ -15,14 +15,6 @@ pub type Rules = HashMap<(EdgeDirection, VertexLabel), HashSet<VertexLabel>>;
 pub type Labels = HashSet<VertexLabel>;
 pub type Frequencies = HashMap<VertexLabel, i32>;
 
-pub type LabelFrequencies = DVector<u32>;
-
-//                                         +--- vertex label (index of LabelFrequencies vector)
-//                                         |             +--- 1, 0 constraint value
-//                                         |             |
-//                                         v             v
-pub type Rules2 = HashMap<(EdgeDirection, u32), Multiset>;
-
 #[derive(Debug, Clone)]
 pub struct Graph {
     pub vertices: Vec<Labels>, // index of vec == vertex index
@@ -105,59 +97,6 @@ impl Graph {
         let labels = &mut self.vertices[*index as usize];
         if labels.is_subset(constraint) { return None; }
         *labels = labels.intersection(constraint).map(|x| *x).collect();
-        Some(labels)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Graph2 {
-    pub vertices: Vec<LabelFrequencies>, // index of vec == vertex index
-    edges: Edges,
-    all_labels: LabelFrequencies
-}
-
-impl Graph2 {
-    pub fn new(vertices: Vec<LabelFrequencies>, edges: Edges, all_labels: LabelFrequencies) -> Graph2 {
-        Graph2 { vertices, edges, all_labels }
-    }
-
-    pub fn empty() -> Graph2 {
-        Graph2 { vertices: Vec::new(), edges: HashMap::new(), all_labels: Multiset::zeros(0) }
-    }
-
-    /// Construct HashMap of rules for this graph.
-    /// Rules connect a tuple of direction and vertex label to a set of labels.
-    pub fn rules(&self) -> Rules2 {
-        self.edges.iter().fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
-            edges.iter().for_each(|(to_vertex_index, direction)| {
-               self.vertices.index(*from_vertex_index as usize).iter()
-                   .filter(|&label| label > &0)
-                   .enumerate()
-                   .for_each(|(from_vertex_label, _)| {
-                       let rules_key = (*direction, from_vertex_label as u32);
-                       let union_labels = self.vertices.index(*to_vertex_index as usize);
-                       rules.entry(rules_key)
-                           .and_modify(|to_labels| to_labels.union_mut(union_labels))
-                           .or_insert(union_labels.clone());
-                   })
-            });
-            rules
-        })
-    }
-
-    /// Collapses the set of vertex labels at the given index to a singleton set.
-    pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex) {
-        let labels_multiset = self.vertices.index_mut(*index as usize);
-        labels_multiset.choose(rng);
-    }
-
-    /// Constrain the vertex labels at the given index by intersecting the
-    /// vertex labels with the constraint set.
-    /// Return Some(labels) if the labels set was changed else return None.
-    pub fn constrain(&mut self, index: &VertexIndex, constraint: &LabelFrequencies) -> Option<&LabelFrequencies> {
-        let labels = self.vertices.index_mut(*index as usize);
-        if labels.is_subset(constraint) { return None; }
-        labels.intersection_mut(constraint);
         Some(labels)
     }
 }
@@ -427,5 +366,285 @@ mod tests {
         };
 
         assert_eq!(test_graph.connections(&3), &vec![(0, 3), (2, 0)])
+    }
+}
+
+pub type LabelFrequencies = DVector<u32>;
+
+//                                         +--- vertex label (index of LabelFrequencies vector)
+//                                         |             +--- 1, 0 constraint value
+//                                         |             |
+//                                         v             v
+pub type Rules2 = HashMap<(EdgeDirection, u32), Multiset>;
+
+#[derive(Debug, Clone)]
+pub struct Graph2 {
+    pub vertices: Vec<LabelFrequencies>, // index of vec == vertex index
+    edges: Edges,
+    all_labels: LabelFrequencies
+}
+
+impl Graph2 {
+    pub fn new(vertices: Vec<LabelFrequencies>, edges: Edges, all_labels: LabelFrequencies) -> Graph2 {
+        Graph2 { vertices, edges, all_labels }
+    }
+
+    pub fn empty() -> Graph2 {
+        Graph2 { vertices: Vec::new(), edges: HashMap::new(), all_labels: Multiset::zeros(0) }
+    }
+
+    /// Construct HashMap of rules for this graph.
+    /// Rules connect a tuple of direction and vertex label to a set of labels.
+    pub fn rules(&self) -> Rules2 {
+        self.edges.iter().fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
+            edges.iter().for_each(|(to_vertex_index, direction)| {
+                self.vertices.index(*from_vertex_index as usize).iter()
+                    .enumerate()
+                    .filter(|(_, &label)| label > 0)
+                    .for_each(|(from_vertex_label, _)| {
+                        let rules_key = (*direction, from_vertex_label as u32);
+                        let union_labels = self.vertices.index(*to_vertex_index as usize);
+                        rules.entry(rules_key)
+                            .and_modify(|to_labels| to_labels.union_mut(union_labels))
+                            .or_insert(union_labels.clone());
+                    })
+            });
+            rules
+        })
+    }
+
+    /// Collapses the set of vertex labels at the given index to a singleton set.
+    pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex) {
+        let labels_multiset = self.vertices.index_mut(*index as usize);
+        labels_multiset.choose(rng);
+    }
+
+    /// Constrain the vertex labels at the given index by intersecting the
+    /// vertex labels with the constraint set.
+    /// Return Some(labels) if the labels set was changed else return None.
+    pub fn constrain(&mut self, index: &VertexIndex, constraint: &LabelFrequencies) -> Option<&LabelFrequencies> {
+        let labels = self.vertices.index_mut(*index as usize);
+        if labels.is_subset(constraint) { return None; }
+        labels.intersection_mut(constraint);
+        Some(labels)
+    }
+}
+
+#[cfg(test)]
+mod graph2_tests {
+    use super::*;
+    use crate::utils::hash_map;
+
+    fn graph_edges() -> Edges {
+        hash_map(&[
+            (0, vec![(1, 0), (3, 2)]),
+            (1, vec![(0, 1), (2, 2)]),
+            (2, vec![(3, 1), (1, 3)]),
+            (3, vec![(0, 3), (2, 0)])
+        ])
+    }
+
+    #[test]
+    fn test_rules() {
+        /*
+        1b --- 2c
+        |      |
+        0a --- 3b
+
+        North = 0, South = 1, East = 2, West = 3
+        */
+
+        let graph_vertices: Vec<LabelFrequencies> = vec![
+            Multiset::from_row_slice(&[1, 0, 0]),
+            Multiset::from_row_slice(&[0, 2, 0]),
+            Multiset::from_row_slice(&[0, 0, 1]),
+            Multiset::from_row_slice(&[0, 2, 0])
+        ];
+
+        let test_graph = Graph2 {
+            vertices: graph_vertices,
+            edges: graph_edges(),
+            all_labels: Multiset::from_row_slice(&[1, 2, 1])
+        };
+
+        // (0: N, 0: a) -> (1: b)
+        // (0: N, 1: b) -> (2: c)
+        // (1: S, 1: b) -> (0: a)
+        // (1: S, 2: c) -> (1: b)
+        // (2: E, 0: a) -> (1: b)
+        // (2: E, 1: b) -> (2: c)
+        // (3: W, 1: b) -> (0: a)
+        // (3: W, 2: c) -> (1: b)
+
+        let result: Rules2 = hash_map(&[
+            ((0, 0), Multiset::from_row_slice(&[0, 2, 0])),
+            ((0, 1), Multiset::from_row_slice(&[0, 0, 1])),
+            ((1, 1), Multiset::from_row_slice(&[1, 0, 0])),
+            ((1, 2), Multiset::from_row_slice(&[0, 2, 0])),
+            ((2, 0), Multiset::from_row_slice(&[0, 2, 0])),
+            ((2, 1), Multiset::from_row_slice(&[0, 0, 1])),
+            ((3, 1), Multiset::from_row_slice(&[1, 0, 0])),
+            ((3, 2), Multiset::from_row_slice(&[0, 2, 0])),
+        ]);
+
+        assert_eq!(test_graph.rules(), result);
+    }
+
+    #[test]
+    fn test_rules_multiple() {
+        /*
+        1b---2c
+        |    |
+        0a---3a
+
+        North = 0, South = 1, East = 2, West = 3
+        */
+
+        let graph_vertices: Vec<LabelFrequencies> = vec![
+            Multiset::from_row_slice(&[2, 0, 0]),
+            Multiset::from_row_slice(&[0, 1, 0]),
+            Multiset::from_row_slice(&[0, 0, 1]),
+            Multiset::from_row_slice(&[2, 0, 0])
+        ];
+
+        let test_graph = Graph2 {
+            vertices: graph_vertices,
+            edges: graph_edges(),
+            all_labels: Multiset::from_row_slice(&[2, 1, 1])
+        };
+
+        /*
+        (0: N, 0: a) -> (1: b, 2: c)
+        (1: S, 1: b) -> (0: a)
+        (1: S, 2: c) -> (0: a)
+        (2: E, 0: a) -> (0: a)
+        (2: E, 1: b) -> (2: c)
+        (3: W, 0: a) -> (0: a)
+        (3: W, 2: c) -> (1: b)
+        */
+
+        let result: Rules2 = hash_map(&[
+            ((0, 0), Multiset::from_row_slice(&[0, 1, 1])),
+            ((1, 1), Multiset::from_row_slice(&[2, 0, 0])),
+            ((1, 2), Multiset::from_row_slice(&[2, 0, 0])),
+            ((2, 0), Multiset::from_row_slice(&[2, 0, 0])),
+            ((2, 1), Multiset::from_row_slice(&[0, 0, 1])),
+            ((3, 0), Multiset::from_row_slice(&[2, 0, 0])),
+            ((3, 2), Multiset::from_row_slice(&[0, 1, 0])),
+        ]);
+
+        assert_eq!(test_graph.rules(), result);
+    }
+
+    #[test]
+    fn test_rules_partially_collapsed() {
+        /*
+        1b ---- 2c
+        |       |
+        0ab --- 3a
+
+        North = 0, South = 1, East = 2, West = 3
+        */
+
+        let graph_vertices: Vec<LabelFrequencies> = vec![
+            Multiset::from_row_slice(&[2, 2, 0]),
+            Multiset::from_row_slice(&[0, 2, 0]),
+            Multiset::from_row_slice(&[0, 0, 1]),
+            Multiset::from_row_slice(&[2, 0, 0])
+        ];
+
+        let test_graph = Graph2 {
+            vertices: graph_vertices,
+            edges: graph_edges(),
+            all_labels: Multiset::from_row_slice(&[2, 2, 1])
+        };
+
+        /*
+        (0: N, 0: a) -> (1: b, 2: c)
+        (0: N, 1: b) -> (1: b)
+        (1: S, 1: b) -> (0: a, 1: b)
+        (1: S, 2: c) -> (0: a)
+        (2: E, 0: a) -> (0: a)
+        (2: E, 1: b) -> (0: a, 2: c)
+        (3: W, 0: a) -> (0: a, 1: b)
+        (3: W, 2: c) -> (1: b)
+        */
+
+        let result: Rules2 = hash_map(&[
+            ((0, 0), Multiset::from_row_slice(&[0, 2, 1])),
+            ((0, 1), Multiset::from_row_slice(&[0, 2, 0])),
+            ((1, 1), Multiset::from_row_slice(&[2, 2, 0])),
+            ((1, 2), Multiset::from_row_slice(&[2, 0, 0])),
+            ((2, 0), Multiset::from_row_slice(&[2, 0, 0])),
+            ((2, 1), Multiset::from_row_slice(&[2, 0, 1])),
+            ((3, 0), Multiset::from_row_slice(&[2, 2, 0])),
+            ((3, 2), Multiset::from_row_slice(&[0, 2, 0])),
+        ]);
+
+        assert_eq!(test_graph.rules(), result);
+    }
+
+    #[test]
+    fn test_observe() {
+        let graph_vertices: Vec<LabelFrequencies> = vec![
+            Multiset::from_row_slice(&[3, 3, 0, 0]),
+            Multiset::from_row_slice(&[3, 3, 1, 2]),
+            Multiset::from_row_slice(&[0, 3, 0, 2]),
+            Multiset::from_row_slice(&[3, 0, 0, 0])
+        ];
+
+        let mut test_graph = Graph2 {
+            vertices: graph_vertices,
+            edges: HashMap::new(),
+            all_labels: Multiset::from_row_slice(&[3, 3, 1, 2])
+        };
+
+        let mut test_rng = StdRng::seed_from_u64(2);
+        let index = 1;
+
+        test_graph.observe(&mut test_rng, &index);
+
+        let expected = Multiset::from_row_slice(&[0, 0, 1, 0]);
+
+        assert_eq!(*test_graph.vertices.index(index as usize), expected);
+    }
+
+    #[test]
+    fn test_constrain_true() {
+        let graph_vertices: Vec<LabelFrequencies> = vec![
+            Multiset::from_row_slice(&[1, 1, 1, 1])
+        ];
+
+        let test_constraint = Multiset::from_row_slice(&[1, 1, 0, 0]);
+
+        let mut test_graph = Graph2 {
+            vertices: graph_vertices,
+            edges: HashMap::new(),
+            all_labels: Multiset::from_row_slice(&[1, 1, 1, 1])
+        };
+
+        let result = Multiset::from_row_slice(&[1, 1, 0, 0]);
+        assert_eq!(test_graph.constrain(&0, &test_constraint), Some(&result));
+        assert_eq!(*test_graph.vertices.index(0), test_constraint);
+    }
+
+    #[test]
+    fn test_constrain_false() {
+        let graph_vertices: Vec<LabelFrequencies> = vec![
+            Multiset::from_row_slice(&[1, 1, 0])
+        ];
+
+        let test_constraint = Multiset::from_row_slice(&[1, 1, 1]);
+
+        let mut test_graph = Graph2 {
+            vertices: graph_vertices,
+            edges: HashMap::new(),
+            all_labels: Multiset::from_row_slice(&[1, 1, 0, 0])
+        };
+
+        let vertex_result =  Multiset::from_row_slice(&[1, 1, 0]);
+
+        assert_eq!(test_graph.constrain(&0, &test_constraint), None);
+        assert_eq!(*test_graph.vertices.index(0), vertex_result);
     }
 }
