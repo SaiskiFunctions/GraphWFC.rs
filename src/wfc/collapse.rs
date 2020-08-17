@@ -4,10 +4,11 @@ use std::collections::{BinaryHeap};
 use hashbrown::{HashSet, HashMap};
 use std::mem::replace;
 use std::ops::Index;
-use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels, LabelFrequencies, Rules2};
+use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels, LabelFrequencies, Rules2, Graph2};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
 use nalgebra::DVector;
+use crate::multiset::{MultisetTrait, EntCache};
 
 
 struct Collapse<'a> {
@@ -115,6 +116,98 @@ impl Collapse<'_> {
     }
 }
 
+struct Collapse2<'a> {
+    heap: BinaryHeap<Observe>,
+    gen_observe: HashSet<VertexIndex>,
+    observed: HashSet<VertexIndex>,
+    propagations: Vec<Propagate>,
+    rng: &'a mut StdRng,
+    rules: &'a Rules2,
+    out_graph: Graph2,
+}
+
+impl Collapse2<'_> {
+    pub fn new<'a>(rng: &'a mut StdRng,
+                   rules: &'a Rules2,
+                   all_labels: &'a LabelFrequencies,
+                   out_graph: Graph2) -> Collapse2<'a> {
+        let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
+        let gen_observe: HashSet<VertexIndex> = HashSet::new();
+        let mut observed: HashSet<VertexIndex> = HashSet::new();
+        let mut propagations: Vec<Propagate> = Vec::new();
+
+        let vertices_iter = out_graph.vertices.iter().enumerate();
+
+
+        // initialize heap and observed
+        // todo:
+        //  Should we even initialize the heap? Maybe it would be better
+        //  to only make these Observe elements when necessary.
+        for (_index, labels) in vertices_iter.clone() {
+            let from_index = _index as i32;
+            if labels.len() == 1 { observed.insert(from_index); }
+            else { heap.push(Observe::new_fuzz2(rng, &from_index, labels)) }
+        }
+
+        // Ensure that output graph is fully propagated before starting loop.
+        // Generate Propagates for every vertex whose label set is a proper
+        // subset of the set of all labels.
+        for (_index, labels) in vertices_iter {
+            let from_index = _index as i32;
+            assert!(labels.is_subset(all_labels));
+            if labels != all_labels { // labels is proper subset of all_labels
+                generate_propagations2(&mut propagations, &observed, &out_graph, &from_index);
+            }
+        }
+
+        Collapse2 {
+            heap,
+            gen_observe,
+            observed,
+            propagations,
+            rng,
+            rules,
+            out_graph,
+        }
+    }
+
+    pub fn exec(&mut self) -> Option<Graph2> {
+        let heap = &mut self.heap;
+        let observed = &mut self.observed;
+        let out_graph = &mut self.out_graph;
+        let gen_observe = &mut self.gen_observe;
+        let propagations = &mut self.propagations;
+        let rules = &self.rules;
+
+        loop {
+            if observed.len() == out_graph.vertices.len() || heap.is_empty() {
+                return Some(replace(out_graph, Graph2::empty()));
+            }
+            if propagations.is_empty() {
+                gen_observe.drain().for_each(|index| {  // algo: 4.2
+                    let labels = out_graph.vertices.index(index as usize);
+                    heap.push(Observe::new2(&index, labels))
+                });
+                let observe = heap.pop().unwrap();
+                if observed.contains(&observe.index) { continue }
+                out_graph.observe(self.rng, &observe.index);
+                observed.insert(observe.index);
+                generate_propagations2(propagations, observed, out_graph, &observe.index);
+            } else {
+                let propagate = propagations.pop().unwrap();
+                let constraint = constraint(out_graph.vertices.index(propagate.from as usize), &propagate.direction, rules);
+
+                if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
+                    if labels.is_empty() { return None }
+                    else if labels.len() == 1 { observed.insert(propagate.to); }
+                    else { gen_observe.insert(propagate.to); }
+                    generate_propagations2(propagations, observed, out_graph, &propagate.to);
+                }
+            }
+        }
+    }
+}
+
 use std::sync::RwLock;
 use std::hash::{Hash, Hasher, BuildHasher};
 use hashbrown::hash_map::DefaultHashBuilder;
@@ -131,11 +224,11 @@ lazy_static! {
     static ref CACHE: RwLock<HashMap<u64, DVector<u32>>> = RwLock::new(HashMap::with_capacity(32));
 }
 
-fn constraint(labels: &LabelFrequencies, direction: &u16, rules: &Rules2) -> DVector<u32> {
-    let hash = hash_prop(labels, direction);
-    if let Some(result) = CACHE.read().unwrap().get(&hash) {
-        return result.clone();
-    }
+pub fn constraint(labels: &LabelFrequencies, direction: &u16, rules: &Rules2) -> DVector<u32> {
+    // let hash = hash_prop(labels, direction);
+    // if let Some(result) = CACHE.read().unwrap().get(&hash) {
+    //     return result.clone();
+    // }
     let result = labels.iter().enumerate()
         .fold(DVector::<u32>::zeros(labels.len()), |mut acc, (index, frq)| {
             if frq > &0 {
@@ -145,14 +238,22 @@ fn constraint(labels: &LabelFrequencies, direction: &u16, rules: &Rules2) -> DVe
             }
             acc
         });
-    let mut write_cache = CACHE.write().unwrap();
-    (*write_cache).insert(hash, result.clone());
+    // let mut write_cache = CACHE.write().unwrap();
+    // (*write_cache).insert(hash, result.clone());
     result
 }
 
 // todo: change this to a pure function?
 fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph, from_index: &VertexIndex) {
     out_graph.connections(from_index).iter().for_each(|(to_index, direction)| {
+        if !observed.contains(to_index) {
+            propagations.push(Propagate::new(*from_index, *to_index, *direction))
+        }
+    });
+}
+
+fn generate_propagations2(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph2, from_index: &VertexIndex) {
+    out_graph.edges.index(from_index).iter().for_each(|(to_index, direction)| {
         if !observed.contains(to_index) {
             propagations.push(Propagate::new(*from_index, *to_index, *direction))
         }
@@ -169,6 +270,23 @@ pub fn collapse(input_graph: &Graph, output_graph: Graph, seed: Option<u64>, tri
 
     for _ in 0..tries {
         let mut collapse_try = Collapse::new(&mut rng, &rules, &frequencies, &all_labels, output_graph.clone());
+        if let opt_graph @ Some(_) = collapse_try.exec() {
+            return opt_graph;
+        }
+    }
+    println!("CONTRADICTION!");
+    None
+}
+
+pub fn collapse2(input_graph: &Graph2, output_graph: Graph2, seed: Option<u64>, tries: Option<u16>) -> Option<Graph2> {
+    let mut rng = StdRng::seed_from_u64(seed.unwrap_or(thread_rng().next_u64()));
+    let tries = tries.unwrap_or(10);
+
+    let rules = input_graph.rules();
+    let all_labels = input_graph.all_labels.clone();
+
+    for _ in 0..tries {
+        let mut collapse_try = Collapse2::new(&mut rng, &rules, &all_labels, output_graph.clone());
         if let opt_graph @ Some(_) = collapse_try.exec() {
             return opt_graph;
         }

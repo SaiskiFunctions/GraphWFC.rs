@@ -372,16 +372,16 @@ mod tests {
 pub type LabelFrequencies = DVector<u32>;
 
 //                                         +--- vertex label (index of LabelFrequencies vector)
-//                                         |             +--- 1, 0 constraint value
-//                                         |             |
-//                                         v             v
+//                                         |        +--- 1, 0 constraint value
+//                                         |        |
+//                                         v        v
 pub type Rules2 = HashMap<(EdgeDirection, u32), Multiset>;
 
 #[derive(Debug, Clone)]
 pub struct Graph2 {
     pub vertices: Vec<LabelFrequencies>, // index of vec == vertex index
-    edges: Edges,
-    all_labels: LabelFrequencies
+    pub edges: Edges,
+    pub all_labels: LabelFrequencies
 }
 
 impl Graph2 {
@@ -405,7 +405,7 @@ impl Graph2 {
                         let rules_key = (*direction, from_vertex_label as u32);
                         let union_labels = self.vertices.index(*to_vertex_index as usize);
                         rules.entry(rules_key)
-                            .and_modify(|to_labels| to_labels.union_mut(union_labels))
+                            .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
                             .or_insert(union_labels.clone());
                     })
             });
@@ -424,8 +424,9 @@ impl Graph2 {
     /// Return Some(labels) if the labels set was changed else return None.
     pub fn constrain(&mut self, index: &VertexIndex, constraint: &LabelFrequencies) -> Option<&LabelFrequencies> {
         let labels = self.vertices.index_mut(*index as usize);
-        if labels.is_subset(constraint) { return None; }
-        labels.intersection_mut(constraint);
+        let inter = labels.intersection(constraint);
+        if labels == &inter { return None }
+        *labels = inter;
         Some(labels)
     }
 }

@@ -17,15 +17,15 @@ pub trait MultisetTrait {
 
     fn union(&self, other: &Multiset) -> Multiset;
 
-    fn union_mut(&mut self, other: &Multiset);
-
     fn intersection(&self, other: &Multiset) -> Multiset;
-
-    fn intersection_mut(&mut self, other: &Multiset);
 
     fn is_subset(&self, other: &Multiset) -> bool;
 
+    fn empty(&self) -> bool;
+
     fn entropy(&self) -> f32;
+
+    fn component_zero_not(&self, not: &[u32]) -> Multiset;
 
     fn choose(&mut self, rng: &mut StdRng);
 }
@@ -38,38 +38,40 @@ impl MultisetTrait for DVector<MultisetScalar> {
         false
     }
 
+    #[inline]
     fn union(&self, other: &Multiset) -> Multiset {
         self.sup(other)
     }
 
-    fn union_mut(&mut self, other: &Multiset) {
-        *self = self.sup(other);
-    }
-
+    #[inline]
     fn intersection(&self, other: &Multiset) -> Multiset {
         self.inf(other)
-    }
-
-    fn intersection_mut(&mut self, other: &Multiset) {
-        *self = self.inf(other);
     }
 
     fn is_subset(&self, other: &Multiset) -> bool {
         &(self.intersection(other)) == self
     }
 
+    fn empty(&self) -> bool {
+        self.sum() == 0
+    }
+
     fn entropy(&self) -> f32 {
-        if let Some(result) = CACHE.read().unwrap().get(self) {
-            return *result
-        }
         let total = self.sum() as f32;
-        let result = - self.fold(0.0, |acc, frequency| {
-            let prob = frequency as f32 / total;
-            acc + prob * prob.log2()
+        - self.fold(0.0, |acc, frequency| {
+            if frequency > 0 {
+                let prob = frequency as f32 / total;
+                acc + prob * prob.log2()
+            } else { acc }
+        })
+    }
+
+    fn component_zero_not(&self, not: &[u32]) -> Multiset {
+        let iterator = (0..self.len()).map(|index| {
+            if not.contains(&(index as u32)) { 1 } else { 0 }
         });
-        let mut write_cache = CACHE.write().unwrap();
-        (*write_cache).insert(self.clone(), result);
-        result.clone()
+        let zero_not = Multiset::from_iterator(self.len(), iterator);
+        self.component_mul(&zero_not)
     }
 
     fn choose(&mut self, rng: &mut StdRng) {
@@ -85,6 +87,31 @@ impl MultisetTrait for DVector<MultisetScalar> {
                 else { chosen = true; }
             }
         });
+    }
+}
+
+pub struct EntCache {
+    cache: EntropyCache
+}
+
+impl EntCache {
+    pub fn new() -> EntCache {
+        EntCache { cache: HashMap::new() }
+    }
+
+    pub fn entropy(&mut self, ms: &Multiset) -> f32 {
+        if let Some(result) = self.cache.get(ms) {
+            return *result
+        }
+        let total = ms.sum() as f32;
+        let result = - ms.fold(0.0, |acc, frequency| {
+            if frequency > 0 {
+                let prob = frequency as f32 / total;
+                acc + prob * prob.log2()
+            } else { acc }
+        });
+        self.cache.insert(ms.clone(), result.clone());
+        result
     }
 }
 
@@ -108,15 +135,6 @@ mod tests {
     }
 
     #[test]
-    fn test_union_mut() {
-        let a = &mut Multiset::from_row_slice(&[1, 0, 0]);
-        let b = Multiset::from_row_slice(&[0, 0, 1]);
-        let result = Multiset::from_row_slice(&[1, 0, 1]);
-        a.union_mut(&b);
-        assert_eq!(*a, result)
-    }
-
-    #[test]
     fn test_intersection() {
         let a = Multiset::from_row_slice(&[1, 0, 1]);
         let b = Multiset::from_row_slice(&[0, 0, 1]);
@@ -124,20 +142,19 @@ mod tests {
     }
 
     #[test]
-    fn test_intersection_mut() {
-        let a = &mut Multiset::from_row_slice(&[1, 0, 0]);
-        let b = Multiset::from_row_slice(&[0, 0, 1]);
-        let result = Multiset::from_row_slice(&[0, 0, 0]);
-        a.intersection_mut(&b);
-        assert_eq!(*a, result)
-    }
-
-    #[test]
-    fn test_subset() {
+    fn test_is_subset() {
         let a = Multiset::from_row_slice(&[1, 0, 1, 1, 0]);
         let b = Multiset::from_row_slice(&[0, 0, 1, 1, 0]);
         assert!(b.is_subset(&a));
         assert!(!a.is_subset(&b))
+    }
+
+    #[test]
+    fn test_is_empty() {
+        let a = Multiset::from_row_slice(&[0, 0]);
+        let b = Multiset::from_row_slice(&[1, 1, 0]);
+        assert!(a.empty());
+        assert!(!b.empty())
     }
 
     #[test]
@@ -159,6 +176,23 @@ mod tests {
         let lt = 1.79219;
         let gt = 1.79220;
         assert!(lt < entropy && entropy < gt);
+    }
+
+    #[test]
+    fn test_entropy_zero_freq() {
+        let a: &Multiset = &Multiset::from_row_slice(&[4, 6, 0, 6]);
+        let entropy = a.entropy();
+        let lt = 1.56127;
+        let gt = 1.56128;
+        assert!(lt < entropy && entropy < gt);
+    }
+
+    #[test]
+    fn test_component_zero_not() {
+        let a: Multiset = Multiset::from_row_slice(&[4, 6, 0, 6]);
+        let expected: Multiset = Multiset::from_row_slice(&[4, 0, 0, 6]);
+        let result: Multiset = a.component_zero_not(&[0, 3]);
+        assert_eq!(result, expected);
     }
 
     #[test]

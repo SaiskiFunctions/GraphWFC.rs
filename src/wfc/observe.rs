@@ -3,6 +3,7 @@ use std::ops::Index;
 use rand::prelude::*;
 use crate::graph::graph::{VertexIndex, Labels, Frequencies};
 use std::fmt::Debug;
+use crate::multiset::{Multiset, MultisetTrait, EntCache};
 
 
 // Lower and upper bounds for use in generating slightly different
@@ -22,16 +23,37 @@ impl Observe {
         Observe { entropy: calculate_entropy(labels, frequencies), index: *index }
     }
 
+    pub fn new2(index: &VertexIndex, labels: &Multiset) -> Observe {
+        Observe { entropy: labels.entropy(), index: *index }
+    }
+
+    pub fn new3(index: &VertexIndex, labels: &Multiset, cache: &mut EntCache) -> Observe {
+        Observe { entropy: cache.entropy(labels), index: *index }
+    }
+
     pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels,
                     frequencies: &Frequencies) -> Observe {
         let entropy = calculate_entropy(labels, frequencies);
         let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
         Observe { entropy: entropy + fuzz, index: *index }
     }
+
+    pub fn new_fuzz2(rng: &mut StdRng, index: &VertexIndex, labels: &Multiset) -> Observe {
+        let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
+        Observe { entropy: labels.entropy() + fuzz, index: *index }
+    }
+
+    pub fn new_fuzz3(rng: &mut StdRng, index: &VertexIndex, labels: &Multiset, cache: &mut EntCache) -> Observe {
+        let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
+        Observe { entropy: cache.entropy(labels) + fuzz, index: *index }
+    }
 }
 
 impl Ord for Observe {
     fn cmp(&self, other: &Self) -> Ordering {
+        if self.entropy.partial_cmp(&other.entropy).is_none() {
+            println!("self: {:?}, other: {:?}", self, other)
+        }
         match self.entropy.partial_cmp(&other.entropy).unwrap() {
             Ordering::Greater => Ordering::Less,
             Ordering::Less => Ordering::Greater,

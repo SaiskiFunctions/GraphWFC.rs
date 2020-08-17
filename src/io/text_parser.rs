@@ -2,8 +2,10 @@ use hashbrown::{HashSet, HashMap};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
-use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex};
+use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, Graph2, LabelFrequencies};
 use crate::utils::hash_set;
+use crate::multiset::Multiset;
+
 
 pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
     read_to_string(filename).map(|string| {
@@ -55,6 +57,66 @@ pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
         let keys: HashMap<_, _> = key_vec.into_iter().enumerate().collect();
 
         (Graph::new(vertices, edges), keys)
+    })
+}
+
+pub fn parse2(filename: &str) -> Result<(Graph2, HashMap<usize, char>), Error> {
+    read_to_string(filename).map(|string| {
+        let lines: Vec<&str> = string.split('\n').filter(|l| !l.is_empty()).collect();
+        let num_lines = lines.len();
+        let line_len = lines.index(0).chars().count();
+
+        let mut edges: Edges = HashMap::new();
+        let mut key_frequency_map: HashMap<char, u32> = HashMap::new();
+
+        lines.iter().enumerate().for_each(|(line_index, line)| {
+            line.chars().enumerate().for_each(|(character_index, character)| {
+                key_frequency_map.entry(character).and_modify(|freq| *freq += 1).or_insert(1);
+
+                let mut direction_pairs = Vec::new();
+                //NORTH = 0
+                if line_index > 0 {
+                    direction_pairs.push(((line_index - 1) * line_len + character_index, 0))
+                }
+                //SOUTH = 1
+                if line_index < num_lines - 1 {
+                    direction_pairs.push(((line_index + 1) * line_len + character_index, 1))
+                }
+                //WEST = 3
+                if character_index > 0 {
+                    direction_pairs.push(((character_index - 1) + line_index * line_len, 3))
+                }
+                //EAST = 2
+                if character_index < line_len - 1 {
+                    direction_pairs.push(((character_index + 1) + line_index * line_len, 2))
+                }
+
+                let direction_pairs = direction_pairs.into_iter().map(|(i, d)| {
+                    (i as VertexIndex, d as EdgeDirection)
+                }).collect::<Vec<(VertexIndex, EdgeDirection)>>();
+
+                let this_vertex_index = ((line_index * line_len) + character_index) as VertexIndex;
+                edges.insert(this_vertex_index, direction_pairs);
+            });
+        });
+
+        let char_keys: HashMap<usize, char> = key_frequency_map.keys().map(|c| *c).enumerate().collect();
+
+        let all_labels_vec: Vec<u32> = (0..char_keys.len())
+            .into_iter().map(|index| {
+            *key_frequency_map.index(char_keys.index(&index))
+        }).collect();
+
+        let all_labels: Multiset = Multiset::from_iterator(all_labels_vec.len(), all_labels_vec);
+
+        let vertices: Vec<LabelFrequencies> = string.chars().filter(|c| c != &'\n').map(|c| {
+            Multiset::from_iterator(all_labels.len(), (0..all_labels.len()).map(|index| {
+                let char = char_keys.index(&index);
+                if char == &c { *key_frequency_map.index(&c) } else { 0 }
+            }))
+        }).collect();
+
+        (Graph2::new(vertices, edges, all_labels), char_keys)
     })
 }
 
