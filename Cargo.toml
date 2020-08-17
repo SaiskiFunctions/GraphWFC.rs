@@ -10,6 +10,7 @@ repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 [dependencies]
 rand = "0.7.3"
 bencher = "0.1.5"
+image = "0.23.8"
 
 [[bench]]
 name = "collapse"
