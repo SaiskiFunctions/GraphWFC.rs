@@ -2,7 +2,7 @@ use hashbrown::{HashSet, HashMap};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
-use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, Graph2, LabelFrequencies};
+use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, Graph2};
 use crate::utils::hash_set;
 use crate::multiset::Multiset;
 
@@ -100,16 +100,15 @@ pub fn parse2(filename: &str) -> Result<(Graph2, HashMap<usize, char>), Error> {
             });
         });
 
-        let char_keys: HashMap<usize, char> = key_frequency_map.keys().map(|c| *c).enumerate().collect();
+        let char_keys: HashMap<usize, char> = key_frequency_map.keys().copied().enumerate().collect();
 
-        let all_labels_vec: Vec<u32> = (0..char_keys.len())
-            .into_iter().map(|index| {
+        let all_labels_vec: Vec<u32> = (0..char_keys.len()).map(|index| {
             *key_frequency_map.index(char_keys.index(&index))
         }).collect();
 
         let all_labels: Multiset = Multiset::from_iterator(all_labels_vec.len(), all_labels_vec);
 
-        let vertices: Vec<LabelFrequencies> = string.chars().filter(|c| c != &'\n').map(|c| {
+        let vertices: Vec<Multiset> = string.chars().filter(|c| c != &'\n').map(|c| {
             Multiset::from_iterator(all_labels.len(), (0..all_labels.len()).map(|index| {
                 let char = char_keys.index(&index);
                 if char == &c { *key_frequency_map.index(&c) } else { 0 }

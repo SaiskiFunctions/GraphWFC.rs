@@ -3,7 +3,6 @@ use hashbrown::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::ops::{Index, IndexMut};
 use crate::utils::hash_set;
-use nalgebra::DVector;
 use crate::multiset::{Multiset, MultisetTrait};
 
 
@@ -75,7 +74,7 @@ impl Graph {
     pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex, frequencies: &Frequencies) {
         let labels = &mut self.vertices[*index as usize];
         let total: i32 = labels.iter().fold(0, |acc, label| {
-            &acc + frequencies.index(label)
+            acc + frequencies.index(label)
         });
         let choice = rng.gen_range(1, total + 1);
         let mut acc = 0;
@@ -96,7 +95,7 @@ impl Graph {
     pub fn constrain(&mut self, index: &VertexIndex, constraint: &Labels) -> Option<&Labels> {
         let labels = &mut self.vertices[*index as usize];
         if labels.is_subset(constraint) { return None; }
-        *labels = labels.intersection(constraint).map(|x| *x).collect();
+        *labels = labels.intersection(constraint).copied().collect();
         Some(labels)
     }
 }
@@ -369,8 +368,6 @@ mod tests {
     }
 }
 
-pub type LabelFrequencies = DVector<u32>;
-
 //                                         +--- vertex label (index of LabelFrequencies vector)
 //                                         |        +--- 1, 0 constraint value
 //                                         |        |
@@ -379,13 +376,13 @@ pub type Rules2 = HashMap<(EdgeDirection, u32), Multiset>;
 
 #[derive(Debug, Clone)]
 pub struct Graph2 {
-    pub vertices: Vec<LabelFrequencies>, // index of vec == vertex index
+    pub vertices: Vec<Multiset>, // index of vec == vertex index
     pub edges: Edges,
-    pub all_labels: LabelFrequencies
+    pub all_labels: Multiset
 }
 
 impl Graph2 {
-    pub fn new(vertices: Vec<LabelFrequencies>, edges: Edges, all_labels: LabelFrequencies) -> Graph2 {
+    pub fn new(vertices: Vec<Multiset>, edges: Edges, all_labels: Multiset) -> Graph2 {
         Graph2 { vertices, edges, all_labels }
     }
 
@@ -422,7 +419,7 @@ impl Graph2 {
     /// Constrain the vertex labels at the given index by intersecting the
     /// vertex labels with the constraint set.
     /// Return Some(labels) if the labels set was changed else return None.
-    pub fn constrain(&mut self, index: &VertexIndex, constraint: &LabelFrequencies) -> Option<&LabelFrequencies> {
+    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Multiset) -> Option<&Multiset> {
         let labels = self.vertices.index_mut(*index as usize);
         let inter = labels.intersection(constraint);
         if labels == &inter { return None }
@@ -455,7 +452,7 @@ mod graph2_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[1, 0, 0]),
             Multiset::from_row_slice(&[0, 2, 0]),
             Multiset::from_row_slice(&[0, 0, 1]),
@@ -501,7 +498,7 @@ mod graph2_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[2, 0, 0]),
             Multiset::from_row_slice(&[0, 1, 0]),
             Multiset::from_row_slice(&[0, 0, 1]),
@@ -547,7 +544,7 @@ mod graph2_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[2, 2, 0]),
             Multiset::from_row_slice(&[0, 2, 0]),
             Multiset::from_row_slice(&[0, 0, 1]),
@@ -587,7 +584,7 @@ mod graph2_tests {
 
     #[test]
     fn test_observe() {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[3, 3, 0, 0]),
             Multiset::from_row_slice(&[3, 3, 1, 2]),
             Multiset::from_row_slice(&[0, 3, 0, 2]),
@@ -612,7 +609,7 @@ mod graph2_tests {
 
     #[test]
     fn test_constrain_true() {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[1, 1, 1, 1])
         ];
 
@@ -631,7 +628,7 @@ mod graph2_tests {
 
     #[test]
     fn test_constrain_false() {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[1, 1, 0])
         ];
 

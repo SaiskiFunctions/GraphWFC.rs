@@ -1,16 +1,9 @@
 use hashbrown::HashMap;
-use lazy_static::*;
 use nalgebra::DVector;
 use rand::prelude::*;
-use std::sync::RwLock;
 
 type MultisetScalar = u32;
 pub type Multiset = DVector<MultisetScalar>;
-type EntropyCache = HashMap<Multiset, f32>;
-
-lazy_static! {
-    static ref CACHE: RwLock<EntropyCache> = RwLock::new(HashMap::with_capacity(32));
-}
 
 pub trait MultisetTrait {
     fn contains(&self, elem: MultisetScalar) -> bool;
@@ -90,28 +83,23 @@ impl MultisetTrait for DVector<MultisetScalar> {
     }
 }
 
-pub struct EntCache {
-    cache: EntropyCache
+pub struct EntropyCache<'a> {
+    cache: HashMap<&'a  Multiset, f32>
 }
 
-impl EntCache {
-    pub fn new() -> EntCache {
-        EntCache { cache: HashMap::new() }
+impl<'a> EntropyCache<'a> {
+    pub fn new() -> EntropyCache<'a> {
+        EntropyCache { cache: HashMap::new() }
     }
 
-    pub fn entropy(&mut self, ms: &Multiset) -> f32 {
-        if let Some(result) = self.cache.get(ms) {
-            return *result
-        }
-        let total = ms.sum() as f32;
-        let result = - ms.fold(0.0, |acc, frequency| {
-            if frequency > 0 {
-                let prob = frequency as f32 / total;
-                acc + prob * prob.log2()
-            } else { acc }
-        });
-        self.cache.insert(ms.clone(), result.clone());
-        result
+    pub fn entropy(&mut self, ms: &'a Multiset) -> &f32 {
+        self.cache.entry(ms).or_insert(ms.entropy())
+    }
+}
+
+impl<'a> Default for EntropyCache<'a> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
