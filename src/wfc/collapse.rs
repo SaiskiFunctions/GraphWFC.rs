@@ -4,11 +4,10 @@ use std::collections::{BinaryHeap};
 use hashbrown::{HashSet, HashMap};
 use std::mem::replace;
 use std::ops::Index;
-use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels, LabelFrequencies, Rules2, Graph2};
-use crate::wfc::observe::Observe;
+use crate::graph::graph::{Rules, Graph, VertexIndex, Frequencies, Labels, Rules2, Graph2};
+use crate::wfc::observe::{Observe, Observe2};
 use crate::wfc::propagate::Propagate;
-use nalgebra::DVector;
-use crate::multiset::{MultisetTrait, EntCache};
+use crate::multiset::{MultisetTrait, Multiset, EntropyCache};
 
 
 struct Collapse<'a> {
@@ -116,131 +115,255 @@ impl Collapse<'_> {
     }
 }
 
-struct Collapse2<'a> {
-    heap: BinaryHeap<Observe>,
-    gen_observe: HashSet<VertexIndex>,
-    observed: HashSet<VertexIndex>,
-    propagations: Vec<Propagate>,
+pub fn collapse3<'a>(
     rng: &'a mut StdRng,
-    rules: &'a Rules2,
-    out_graph: Graph2,
-}
+    rules: Rules2,
+    all_labels: &'a Multiset,
+    out_graph: &'a mut Graph2,
+    entropy_cache: &'a mut EntropyCache<'a>
+) {
+    let heap: &mut BinaryHeap<Observe> = &mut BinaryHeap::new();
+    let gen_observe: &mut HashSet<VertexIndex> = &mut  HashSet::new();
+    let observed: &mut HashSet<VertexIndex> = &mut  HashSet::new();
+    let propagations: &mut Vec<Propagate> = &mut  Vec::new();
 
-impl Collapse2<'_> {
-    pub fn new<'a>(rng: &'a mut StdRng,
-                   rules: &'a Rules2,
-                   all_labels: &'a LabelFrequencies,
-                   out_graph: Graph2) -> Collapse2<'a> {
-        let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
-        let gen_observe: HashSet<VertexIndex> = HashSet::new();
-        let mut observed: HashSet<VertexIndex> = HashSet::new();
-        let mut propagations: Vec<Propagate> = Vec::new();
+    let constraint_cache = &mut ConstraintCache::new();
 
-        let vertices_iter = out_graph.vertices.iter().enumerate();
-
-
-        // initialize heap and observed
-        // todo:
-        //  Should we even initialize the heap? Maybe it would be better
-        //  to only make these Observe elements when necessary.
-        for (_index, labels) in vertices_iter.clone() {
-            let from_index = _index as i32;
-            if labels.len() == 1 { observed.insert(from_index); }
-            else { heap.push(Observe::new_fuzz2(rng, &from_index, labels)) }
-        }
-
-        // Ensure that output graph is fully propagated before starting loop.
-        // Generate Propagates for every vertex whose label set is a proper
-        // subset of the set of all labels.
-        for (_index, labels) in vertices_iter {
-            let from_index = _index as i32;
-            assert!(labels.is_subset(all_labels));
-            if labels != all_labels { // labels is proper subset of all_labels
-                generate_propagations2(&mut propagations, &observed, &out_graph, &from_index);
-            }
-        }
-
-        Collapse2 {
-            heap,
-            gen_observe,
-            observed,
-            propagations,
-            rng,
-            rules,
-            out_graph,
+    for (_index, labels) in out_graph.vertices.iter().enumerate() {
+        let from_index = _index as i32;
+        if labels.len() == 1 { observed.insert(from_index); }
+        else {
+            let entropy = *(entropy_cache.entropy(labels));
+            let observe = Observe2::new_fuzz(rng, &from_index, entropy);
+            heap.push(observe)
         }
     }
 
-    pub fn exec(&mut self) -> Option<Graph2> {
-        let heap = &mut self.heap;
-        let observed = &mut self.observed;
-        let out_graph = &mut self.out_graph;
-        let gen_observe = &mut self.gen_observe;
-        let propagations = &mut self.propagations;
-        let rules = &self.rules;
+    // Ensure that output graph is fully propagated before starting loop.
+    // Generate Propagates for every vertex whose label set is a proper
+    // subset of the set of all labels.
+    for (_index, labels) in out_graph.vertices.iter().enumerate() {
+        let from_index = _index as i32;
+        assert!(labels.is_subset(all_labels));
+        if labels != all_labels { // labels is proper subset of all_labels
+            generate_propagations2(propagations, &observed, &out_graph, &from_index);
+        }
+    }
 
-        loop {
-            if observed.len() == out_graph.vertices.len() || heap.is_empty() {
-                return Some(replace(out_graph, Graph2::empty()));
+    loop {
+        // if observed.len() == out_graph.vertices.len() || heap.is_empty() {
+        //     return Some(replace(out_graph, Graph2::empty()));
+        // }
+        if propagations.is_empty() {
+            for &index in gen_observe.iter() {
+                let labels = out_graph.vertices.index(index as usize);
+                let entropy = *(entropy_cache.entropy(labels));
+                heap.push(Observe2::<'a>::new(&index, entropy))
             }
-            if propagations.is_empty() {
-                gen_observe.drain().for_each(|index| {  // algo: 4.2
-                    let labels = out_graph.vertices.index(index as usize);
-                    heap.push(Observe::new2(&index, labels))
-                });
-                let observe = heap.pop().unwrap();
-                if observed.contains(&observe.index) { continue }
-                out_graph.observe(self.rng, &observe.index);
-                observed.insert(observe.index);
-                generate_propagations2(propagations, observed, out_graph, &observe.index);
-            } else {
-                let propagate = propagations.pop().unwrap();
-                let constraint = constraint(out_graph.vertices.index(propagate.from as usize), &propagate.direction, rules);
+            gen_observe.clear();
 
-                if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
-                    if labels.is_empty() { return None }
-                    else if labels.len() == 1 { observed.insert(propagate.to); }
-                    else { gen_observe.insert(propagate.to); }
-                    generate_propagations2(propagations, observed, out_graph, &propagate.to);
-                }
+            // gen_observe.drain().for_each(|index| {  // algo: 4.2
+            //     let labels = out_graph.vertices.index(index as usize);
+            //     heap.push(Observe2::<'a>::new(&index, labels, entropy_cache))
+            // });
+
+            let observe = heap.pop().unwrap();
+            if observed.contains(&observe.index) { continue }
+            out_graph.observe(rng, &observe.index);
+            observed.insert(observe.index);
+            generate_propagations2(propagations, observed, out_graph, &observe.index);
+        } else {
+            let propagate = propagations.pop().unwrap();
+            let constraint = constraint_cache.constraint(out_graph.vertices.index(propagate.from as usize), &propagate.direction, &rules);
+
+            if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
+                if labels.is_empty() {} //{ return None }
+                else if labels.len() == 1 { observed.insert(propagate.to); }
+                else { gen_observe.insert(propagate.to); }
+                generate_propagations2(propagations, observed, out_graph, &propagate.to);
             }
         }
     }
 }
 
-use std::sync::RwLock;
+// struct Collapse2<'a> {
+//     heap: BinaryHeap<Observe>,
+//     gen_observe: HashSet<VertexIndex>,
+//     observed: HashSet<VertexIndex>,
+//     propagations: Vec<Propagate>,
+//     rng: &'a mut StdRng,
+//     rules: &'a Rules2,
+//     out_graph: Graph2,
+//     ec: &'a mut EntropyCache<'a>,
+//     all_labels: &'a Multiset
+// }
+//
+// impl<'b> Collapse2<'b> {
+//     pub fn new<'a: 'b>(rng: &'a mut StdRng,
+//                    rules: &'a Rules2,
+//                    all_labels: &'a Multiset,
+//                    out_graph: Graph2,
+//                    ec: &'a mut EntropyCache<'a>) -> Collapse2<'a> {
+//         let heap: BinaryHeap<Observe> = BinaryHeap::new();
+//         let gen_observe: HashSet<VertexIndex> = HashSet::new();
+//         let observed: HashSet<VertexIndex> = HashSet::new();
+//         let propagations: Vec<Propagate> = Vec::new();
+//
+//         // let vertices_iter = out_graph.vertices.iter().enumerate();
+//         //
+//         // // initialize heap and observed
+//         // // todo:
+//         // //  Should we even initialize the heap? Maybe it would be better
+//         // //  to only make these Observe elements when necessary.
+//         // for (_index, labels) in vertices_iter.clone() {
+//         //     let from_index = _index as i32;
+//         //     if labels.len() == 1 { observed.insert(from_index); }
+//         //     else { heap.push(Observe2::new_fuzz(rng, &from_index, labels, ec)) }
+//         // }
+//         //
+//         // // Ensure that output graph is fully propagated before starting loop.
+//         // // Generate Propagates for every vertex whose label set is a proper
+//         // // subset of the set of all labels.
+//         // for (_index, labels) in vertices_iter {
+//         //     let from_index = _index as i32;
+//         //     assert!(labels.is_subset(all_labels));
+//         //     if labels != all_labels { // labels is proper subset of all_labels
+//         //         generate_propagations2(&mut propagations, &observed, &out_graph, &from_index);
+//         //     }
+//         // }
+//
+//         Collapse2::<'a> {
+//             heap,
+//             gen_observe,
+//             observed,
+//             propagations,
+//             rng,
+//             rules,
+//             out_graph,
+//             ec,
+//             all_labels
+//         }
+//     }
+//
+//     pub fn exec<'a: 'b>(&'a mut self) -> Option<Graph2> {
+//         let heap = &mut self.heap;
+//         let observed = &mut self.observed;
+//         let out_graph = &mut self.out_graph;
+//         let gen_observe = &mut self.gen_observe;
+//         let propagations = &mut self.propagations;
+//         let rules = self.rules;
+//
+//         let all_labels = self.all_labels;
+//
+//         let entropy_cache = &mut self.ec;
+//
+//         let mut constraint_cache = ConstraintCache::new();
+//
+//         let vertices_iter = out_graph.vertices.clone();
+//
+//         for (_index, labels) in vertices_iter.iter().enumerate() {
+//             let from_index = _index as i32;
+//             if labels.len() == 1 { observed.insert(from_index); }
+//             else { heap.push(Observe2::new_fuzz(self.rng, &from_index, labels, entropy_cache)) }
+//         }
+//
+//         // Ensure that output graph is fully propagated before starting loop.
+//         // Generate Propagates for every vertex whose label set is a proper
+//         // subset of the set of all labels.
+//         for (_index, labels) in vertices_iter.iter().enumerate() {
+//             let from_index = _index as i32;
+//             assert!(labels.is_subset(all_labels));
+//             if labels != all_labels { // labels is proper subset of all_labels
+//                 generate_propagations2(propagations, &observed, &out_graph, &from_index);
+//             }
+//         }
+//
+//         loop {
+//             if observed.len() == out_graph.vertices.len() || heap.is_empty() {
+//                 return Some(replace(out_graph, Graph2::empty()));
+//             }
+//             if propagations.is_empty() {
+//                 for &index in gen_observe.iter() {
+//                     let labels = out_graph.vertices.index(index as usize);
+//                     heap.push(Observe2::<'a>::new(&index, labels, entropy_cache))
+//                 }
+//                 gen_observe.clear();
+//
+//                 // gen_observe.drain().for_each(|index| {  // algo: 4.2
+//                 //     let labels = out_graph.vertices.index(index as usize);
+//                 //     heap.push(Observe2::<'a>::new(&index, labels, entropy_cache))
+//                 // });
+//
+//                 let observe = heap.pop().unwrap();
+//                 if observed.contains(&observe.index) { continue }
+//                 out_graph.observe(self.rng, &observe.index);
+//                 observed.insert(observe.index);
+//                 generate_propagations2(propagations, observed, out_graph, &observe.index);
+//             } else {
+//                 let propagate = propagations.pop().unwrap();
+//                 let constraint = constraint_cache.constraint(out_graph.vertices.index(propagate.from as usize), &propagate.direction, rules);
+//
+//                 if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
+//                     if labels.is_empty() { return None }
+//                     else if labels.len() == 1 { observed.insert(propagate.to); }
+//                     else { gen_observe.insert(propagate.to); }
+//                     generate_propagations2(propagations, observed, out_graph, &propagate.to);
+//                 }
+//             }
+//         }
+//     }
+// }
+
 use std::hash::{Hash, Hasher, BuildHasher};
 use hashbrown::hash_map::DefaultHashBuilder;
-use lazy_static::*;
 
-fn hash_prop(labels: &LabelFrequencies, direction: &u16) -> u64 {
+fn hash_prop(labels: &Multiset, direction: &u16) -> u64 {
     let mut h = DefaultHashBuilder::new().build_hasher();
     labels.hash(&mut h);
     direction.hash(&mut h);
     h.finish()
 }
 
-lazy_static! {
-    static ref CACHE: RwLock<HashMap<u64, DVector<u32>>> = RwLock::new(HashMap::with_capacity(32));
+pub struct ConstraintCache {
+    cache: HashMap<u64, Multiset>
 }
 
-pub fn constraint(labels: &LabelFrequencies, direction: &u16, rules: &Rules2) -> DVector<u32> {
-    // let hash = hash_prop(labels, direction);
-    // if let Some(result) = CACHE.read().unwrap().get(&hash) {
-    //     return result.clone();
-    // }
-    let result = labels.iter().enumerate()
-        .fold(DVector::<u32>::zeros(labels.len()), |mut acc, (index, frq)| {
-            if frq > &0 {
-                if let Some(a) = rules.get(&(*direction, index as u32)) {
-                    acc = acc.sup(&a)
+impl ConstraintCache {
+    pub fn new() -> ConstraintCache {
+        ConstraintCache { cache: HashMap::new() }
+    }
+
+    #[inline]
+    pub fn constraint(&mut self, labels: &Multiset, direction: &u16, rules: &Rules2) -> Multiset {
+        // let hash = hash_prop(labels, direction);
+        // self.cache.entry(hash).or_insert(
+        //     labels.iter().enumerate()
+        //         .fold(Multiset::zeros(labels.len()), |mut acc, (index, frq)| {
+        //             if frq > &0 {
+        //                 if let Some(a) = rules.get(&(*direction, index as u32)) {
+        //                     acc = acc.sup(&a)
+        //                 }
+        //             }
+        //             acc
+        //         })
+        // )
+
+        labels.iter().enumerate()
+            .fold(Multiset::zeros(labels.len()), |mut acc, (index, frq)| {
+                if frq > &0 {
+                    if let Some(a) = rules.get(&(*direction, index as u32)) {
+                        acc = acc.sup(&a)
+                    }
                 }
-            }
-            acc
-        });
-    // let mut write_cache = CACHE.write().unwrap();
-    // (*write_cache).insert(hash, result.clone());
-    result
+                acc
+            })
+    }
+}
+
+impl Default for ConstraintCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // todo: change this to a pure function?
@@ -261,7 +384,9 @@ fn generate_propagations2(propagations: &mut Vec<Propagate>, observed: &HashSet<
 }
 
 pub fn collapse(input_graph: &Graph, output_graph: Graph, seed: Option<u64>, tries: Option<u16>) -> Option<Graph> {
-    let mut rng = StdRng::seed_from_u64(seed.unwrap_or(thread_rng().next_u64()));
+    let mut rng = StdRng::seed_from_u64(seed.unwrap_or_else(|| {
+        thread_rng().next_u64()
+    }));
     let tries = tries.unwrap_or(10);
 
     let rules = input_graph.rules();
@@ -278,18 +403,21 @@ pub fn collapse(input_graph: &Graph, output_graph: Graph, seed: Option<u64>, tri
     None
 }
 
-pub fn collapse2(input_graph: &Graph2, output_graph: Graph2, seed: Option<u64>, tries: Option<u16>) -> Option<Graph2> {
-    let mut rng = StdRng::seed_from_u64(seed.unwrap_or(thread_rng().next_u64()));
+pub fn collapse2<'a>(input_graph: &'a Graph2, output_graph: Graph2, seed: Option<u64>, tries: Option<u16>, ec: &'a mut EntropyCache<'a>) -> Option<Graph2> {
+    let mut rng = StdRng::seed_from_u64(seed.unwrap_or_else(|| {
+        thread_rng().next_u64()
+    }));
     let tries = tries.unwrap_or(10);
 
     let rules = input_graph.rules();
-    let all_labels = input_graph.all_labels.clone();
+    let all_labels = &input_graph.all_labels;
 
     for _ in 0..tries {
-        let mut collapse_try = Collapse2::new(&mut rng, &rules, &all_labels, output_graph.clone());
-        if let opt_graph @ Some(_) = collapse_try.exec() {
-            return opt_graph;
-        }
+        // let mut collapse_try = Collapse2::<'a>::new(&mut rng, &rules, &all_labels, output_graph.clone(), ec);
+        // if let opt_graph @ Some(_) = collapse_try.exec() {
+        //     return opt_graph;
+        // }
+        collapse3(&mut rng, rules.clone(), all_labels, &mut output_graph.clone(), ec)
     }
     println!("CONTRADICTION!");
     None
@@ -335,20 +463,22 @@ mod tests {
 
     #[test]
     fn test_constraint() {
-        let a: DVector<u32> = DVector::from_row_slice(&[1, 0, 0]);
-        let b: DVector<u32> = DVector::from_row_slice(&[0, 0, 1]);
-        let c: DVector<u32> = DVector::from_row_slice(&[1, 1, 1]);
+        let a: Multiset = Multiset::from_row_slice(&[1, 0, 0]);
+        let b: Multiset = Multiset::from_row_slice(&[0, 0, 1]);
+        let c: Multiset = Multiset::from_row_slice(&[1, 1, 1]);
         let rules: Rules2 = hash_map(&[
             ((0, 0), a),
             ((0, 1), b),
             ((0, 2), c)
         ]);
 
-        let labels: &LabelFrequencies = &DVector::from_row_slice(&[2, 4, 0]);
+        let labels: &Multiset = &Multiset::from_row_slice(&[2, 4, 0]);
         let direction: &u16 = &0;
 
-        let result = constraint(labels, direction, &rules);
-        let expected = DVector::from_row_slice(&[1, 0, 1]);
+        let mut constraint_cache = ConstraintCache::new();
+
+        let result = constraint_cache.constraint(labels, direction, &rules);
+        let expected = Multiset::from_row_slice(&[1, 0, 1]);
         assert_eq!(result, expected)
     }
 

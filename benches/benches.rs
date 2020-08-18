@@ -5,14 +5,14 @@ extern crate nalgebra;
 
 mod collapse {
     use bencher::Bencher;
-    use wfc_rust::wfc::collapse::{collapse, constraint, collapse2};
+    use wfc_rust::wfc::collapse::{ConstraintCache, collapse, collapse2};
     use wfc_rust::io::text_parser::{parse, make_nsew_grid_edges, parse2};
-    use wfc_rust::graph::graph::{Labels, Graph, Rules2, LabelFrequencies, Graph2};
+    use wfc_rust::graph::graph::{Labels, Graph, Rules2, Graph2};
     use wfc_rust::multiset::Multiset;
     use wfc_rust::utils::hash_map;
 
     pub fn bench_collapse(bench: &mut Bencher) {
-        let out_width = 1000;
+        let out_width = 100;
         let out_depth = 100;
 
         if let Ok((input_graph, _)) = parse("resources/test/tosashimizu_model.txt") {
@@ -28,12 +28,12 @@ mod collapse {
     }
 
     pub fn bench_collapse2(bench: &mut Bencher) {
-        let out_width = 1000;
+        let out_width = 100;
         let out_depth = 100;
 
         if let Ok((input_graph, _)) = parse2("resources/test/tosashimizu_model.txt") {
             let all_labels = input_graph.all_labels.clone();
-            let output_vertices: Vec<LabelFrequencies> = vec![all_labels.clone(); out_width * out_depth];
+            let output_vertices: Vec<Multiset> = vec![all_labels.clone(); out_width * out_depth];
             let output_edges = make_nsew_grid_edges(out_width, out_depth);
             let output_graph = Graph2::new(output_vertices, output_edges, all_labels.clone());
 
@@ -53,11 +53,13 @@ mod collapse {
             ((0, 2), c)
         ]);
 
-        let labels: &LabelFrequencies = &Multiset::from_row_slice(&[2, 4, 0]);
+        let labels: &Multiset = &Multiset::from_row_slice(&[2, 4, 0]);
         let direction: &u16 = &0;
 
+        let mut constraint_cache = ConstraintCache::new();
+
         bench.iter(|| {
-            constraint(labels, direction, &rules)
+            constraint_cache.constraint(labels, direction, &rules)
         })
     }
 
@@ -204,7 +206,7 @@ mod graphs {
     }
 
     pub fn graph2_rules(bench: &mut Bencher) {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[1, 0, 0]),
             Multiset::from_row_slice(&[0, 2, 0]),
             Multiset::from_row_slice(&[0, 0, 1]),
@@ -237,7 +239,7 @@ mod graphs {
     }
 
     pub fn graph2_observe(bench: &mut Bencher) {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[3, 3, 0, 0]),
             Multiset::from_row_slice(&[3, 3, 1, 2]),
             Multiset::from_row_slice(&[0, 3, 0, 2]),
@@ -280,7 +282,7 @@ mod graphs {
     }
 
     pub fn graph2_constrain_true(bench: &mut Bencher) {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[1, 1, 1, 1])
         ];
 
@@ -293,7 +295,7 @@ mod graphs {
     }
 
     pub fn graph2_constrain_false(bench: &mut Bencher) {
-        let graph_vertices: Vec<LabelFrequencies> = vec![
+        let graph_vertices: Vec<Multiset> = vec![
             Multiset::from_row_slice(&[1, 1, 0])
         ];
 
@@ -309,11 +311,11 @@ mod graphs {
 
 benchmark_group!(
     benches,
-    // collapse::bench_collapse,
-    // collapse::bench_collapse2,
-    // collapse::bench_constraint_build,
-    collapse::bench_clone,
-    collapse::bench_ref,
+    collapse::bench_collapse,
+    collapse::bench_collapse2,
+    collapse::bench_constraint_build,
+    // collapse::bench_clone,
+    // collapse::bench_ref,
     // entropy_cache::cached_ent3_01,
     // entropy_cache::cached_ent3_02,
     // entropy_cache::cached_ent3_03,
