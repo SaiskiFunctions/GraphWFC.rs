@@ -16,3 +16,12 @@ stepSize?
 5. 
 
 6. add orphan vertices
+
+
+chunk
+sub_chunk --> pixel dimensions of the sub chunks that make up a chunk
+pixel
+
+These are all square
+
+1 --> 2 --> 4
