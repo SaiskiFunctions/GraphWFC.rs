@@ -4,7 +4,9 @@ use std::io::Error;
 use std::ops::Index;
 use crate::graph::graph::{Graph, Labels, Edges, EdgeDirection, VertexIndex, Graph2};
 use crate::utils::hash_set;
-use crate::multiset::Multiset;
+use crate::multiset::{Multiset, MultisetTrait, MultisetScalar};
+use nalgebra::{Dim, DimName, DefaultAllocator};
+use nalgebra::allocator::Allocator;
 
 
 pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
@@ -60,7 +62,10 @@ pub fn parse(filename: &str) -> Result<(Graph, HashMap<usize, char>), Error> {
     })
 }
 
-pub fn parse2(filename: &str) -> Result<(Graph2, HashMap<usize, char>), Error> {
+pub fn parse2<D>(filename: &str) -> Result<(Graph2<D>, HashMap<usize, char>), Error>
+    where D: Dim + DimName,
+          DefaultAllocator: Allocator<MultisetScalar, D>
+{
     read_to_string(filename).map(|string| {
         let lines: Vec<&str> = string.split('\n').filter(|l| !l.is_empty()).collect();
         let num_lines = lines.len();
@@ -106,10 +111,10 @@ pub fn parse2(filename: &str) -> Result<(Graph2, HashMap<usize, char>), Error> {
             *key_frequency_map.index(char_keys.index(&index))
         }).collect();
 
-        let all_labels: Multiset = Multiset::from_iterator(all_labels_vec.len(), all_labels_vec);
+        let all_labels: Multiset<D> = Multiset::from_iter_u(all_labels_vec.clone());
 
-        let vertices: Vec<Multiset> = string.chars().filter(|c| c != &'\n').map(|c| {
-            Multiset::from_iterator(all_labels.len(), (0..all_labels.len()).map(|index| {
+        let vertices: Vec<Multiset<D>> = string.chars().filter(|c| c != &'\n').map(|c| {
+            Multiset::from_iter_u((0..all_labels_vec.len()).map(|index| {
                 let char = char_keys.index(&index);
                 if char == &c { *key_frequency_map.index(&c) } else { 0 }
             }))
@@ -154,7 +159,6 @@ pub fn make_nsew_grid_edges(width: usize, depth: usize) -> Edges {
 }
 
 pub fn render(filename: &str, graph: &Graph, key: &HashMap<usize, char>, width: usize) {
-    // println!("GRAPH: {:?}", graph);
     let rendered_vertices: Vec<char> = graph.vertices.iter().map(|labels| {
         let k = *labels.iter().next().unwrap() as usize;
         *key.index(&k)

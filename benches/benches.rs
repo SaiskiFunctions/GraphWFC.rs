@@ -5,11 +5,12 @@ extern crate nalgebra;
 
 mod collapse {
     use bencher::Bencher;
-    use wfc_rust::wfc::collapse::{ConstraintCache, collapse, collapse2};
+    use wfc_rust::wfc::collapse::{collapse, collapse2};
     use wfc_rust::io::text_parser::{parse, make_nsew_grid_edges, parse2};
     use wfc_rust::graph::graph::{Labels, Graph, Rules2, Graph2};
-    use wfc_rust::multiset::Multiset;
+    use wfc_rust::multiset::{Multiset, MultisetTrait};
     use wfc_rust::utils::hash_map;
+    use nalgebra::U6;
 
     pub fn bench_collapse(bench: &mut Bencher) {
         let out_width = 100;
@@ -31,124 +32,89 @@ mod collapse {
         let out_width = 100;
         let out_depth = 100;
 
-        if let Ok((input_graph, _)) = parse2("resources/test/tosashimizu_model.txt") {
+        if let Ok((input_graph, _)) = parse2::<U6>("resources/test/tosashimizu_model.txt") {
             let all_labels = input_graph.all_labels.clone();
-            let output_vertices: Vec<Multiset> = vec![all_labels.clone(); out_width * out_depth];
+            let output_vertices: Vec<Multiset<U6>> = vec![all_labels.clone(); out_width * out_depth];
             let output_edges = make_nsew_grid_edges(out_width, out_depth);
-            let output_graph = Graph2::new(output_vertices, output_edges, all_labels.clone());
+            let output_graph = Graph2::<U6>::new(output_vertices, output_edges, all_labels.clone());
 
             bench.iter(|| {
-                collapse2(&input_graph, output_graph.clone(), None, None)
+                collapse2::<U6>(&input_graph, output_graph.clone(), None, None)
             })
         }
-    }
-
-    pub fn bench_constraint_build(bench: &mut Bencher) {
-        let a: Multiset = Multiset::from_row_slice(&[1, 0, 0]);
-        let b: Multiset = Multiset::from_row_slice(&[0, 0, 1]);
-        let c: Multiset = Multiset::from_row_slice(&[1, 1, 1]);
-        let rules: Rules2 = hash_map(&[
-            ((0, 0), a),
-            ((0, 1), b),
-            ((0, 2), c)
-        ]);
-
-        let labels: &Multiset = &Multiset::from_row_slice(&[2, 4, 0]);
-        let direction: &u16 = &0;
-
-        let mut constraint_cache = ConstraintCache::new();
-
-        bench.iter(|| {
-            constraint_cache.constraint(labels, direction, &rules)
-        })
-    }
-
-    pub fn bench_clone(bench: &mut Bencher) {
-        let all_labels: Multiset = Multiset::from_row_slice(&[10, 22, 3]);
-        let length = 10000;
-        bench.iter(|| {
-            vec![all_labels.clone(); length]
-        })
-    }
-
-    pub fn bench_ref(bench: &mut Bencher) {
-        let all_labels: Multiset = Multiset::from_row_slice(&[10, 22, 3]);
-        let length = 10000;
-        bench.iter(|| {
-            vec![&all_labels; length]
-        })
     }
 }
 
 mod entropy_cache {
     use bencher::Bencher;
     use wfc_rust::multiset::{Multiset, MultisetTrait};
+    use nalgebra::U6;
 
     pub fn cached_ent3_01(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_02(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_03(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_04(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33, 28]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_05(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33, 28, 99]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_06(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33, 28, 99, 11]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_07(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33, 28, 99, 11, 76]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11, 76]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_08(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33, 28, 99, 11, 76, 43]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11, 76, 43]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_16(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_32(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[
             200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43,
             200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43
         ]);
@@ -158,14 +124,14 @@ mod entropy_cache {
     }
 
     pub fn cached_ent3_zeroes_08(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[200, 0, 0, 0, 0, 0, 0, 0]);
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 0, 0, 0, 0, 0, 0, 0]);
         bench.iter(|| {
             a.entropy()
         })
     }
 
     pub fn cached_ent3_zeroes_32(bench: &mut Bencher) {
-        let a: &Multiset = &Multiset::from_row_slice(&[
+        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[
             200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         ]);
@@ -179,10 +145,11 @@ mod graphs {
     use bencher::Bencher;
     use wfc_rust::graph::graph::*;
     use wfc_rust::utils::{hash_map, hash_set};
-    use wfc_rust::multiset::Multiset;
+    use wfc_rust::multiset::{Multiset, MultisetTrait};
     use std::iter::FromIterator;
     use hashbrown::HashMap;
     use rand::prelude::*;
+    use nalgebra::U6;
 
     fn graph_edges() -> Edges {
         hash_map(&[
@@ -206,14 +173,14 @@ mod graphs {
     }
 
     pub fn graph2_rules(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[1, 0, 0]),
-            Multiset::from_row_slice(&[0, 2, 0]),
-            Multiset::from_row_slice(&[0, 0, 1]),
-            Multiset::from_row_slice(&[0, 2, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[1, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 2, 0]),
+            Multiset::from_row_slice_u(&[0, 0, 1]),
+            Multiset::from_row_slice_u(&[0, 2, 0])
         ];
 
-        let graph = Graph2::new(graph_vertices, graph_edges(), Multiset::from_row_slice(&[1, 2, 1]));
+        let graph = Graph2::<U6>::new(graph_vertices, graph_edges(), Multiset::from_row_slice_u(&[1, 2, 1]));
 
         bench.iter(|| {
             graph.rules()
@@ -239,14 +206,14 @@ mod graphs {
     }
 
     pub fn graph2_observe(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[3, 3, 0, 0]),
-            Multiset::from_row_slice(&[3, 3, 1, 2]),
-            Multiset::from_row_slice(&[0, 3, 0, 2]),
-            Multiset::from_row_slice(&[3, 0, 0, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[3, 3, 0, 0]),
+            Multiset::from_row_slice_u(&[3, 3, 1, 2]),
+            Multiset::from_row_slice_u(&[0, 3, 0, 2]),
+            Multiset::from_row_slice_u(&[3, 0, 0, 0])
         ];
 
-        let graph = Graph2::new(graph_vertices, HashMap::new(), Multiset::from_row_slice(&[3, 3, 1, 2]));
+        let graph = Graph2::<U6>::new(graph_vertices, HashMap::new(), Multiset::from_row_slice_u(&[3, 3, 1, 2]));
         let mut test_rng = StdRng::seed_from_u64(2);
         let index = 1;
 
@@ -282,12 +249,12 @@ mod graphs {
     }
 
     pub fn graph2_constrain_true(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[1, 1, 1, 1])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[1, 1, 1, 1])
         ];
 
-        let constraint = Multiset::from_row_slice(&[1, 1, 0, 0]);
-        let graph = Graph2::new(graph_vertices, HashMap::new(), Multiset::from_row_slice(&[1, 1, 1, 1]));
+        let constraint = Multiset::from_row_slice_u(&[1, 1, 0, 0]);
+        let graph = Graph2::<U6>::new(graph_vertices, HashMap::new(), Multiset::from_row_slice_u(&[1, 1, 1, 1]));
 
         bench.iter(|| {
             graph.clone().constrain(&0, &constraint);
@@ -295,12 +262,12 @@ mod graphs {
     }
 
     pub fn graph2_constrain_false(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[1, 1, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[1, 1, 0])
         ];
 
-        let constraint = Multiset::from_row_slice(&[1, 1, 1]);
-        let graph = Graph2::new(graph_vertices, HashMap::new(), Multiset::from_row_slice(&[1, 1, 1]));
+        let constraint = Multiset::from_row_slice_u(&[1, 1, 1]);
+        let graph = Graph2::<U6>::new(graph_vertices, HashMap::new(), Multiset::from_row_slice_u(&[1, 1, 1]));
 
         bench.iter(|| {
             graph.clone().constrain(&0, &constraint);
@@ -313,9 +280,6 @@ benchmark_group!(
     benches,
     collapse::bench_collapse,
     collapse::bench_collapse2,
-    collapse::bench_constraint_build,
-    // collapse::bench_clone,
-    // collapse::bench_ref,
     // entropy_cache::cached_ent3_01,
     // entropy_cache::cached_ent3_02,
     // entropy_cache::cached_ent3_03,

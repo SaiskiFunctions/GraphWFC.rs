@@ -3,7 +3,6 @@ use std::ops::Index;
 use rand::prelude::*;
 use crate::graph::graph::{VertexIndex, Labels, Frequencies};
 use std::fmt::Debug;
-use crate::multiset::{Multiset, MultisetTrait, EntropyCache};
 
 
 // Lower and upper bounds for use in generating slightly different
@@ -23,13 +22,9 @@ impl Observe {
         Observe { entropy: calculate_entropy(labels, frequencies), index: *index }
     }
 
-    pub fn new2(index: &VertexIndex, labels: &Multiset) -> Observe {
-        Observe { entropy: labels.entropy(), index: *index }
+    pub fn new2(index: &VertexIndex, entropy: f32) -> Observe {
+        Observe { entropy, index: *index }
     }
-
-    // pub fn new3(index: &VertexIndex, labels: &Multiset, cache: &mut EntCache) -> Observe {
-    //     Observe { entropy: *(cache.entropy(labels)), index: *index }
-    // }
 
     pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels,
                     frequencies: &Frequencies) -> Observe {
@@ -38,15 +33,10 @@ impl Observe {
         Observe { entropy: entropy + fuzz, index: *index }
     }
 
-    pub fn new_fuzz2(rng: &mut StdRng, index: &VertexIndex, labels: &Multiset) -> Observe {
+    pub fn new_fuzz2(rng: &mut StdRng, index: &VertexIndex, entropy: f32) -> Observe {
         let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
-        Observe { entropy: labels.entropy() + fuzz, index: *index }
+        Observe { entropy: entropy + fuzz, index: *index }
     }
-
-    // pub fn new_fuzz3(rng: &mut StdRng, index: &VertexIndex, labels: &Multiset, cache: &mut EntCache) -> Observe {
-    //     let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
-    //     Observe { entropy: cache.entropy(labels) + fuzz, index: *index }
-    // }
 }
 
 impl Ord for Observe {
@@ -86,50 +76,6 @@ pub fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
         let prob = *frequency as f32 / total as f32;
         acc + prob * prob.log2()
     })
-}
-
-#[derive(Debug)]
-pub struct Observe2<'a> {
-    entropy: &'a f32,
-    pub index: VertexIndex
-}
-
-impl<'a> Observe2<'a> {
-    pub fn new(index: &VertexIndex, entropy: f32) -> Observe {
-        Observe { entropy, index: *index }
-    }
-
-    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, entropy: f32) -> Observe {
-        let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
-        Observe { entropy: entropy + fuzz, index: *index }
-    }
-}
-
-impl Ord for Observe2<'_> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.entropy.partial_cmp(&other.entropy).is_none() {
-            println!("self: {:?}, other: {:?}", self, other)
-        }
-        match self.entropy.partial_cmp(&other.entropy).unwrap() {
-            Ordering::Greater => Ordering::Less,
-            Ordering::Less => Ordering::Greater,
-            ordering => ordering
-        }
-    }
-}
-
-impl PartialOrd for Observe2<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Eq for Observe2<'_> {}
-
-impl PartialEq for Observe2<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.entropy == other.entropy
-    }
 }
 
 #[cfg(test)]

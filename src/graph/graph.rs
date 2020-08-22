@@ -3,7 +3,9 @@ use hashbrown::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::ops::{Index, IndexMut};
 use crate::utils::hash_set;
-use crate::multiset::{Multiset, MultisetTrait};
+use crate::multiset::{Multiset, MultisetTrait, MultisetScalar};
+use nalgebra::{DimName, Dim, DefaultAllocator};
+use nalgebra::allocator::Allocator;
 
 
 pub type VertexLabel = i32;     // labels that a vertex can contain
@@ -372,27 +374,33 @@ mod tests {
 //                                         |        +--- 1, 0 constraint value
 //                                         |        |
 //                                         v        v
-pub type Rules2 = HashMap<(EdgeDirection, u32), Multiset>;
+pub type Rules2<D> = HashMap<(EdgeDirection, u32), Multiset<D>>;
 
 #[derive(Debug, Clone)]
-pub struct Graph2 {
-    pub vertices: Vec<Multiset>, // index of vec == vertex index
+pub struct Graph2<D>
+    where D: Dim + DimName,
+          DefaultAllocator: Allocator<MultisetScalar, D>
+{
+    pub vertices: Vec<Multiset<D>>, // index of vec == vertex index
     pub edges: Edges,
-    pub all_labels: Multiset
+    pub all_labels: Multiset<D>
 }
 
-impl Graph2 {
-    pub fn new(vertices: Vec<Multiset>, edges: Edges, all_labels: Multiset) -> Graph2 {
+impl<D> Graph2<D>
+    where D: Dim + DimName,
+          DefaultAllocator: Allocator<MultisetScalar, D>
+{
+    pub fn new(vertices: Vec<Multiset<D>>, edges: Edges, all_labels: Multiset<D>) -> Graph2<D> {
         Graph2 { vertices, edges, all_labels }
     }
 
-    pub fn empty() -> Graph2 {
-        Graph2 { vertices: Vec::new(), edges: HashMap::new(), all_labels: Multiset::zeros(0) }
+    pub fn empty() -> Graph2<D> {
+        Graph2::new(Vec::new(), HashMap::new(), Multiset::<D>::zeros())
     }
 
     /// Construct HashMap of rules for this graph.
     /// Rules connect a tuple of direction and vertex label to a set of labels.
-    pub fn rules(&self) -> Rules2 {
+    pub fn rules(&self) -> Rules2<D> {
         self.edges.iter().fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
             edges.iter().for_each(|(to_vertex_index, direction)| {
                 self.vertices.index(*from_vertex_index as usize).iter()
@@ -419,7 +427,7 @@ impl Graph2 {
     /// Constrain the vertex labels at the given index by intersecting the
     /// vertex labels with the constraint set.
     /// Return Some(labels) if the labels set was changed else return None.
-    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Multiset) -> Option<&Multiset> {
+    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Multiset<D>) -> Option<&Multiset<D>> {
         let labels = self.vertices.index_mut(*index as usize);
         let inter = labels.intersection(constraint);
         if labels == &inter { return None }
@@ -432,6 +440,7 @@ impl Graph2 {
 mod graph2_tests {
     use super::*;
     use crate::utils::hash_map;
+    use nalgebra::U6;
 
     fn graph_edges() -> Edges {
         hash_map(&[
@@ -452,17 +461,17 @@ mod graph2_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[1, 0, 0]),
-            Multiset::from_row_slice(&[0, 2, 0]),
-            Multiset::from_row_slice(&[0, 0, 1]),
-            Multiset::from_row_slice(&[0, 2, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[1, 0, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])
         ];
 
-        let test_graph = Graph2 {
+        let test_graph = Graph2::<U6> {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: Multiset::from_row_slice(&[1, 2, 1])
+            all_labels: Multiset::from_row_slice_u(&[1, 2, 1, 0, 0, 0])
         };
 
         // (0: N, 0: a) -> (1: b)
@@ -474,15 +483,15 @@ mod graph2_tests {
         // (3: W, 1: b) -> (0: a)
         // (3: W, 2: c) -> (1: b)
 
-        let result: Rules2 = hash_map(&[
-            ((0, 0), Multiset::from_row_slice(&[0, 2, 0])),
-            ((0, 1), Multiset::from_row_slice(&[0, 0, 1])),
-            ((1, 1), Multiset::from_row_slice(&[1, 0, 0])),
-            ((1, 2), Multiset::from_row_slice(&[0, 2, 0])),
-            ((2, 0), Multiset::from_row_slice(&[0, 2, 0])),
-            ((2, 1), Multiset::from_row_slice(&[0, 0, 1])),
-            ((3, 1), Multiset::from_row_slice(&[1, 0, 0])),
-            ((3, 2), Multiset::from_row_slice(&[0, 2, 0])),
+        let result: Rules2<U6> = hash_map(&[
+            ((0, 0), Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])),
+            ((0, 1), Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0])),
+            ((1, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0, 0, 0])),
+            ((1, 2), Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])),
+            ((2, 0), Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])),
+            ((2, 1), Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0])),
+            ((3, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0, 0, 0])),
+            ((3, 2), Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])),
         ]);
 
         assert_eq!(test_graph.rules(), result);
@@ -498,17 +507,17 @@ mod graph2_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[2, 0, 0]),
-            Multiset::from_row_slice(&[0, 1, 0]),
-            Multiset::from_row_slice(&[0, 0, 1]),
-            Multiset::from_row_slice(&[2, 0, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 1, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])
         ];
 
-        let test_graph = Graph2 {
+        let test_graph = Graph2::<U6> {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: Multiset::from_row_slice(&[2, 1, 1])
+            all_labels: Multiset::from_row_slice_u(&[2, 1, 1, 0, 0, 0])
         };
 
         /*
@@ -521,14 +530,14 @@ mod graph2_tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: Rules2 = hash_map(&[
-            ((0, 0), Multiset::from_row_slice(&[0, 1, 1])),
-            ((1, 1), Multiset::from_row_slice(&[2, 0, 0])),
-            ((1, 2), Multiset::from_row_slice(&[2, 0, 0])),
-            ((2, 0), Multiset::from_row_slice(&[2, 0, 0])),
-            ((2, 1), Multiset::from_row_slice(&[0, 0, 1])),
-            ((3, 0), Multiset::from_row_slice(&[2, 0, 0])),
-            ((3, 2), Multiset::from_row_slice(&[0, 1, 0])),
+        let result: Rules2<U6> = hash_map(&[
+            ((0, 0), Multiset::from_row_slice_u(&[0, 1, 1, 0, 0, 0])),
+            ((1, 1), Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])),
+            ((1, 2), Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])),
+            ((2, 0), Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])),
+            ((2, 1), Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0])),
+            ((3, 0), Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])),
+            ((3, 2), Multiset::from_row_slice_u(&[0, 1, 0, 0, 0, 0])),
         ]);
 
         assert_eq!(test_graph.rules(), result);
@@ -544,17 +553,17 @@ mod graph2_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[2, 2, 0]),
-            Multiset::from_row_slice(&[0, 2, 0]),
-            Multiset::from_row_slice(&[0, 0, 1]),
-            Multiset::from_row_slice(&[2, 0, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[2, 2, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])
         ];
 
-        let test_graph = Graph2 {
+        let test_graph = Graph2::<U6> {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: Multiset::from_row_slice(&[2, 2, 1])
+            all_labels: Multiset::from_row_slice_u(&[2, 2, 1, 0, 0, 0])
         };
 
         /*
@@ -568,15 +577,15 @@ mod graph2_tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: Rules2 = hash_map(&[
-            ((0, 0), Multiset::from_row_slice(&[0, 2, 1])),
-            ((0, 1), Multiset::from_row_slice(&[0, 2, 0])),
-            ((1, 1), Multiset::from_row_slice(&[2, 2, 0])),
-            ((1, 2), Multiset::from_row_slice(&[2, 0, 0])),
-            ((2, 0), Multiset::from_row_slice(&[2, 0, 0])),
-            ((2, 1), Multiset::from_row_slice(&[2, 0, 1])),
-            ((3, 0), Multiset::from_row_slice(&[2, 2, 0])),
-            ((3, 2), Multiset::from_row_slice(&[0, 2, 0])),
+        let result: Rules2<U6> = hash_map(&[
+            ((0, 0), Multiset::from_row_slice_u(&[0, 2, 1, 0, 0, 0])),
+            ((0, 1), Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])),
+            ((1, 1), Multiset::from_row_slice_u(&[2, 2, 0, 0, 0, 0])),
+            ((1, 2), Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])),
+            ((2, 0), Multiset::from_row_slice_u(&[2, 0, 0, 0, 0, 0])),
+            ((2, 1), Multiset::from_row_slice_u(&[2, 0, 1, 0, 0, 0])),
+            ((3, 0), Multiset::from_row_slice_u(&[2, 2, 0, 0, 0, 0])),
+            ((3, 2), Multiset::from_row_slice_u(&[0, 2, 0, 0, 0, 0])),
         ]);
 
         assert_eq!(test_graph.rules(), result);
@@ -584,17 +593,17 @@ mod graph2_tests {
 
     #[test]
     fn test_observe() {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[3, 3, 0, 0]),
-            Multiset::from_row_slice(&[3, 3, 1, 2]),
-            Multiset::from_row_slice(&[0, 3, 0, 2]),
-            Multiset::from_row_slice(&[3, 0, 0, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[3, 3, 0, 0, 0, 0]),
+            Multiset::from_row_slice_u(&[3, 3, 1, 2, 0, 0]),
+            Multiset::from_row_slice_u(&[0, 3, 0, 2, 0, 0]),
+            Multiset::from_row_slice_u(&[3, 0, 0, 0, 0, 0])
         ];
 
-        let mut test_graph = Graph2 {
+        let mut test_graph = Graph2::<U6> {
             vertices: graph_vertices,
             edges: HashMap::new(),
-            all_labels: Multiset::from_row_slice(&[3, 3, 1, 2])
+            all_labels: Multiset::from_row_slice_u(&[3, 3, 1, 2, 0, 0])
         };
 
         let mut test_rng = StdRng::seed_from_u64(2);
@@ -602,45 +611,45 @@ mod graph2_tests {
 
         test_graph.observe(&mut test_rng, &index);
 
-        let expected = Multiset::from_row_slice(&[0, 0, 1, 0]);
+        let expected: Multiset<U6> = Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0]);
 
         assert_eq!(*test_graph.vertices.index(index as usize), expected);
     }
 
     #[test]
     fn test_constrain_true() {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[1, 1, 1, 1])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[1, 1, 1, 1, 0, 0])
         ];
 
-        let test_constraint = Multiset::from_row_slice(&[1, 1, 0, 0]);
+        let test_constraint = Multiset::from_row_slice_u(&[1, 1, 0, 0, 0, 0]);
 
-        let mut test_graph = Graph2 {
+        let mut test_graph = Graph2::<U6> {
             vertices: graph_vertices,
             edges: HashMap::new(),
-            all_labels: Multiset::from_row_slice(&[1, 1, 1, 1])
+            all_labels: Multiset::<U6>::from_row_slice_u(&[1, 1, 1, 1, 0, 0])
         };
 
-        let result = Multiset::from_row_slice(&[1, 1, 0, 0]);
+        let result: Multiset<U6> = Multiset::from_row_slice_u(&[1, 1, 0, 0, 0, 0]);
         assert_eq!(test_graph.constrain(&0, &test_constraint), Some(&result));
         assert_eq!(*test_graph.vertices.index(0), test_constraint);
     }
 
     #[test]
     fn test_constrain_false() {
-        let graph_vertices: Vec<Multiset> = vec![
-            Multiset::from_row_slice(&[1, 1, 0])
+        let graph_vertices: Vec<Multiset<U6>> = vec![
+            Multiset::from_row_slice_u(&[1, 1, 0, 0, 0, 0])
         ];
 
-        let test_constraint = Multiset::from_row_slice(&[1, 1, 1]);
+        let test_constraint: Multiset<U6> = Multiset::from_row_slice_u(&[1, 1, 1, 0, 0, 0]);
 
-        let mut test_graph = Graph2 {
+        let mut test_graph = Graph2::<U6> {
             vertices: graph_vertices,
             edges: HashMap::new(),
-            all_labels: Multiset::from_row_slice(&[1, 1, 0, 0])
+            all_labels: Multiset::from_row_slice_u(&[1, 1, 0, 0, 0, 0])
         };
 
-        let vertex_result =  Multiset::from_row_slice(&[1, 1, 0]);
+        let vertex_result: Multiset<U6> =  Multiset::from_row_slice_u(&[1, 1, 0, 0, 0, 0]);
 
         assert_eq!(test_graph.constrain(&0, &test_constraint), None);
         assert_eq!(*test_graph.vertices.index(0), vertex_result);
