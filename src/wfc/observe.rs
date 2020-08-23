@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
-use std::ops::Index;
 use rand::prelude::*;
-use crate::graph::graph::{VertexIndex, Labels, Frequencies};
+use crate::graph::graph::VertexIndex;
 use std::fmt::Debug;
 
 
@@ -18,22 +17,11 @@ pub struct Observe {
 }
 
 impl Observe {
-    pub fn new(index: &VertexIndex, labels: &Labels, frequencies: &Frequencies) -> Observe {
-        Observe { entropy: calculate_entropy(labels, frequencies), index: *index }
-    }
-
-    pub fn new2(index: &VertexIndex, entropy: f32) -> Observe {
+    pub fn new(index: &VertexIndex, entropy: f32) -> Observe {
         Observe { entropy, index: *index }
     }
 
-    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, labels: &Labels,
-                    frequencies: &Frequencies) -> Observe {
-        let entropy = calculate_entropy(labels, frequencies);
-        let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
-        Observe { entropy: entropy + fuzz, index: *index }
-    }
-
-    pub fn new_fuzz2(rng: &mut StdRng, index: &VertexIndex, entropy: f32) -> Observe {
+    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, entropy: f32) -> Observe {
         let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
         Observe { entropy: entropy + fuzz, index: *index }
     }
@@ -66,51 +54,12 @@ impl PartialEq for Observe {
     }
 }
 
-// make labels set a vec holding frequencies at positions in the vec where the index corresponds to a label.
-
-/// Calculate the shannon entropy for a given set of labels and label frequencies.
-pub fn calculate_entropy(labels: &Labels, frequencies: &Frequencies) -> f32 {
-    let label_frequencies = labels.iter().map(|label| frequencies.index(label));
-    let total: i32 = label_frequencies.clone().sum();
-    - label_frequencies.fold(0.0, |acc, frequency| {
-        let prob = *frequency as f32 / total as f32;
-        acc + prob * prob.log2()
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BinaryHeap;
-    use crate::utils::{hash_set, hash_map};
-
-    #[test]
-    fn test_calculate_entropy_one() {
-        let test_labels = hash_set(&[1]);
-        let test_frequencies = hash_map(&[(1, 200)]);
-        let entropy = calculate_entropy(&test_labels, &test_frequencies);
-
-        assert_eq!(entropy, 0.0);
-    }
-
-    #[test]
-    fn test_calculate_entropy_small() {
-        let test_labels = hash_set(&[0, 1, 2]);
-        let test_frequencies = hash_map(&[(0, 2), (1, 1), (2, 1)]);
-        let entropy = calculate_entropy(&test_labels, &test_frequencies);
-
-        assert_eq!(entropy, 1.5);
-    }
-
-    #[test]
-    fn test_calculate_entropy_multiple() {
-        [
-            (hash_set(&[0, 1, 2, 3]), hash_map(&[(0, 4), (1, 6), (2, 1), (3, 6)]), 1.79219, 1.79220)
-        ].iter().for_each(|(labels, frequencies, lt, gt)| {
-            let entropy = calculate_entropy(labels, frequencies);
-            assert!(*lt < entropy && entropy < *gt);
-        });
-    }
+    use crate::multiset::{Multiset, MultisetTrait};
+    use nalgebra::U6;
 
     #[test]
     fn test_observe_cmp() {
@@ -157,12 +106,10 @@ mod tests {
 
     #[test]
     fn test_new_fuzz() {
-        let test_labels = hash_set(&[0, 1, 2]);
-        let test_frequencies = hash_map(&[(0, 2), (1, 1), (2, 1)]);
-
+        let ms: Multiset<U6> = Multiset::from_row_slice_u(&[2, 1, 1]);
         let mut rng = StdRng::seed_from_u64(10);
-        let observe = Observe::new(&0, &test_labels, &test_frequencies);
-        let observe_fuzz = Observe::new_fuzz(&mut rng, &0, &test_labels, &test_frequencies);
+        let observe = Observe::new(&0, ms.entropy());
+        let observe_fuzz = Observe::new_fuzz(&mut rng, &0, ms.entropy());
 
         assert!(observe.entropy < observe_fuzz.entropy);
     }

@@ -34,6 +34,8 @@ pub trait MultisetTrait<D: Dim + DimName>
 
     fn empty(&self) -> bool;
 
+    fn get_non_zero(&self) -> Option<usize>;
+
     fn entropy(&self) -> f32;
 
     fn choose(&mut self, rng: &mut StdRng);
@@ -67,6 +69,10 @@ impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
 
     fn empty(&self) -> bool {
         self.sum() == 0
+    }
+
+    fn get_non_zero(&self) -> Option<usize> {
+        self.iter().enumerate().find(|(_, &n)| { n > 0 }).map(|tup| tup.0)
     }
 
     fn entropy(&self) -> f32 {
@@ -160,6 +166,14 @@ mod tests {
         let b = Multiset::<U6>::from_row_slice_u(&[1, 1, 0, 0, 0, 0]);
         assert!(a.empty());
         assert!(!b.empty())
+    }
+
+    #[test]
+    fn test_get_non_zero() {
+        let a = Multiset::<U6>::from_row_slice_u(&[0, 0, 3, 0, 0, 6]);
+        let b = Multiset::<U6>::from_row_slice_u(&[0, 0, 0]);
+        assert_eq!(a.get_non_zero(), Some(2));
+        assert_eq!(b.get_non_zero(), None)
     }
 
     #[test]
