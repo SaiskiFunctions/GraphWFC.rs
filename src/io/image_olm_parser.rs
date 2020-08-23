@@ -37,6 +37,12 @@ pub fn parse() {
 //     chunk_set
 // }
 
+pub fn is_sym(matrix: &DMatrix<i32>) -> bool {
+    let transposed_matrix = matrix.transpose();
+    if matrix.row(0).iter().count() != transposed_matrix.row(0).iter().count() { return false } 
+    true
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -77,11 +83,29 @@ mod tests {
 
 
         // just alias your RGB channels
-        let basic_matrix = DMatrix::from_row_slice(2, 2, &vec![[2, 2], [3, 3], [4, 4], [5, 5]]);
+        let basic_matrix = DMatrix::from_row_slice(2, 2, &vec![2, 3, 4, 5]);
         let rotation_matrix = DMatrix::from_row_slice(2, 2, &vec![0, -1, 1, 0]);
         let rotated_matrix = basic_matrix * rotation_matrix;
-        println!("{:?}", rotated_matrix);
+        //println!("{:?}", rotated_matrix);
     }
+
+    #[test]
+    fn test_symmetry() {
+        let asym_matrix = DMatrix::from_row_slice(2, 3, &vec![2, 1, 2, 0, 2, 1]);
+        let trans_asym_matrix = asym_matrix.transpose();
+        asym_matrix.row(0).into_iter().for_each(|r| { println!("{:?}", r)});
+        trans_asym_matrix.row(0).into_iter().for_each(|r| { println!("{:?}", r)});
+        //println!("{}", asym_matrix.row(0).iter());
+
+        let sym_matrix = DMatrix::from_row_slice(2, 2, &vec![2, 1, 2, 0]);
+        // let trans_sym_matrix = sym_matrix.transpose();
+        // println!("{:?}", sym_matrix == trans_sym_matrix);
+        assert!(!is_sym(&asym_matrix));
+        assert!(is_sym(&sym_matrix));
+    }
+    // 2 1
+    // 2 0   2 2 2
+    // 2 1   1 0 1
 
     //cargo test --package wfc-rust --lib io::image_olm_parser::tests -- --nocapture 
     // [(255, 14, 0), (255, 255, 255), (52, 0, 254), (0, 255, 11)] * [0, 1, -1, 0] / [0,-1, 1, 0]
