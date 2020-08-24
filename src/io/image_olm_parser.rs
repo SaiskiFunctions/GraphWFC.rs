@@ -9,33 +9,58 @@ pub fn parse() {
     let img = image::open("resources/test/City.png").unwrap();
 }
 
+pub trait Rotation {
+    fn rotate_90(&self) -> DMatrix<u32>;
+}
 
+impl Rotation for DMatrix<u32> {
+    fn rotate_90(&self) -> DMatrix<u32> {
+        assert_eq!(self.nrows(), self.ncols());
+        let side = self.nrows();
+        let mut target_matrix = DMatrix::<u32>::zeros(side, side);
 
-fn chunk_image(image: &DynamicImage) -> HashSet<Vec<u8>> {
+        (0..side).for_each(|i| {
+            (0..side).for_each(|j| {
+                target_matrix[(j, (side - 1) - i)] = self[(i, j)]
+            });
+        });
+
+        target_matrix
+    }
+}
+
+fn chunk_image(image: &DynamicImage) -> HashSet<DMatrix<u32>> {
     let chunk_size = 2;
     let sub_chunk_size = 1; // pixels per sub chunk
 
     let (height, width) = image.dimensions();
 
-    let mut chunk_set: HashSet<Vec<u8>> = HashSet::new();
+    let mut chunk_set: HashSet<DMatrix<u32>> = HashSet::new();
 
-    (0..height - (chunk_size - 1)).for_each(|y| {
-        (0..width - (chunk_size - 1)).for_each(|x| {
+    for y in (0..height - (chunk_size - 1)) {
+        for x in (0..width - (chunk_size - 1)) {
             // get vec of pixel channels
-            chunk = DMatrix.for_row_vector(chunk_size, chunk_size, image.crop_imm(x, y, chunk_size, chunk_size).to_rgb().into_vec().chunks(RGB_CHANNELS));
+            let pixels = image.crop_imm(x, y, chunk_size, chunk_size).to_rgb().into_vec().chunks(RGB_CHANNELS as usize);
 
-            if !chunk_set.contains(chunk) { 
-                chunk_set.insert(chunk);
-            };
+            let chunk = DMatrix::from_column_slice(chunk_size as usize, chunk_size as usize, &[1, 2, 3, 4]);
 
-            // for each cardinality
+            if chunk_set.contains(&chunk) { continue }
+            chunk_set.insert(chunk.clone());
+            
+            let chunk_r90 = chunk.rotate_90();
+            if chunk_set.contains(&chunk_r90) { continue }
+            chunk_set.insert(chunk_r90.clone());
 
-            // rotate 90
-            // insert it
-            // rotate 90
-            // insert it
-        });
-    });
+            let chunk_r180 = chunk_r90.rotate_90();
+            if chunk_set.contains(&chunk_r180) { continue }
+            chunk_set.insert(chunk_r180.clone());
+
+            let chunk_r270 = chunk_r180.rotate_90();
+            chunk_set.insert(chunk_r270);
+        }
+    }
+
+    println!("{:?}", chunk_set);
 
     chunk_set
 }
@@ -77,6 +102,7 @@ mod tests {
     #[test]
     fn test_image_bytes() {
         let img = image::open("resources/test/City.png").unwrap();
+        chunk_image(&img);
         let img_rgb = img.into_rgb();
         // img_rgb.pixels().for_each(|pixel| println!("{:?}", pixel));
     }
