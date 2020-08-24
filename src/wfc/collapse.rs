@@ -4,7 +4,7 @@ use std::collections::{BinaryHeap};
 use hashbrown::HashSet;
 use std::mem::replace;
 use std::ops::Index;
-use crate::graph::graph::{VertexIndex, Rules, Graph};
+use crate::graph::graph::{VertexIndex, Rules, Graph, Edges};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
 use crate::multiset::{MultisetTrait, Multiset, MultisetScalar};
@@ -14,7 +14,7 @@ use nalgebra::allocator::Allocator;
 
 fn exec_collapse<D>(
     rng: &mut StdRng,
-    rules: Rules<D>,
+    rules: &Rules<D>,
     all_labels: &Multiset<D>,
     out_graph: &mut Graph<D>,
 ) -> Option<Graph<D>>
@@ -40,11 +40,13 @@ fn exec_collapse<D>(
         else { heap.push(Observe::new_fuzz(rng, &from_index, labels.entropy())) }
     });
 
+    let out_edges = &out_graph.edges.clone();
+
     // Ensure that output graph is fully propagated before starting loop.
     // Generate Propagates for every vertex whose label set is a proper
     // subset of the set of all labels.
     init_propagations.drain(..).for_each(|index| {
-        generate_propagations2(propagations, &observed, &out_graph, &index);
+        generate_propagations(propagations, &observed, out_edges, &index);
     });
 
     loop {
@@ -61,16 +63,17 @@ fn exec_collapse<D>(
             if observed.contains(&observe.index) { continue }
             out_graph.observe(rng, &observe.index);
             observed.insert(observe.index);
-            generate_propagations2(propagations, observed, out_graph, &observe.index);
+            generate_propagations(propagations, observed, out_edges, &observe.index);
         } else {
             let propagate = propagations.pop().unwrap();
-            let constraint = constraint(out_graph.vertices.index(propagate.from as usize), &propagate.direction, &rules);
+            let prop_labels = out_graph.vertices.index(propagate.from as usize);
+            let constraint = constraint(prop_labels, &propagate.direction, rules);
 
             if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
                 if labels.is_empty() { return None }
                 else if labels.is_singleton() { observed.insert(propagate.to); }
                 else { gen_observe.insert(propagate.to); }
-                generate_propagations2(propagations, observed, out_graph, &propagate.to);
+                generate_propagations(propagations, observed, out_edges, &propagate.to);
             }
         }
     }
@@ -91,11 +94,8 @@ where D: Dim + DimName,
         })
 }
 
-fn generate_propagations2<D>(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, out_graph: &Graph<D>, from_index: &VertexIndex)
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
-{
-    out_graph.edges.index(from_index).iter().for_each(|(to_index, direction)| {
+fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, edges: &Edges, from_index: &VertexIndex) {
+    edges.index(from_index).iter().for_each(|(to_index, direction)| {
         if !observed.contains(to_index) {
             propagations.push(Propagate::new(*from_index, *to_index, *direction))
         }
@@ -106,16 +106,16 @@ pub fn collapse<D>(input_graph: &Graph<D>, output_graph: Graph<D>, seed: Option<
     where D: Dim + DimName,
           DefaultAllocator: Allocator<MultisetScalar, D>
 {
-    let mut rng = StdRng::seed_from_u64(seed.unwrap_or_else(|| {
+    let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| {
         thread_rng().next_u64()
     }));
     let tries = tries.unwrap_or(10);
-
-    let rules = input_graph.rules();
+    let rules = &input_graph.rules();
     let all_labels = &input_graph.all_labels;
 
     for _ in 0..tries {
-        if let opt_graph @ Some(_) = exec_collapse(&mut rng, rules.clone(), all_labels, &mut output_graph.clone()) {
+        let new_output = &mut output_graph.clone();
+        if let opt_graph @ Some(_) = exec_collapse(rng, rules, all_labels, new_output) {
             return opt_graph;
         }
     }
@@ -191,7 +191,7 @@ mod tests {
         let edges = simple_edges();
         let all_labels = Multiset::<U6>::from_row_slice_u(&[1, 2, 1]);
         let mut out_graph = Graph::<U6>::new(simple_vertices(), edges, all_labels);
-        let rules: Rules<U6> = simple_rules();
+        let rules: &Rules<U6> = &simple_rules();
 
         let result = exec_collapse::<U6>(&mut rng, rules, &all_labels, &mut out_graph).unwrap();
         let expected: Vec<Multiset<U6>> = vec![

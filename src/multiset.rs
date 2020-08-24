@@ -1,4 +1,4 @@
-use nalgebra::{VectorN, Dim, DimName, DefaultAllocator};
+use nalgebra::{VectorN, Dim, DimName, DefaultAllocator, U4, U8, U16, U32, U64};
 use nalgebra::allocator::Allocator;
 use rand::prelude::*;
 
@@ -64,7 +64,7 @@ impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
     }
 
     fn is_singleton(&self) -> bool {
-        self.fold(0, |acc, n| if n == 0 { acc + 1 } else { acc }) == self.len() - 1
+        self.fold(0, |acc, n| if n != 0 { acc + 1 } else { acc }) == 1
     }
 
     fn empty(&self) -> bool {
@@ -72,7 +72,10 @@ impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
     }
 
     fn get_non_zero(&self) -> Option<usize> {
-        self.iter().enumerate().find(|(_, &n)| { n > 0 }).map(|tup| tup.0)
+        match self.argmax() {
+            (_, 0) => None,
+            (i, _) => Some(i)
+        }
     }
 
     fn entropy(&self) -> f32 {
@@ -172,8 +175,10 @@ mod tests {
     fn test_get_non_zero() {
         let a = Multiset::<U6>::from_row_slice_u(&[0, 0, 3, 0, 0, 6]);
         let b = Multiset::<U6>::from_row_slice_u(&[0, 0, 0]);
-        assert_eq!(a.get_non_zero(), Some(2));
-        assert_eq!(b.get_non_zero(), None)
+        let c = Multiset::<U6>::from_row_slice_u(&[4, 0]);
+        assert_eq!(a.get_non_zero(), Some(5));
+        assert_eq!(b.get_non_zero(), None);
+        assert_eq!(c.get_non_zero(), Some(0))
     }
 
     #[test]
