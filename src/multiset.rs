@@ -1,4 +1,4 @@
-use nalgebra::{VectorN, Dim, DimName, DefaultAllocator, U4, U8, U16, U32, U64};
+use nalgebra::{VectorN, Dim, DimName, DefaultAllocator};
 use nalgebra::allocator::Allocator;
 use rand::prelude::*;
 

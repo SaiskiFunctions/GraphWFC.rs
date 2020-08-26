@@ -29,9 +29,6 @@ impl Observe {
 
 impl Ord for Observe {
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.entropy.partial_cmp(&other.entropy).is_none() {
-            println!("self: {:?}, other: {:?}", self, other)
-        }
         match self.entropy.partial_cmp(&other.entropy).unwrap() {
             Ordering::Greater => Ordering::Less,
             Ordering::Less => Ordering::Greater,

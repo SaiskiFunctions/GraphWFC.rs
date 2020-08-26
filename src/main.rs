@@ -4,7 +4,6 @@ use wfc_rust::graph::graph::Graph;
 use wfc_rust::io::text_parser::{parse, make_edges_cardinal_grid, render};
 use wfc_rust::multiset::{Multiset, MultisetScalar};
 use nalgebra::allocator::Allocator;
-use hashbrown::HashMap;
 
 
 fn run_collapse<D>(input: &str, output: &str, width: usize, depth: usize)
