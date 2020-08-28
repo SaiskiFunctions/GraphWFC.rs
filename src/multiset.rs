@@ -25,6 +25,7 @@ pub trait MultisetTrait<D: Dim + DimName>
 
     fn is_singleton(&self) -> bool;
 
+    // called empty because is_empty is defined on VectorN already
     fn empty(&self) -> bool;
 
     fn get_non_zero(&self) -> Option<usize>;
@@ -48,10 +49,10 @@ impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
     }
 
     fn contains(&self, elem: usize) -> bool {
-        if let Some(i) = self.get(elem as usize) {
-            return i > &0
+        match self.get(elem as usize) {
+            Some(i) => i > &0,
+            _ => false
         }
-        false
     }
 
     fn union(&self, other: &Multiset<D>) -> Multiset<D> {
