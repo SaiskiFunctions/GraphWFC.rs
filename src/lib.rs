@@ -1,3 +1,4 @@
+pub mod multiset;
 pub mod graph;
 pub mod io;
 pub mod utils;
