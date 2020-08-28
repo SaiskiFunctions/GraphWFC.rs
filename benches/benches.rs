@@ -29,102 +29,6 @@ mod collapse {
     }
 }
 
-mod entropy_cache {
-    use bencher::Bencher;
-    use wfc_rust::multiset::{Multiset, MultisetTrait};
-    use nalgebra::U6;
-
-    pub fn cached_ent_01(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_02(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_03(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_04(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_05(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_06(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_07(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11, 76]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_08(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11, 76, 43]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_16(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_32(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[
-            200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43,
-            200, 100, 33, 28, 99, 11, 76, 43, 200, 100, 33, 28, 99, 11, 76, 43
-        ]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_zeroes_08(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[200, 0, 0, 0, 0, 0, 0, 0]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-
-    pub fn cached_ent_zeroes_32(bench: &mut Bencher) {
-        let a: &Multiset<U6> = &Multiset::from_row_slice_u(&[
-            200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-        ]);
-        bench.iter(|| {
-            a.entropy()
-        })
-    }
-}
-
 mod graphs {
     use bencher::Bencher;
     use wfc_rust::graph::graph::*;
@@ -207,18 +111,6 @@ mod graphs {
 benchmark_group!(
     benches,
     collapse::bench_collapse,
-    // entropy_cache::cached_ent_01,
-    // entropy_cache::cached_ent_02,
-    // entropy_cache::cached_ent_03,
-    // entropy_cache::cached_ent_04,
-    // entropy_cache::cached_ent_05,
-    // entropy_cache::cached_ent_06,
-    // entropy_cache::cached_ent_07,
-    // entropy_cache::cached_ent_08,
-    // entropy_cache::cached_ent_16,
-    // entropy_cache::cached_ent_32,
-    // entropy_cache::cached_ent_zeroes_08,
-    // entropy_cache::cached_ent_zeroes_32,
     // graphs::graph_rules,
     // graphs::graph_observe,
     // graphs::graph_constrain_true,
