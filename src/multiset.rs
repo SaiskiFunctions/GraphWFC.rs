@@ -9,14 +9,7 @@ pub trait MultisetTrait<D: Dim + DimName>
     where DefaultAllocator: Allocator<MultisetScalar, D>
 {
     fn from_iter_u<I>(iter: I) -> Multiset<D>
-        where I: IntoIterator<Item = MultisetScalar>
-    {
-        let mut it = iter.into_iter();
-        Multiset::zeros().map(|n| match it.next() {
-            Some(v) => v,
-            None => n
-        })
-    }
+        where I: IntoIterator<Item = MultisetScalar>;
 
     fn from_row_slice_u(slice: &[MultisetScalar]) -> Multiset<D> {
         Multiset::from_iter_u(slice.iter().copied())
@@ -44,6 +37,16 @@ pub trait MultisetTrait<D: Dim + DimName>
 impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
     where DefaultAllocator: Allocator<MultisetScalar, D>
 {
+    fn from_iter_u<I>(iter: I) -> Multiset<D>
+        where I: IntoIterator<Item = MultisetScalar>
+    {
+        let mut it = iter.into_iter();
+        Multiset::zeros().map(|n| match it.next() {
+            Some(v) => v,
+            None => n
+        })
+    }
+
     fn contains(&self, elem: usize) -> bool {
         if let Some(i) = self.get(elem as usize) {
             return i > &0

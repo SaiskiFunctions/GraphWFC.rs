@@ -11,10 +11,9 @@ pub type EdgeDirection = u16;   // the directional relationship between two vert
 pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 
 
-//                                         +--- vertex label (index of LabelFrequencies vector)
-//                                         |        +--- 1, 0 constraint value
-//                                         |        |
-//                                         v        v
+//                           vertex label (index of LabelFrequencies vector)
+//                                            |
+//                                            v
 pub type Rules<D> = HashMap<(EdgeDirection, usize), Multiset<D>>;
 
 #[derive(Debug, Clone)]
