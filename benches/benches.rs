@@ -22,7 +22,7 @@ mod collapse {
             let output_graph = Graph::<U4>::new(output_vertices, output_edges, all_labels);
 
             bench.iter(|| {
-                collapse::<U4>(&input_graph, output_graph.clone(), None, None)
+                collapse::<U4>(&input_graph, output_graph.clone(), None)
             })
         }
     }

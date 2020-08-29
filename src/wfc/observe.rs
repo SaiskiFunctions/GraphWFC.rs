@@ -10,7 +10,7 @@ use std::fmt::Debug;
 static FUZZ_LB: f32 = 0.000001;
 static FUZZ_UB: f32 = 0.0005;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Observe {
     entropy: f32,
     pub index: VertexIndex
