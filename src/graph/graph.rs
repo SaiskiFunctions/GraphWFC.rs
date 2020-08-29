@@ -60,6 +60,7 @@ impl<D> Graph<D>
 
     /// Collapses the set of vertex labels at the given index to a singleton set.
     pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex) {
+        assert!(self.vertices.len() >= *index as usize);
         let labels_multiset = self.vertices.index_mut(*index as usize);
         labels_multiset.choose(rng);
     }
@@ -68,6 +69,7 @@ impl<D> Graph<D>
     /// vertex labels with the constraint set.
     /// Return Some(labels) if the labels set was changed else return None.
     pub fn constrain(&mut self, index: &VertexIndex, constraint: &Multiset<D>) -> Option<&Multiset<D>> {
+        assert!(self.vertices.len() >= *index as usize);
         let labels = self.vertices.index_mut(*index as usize);
         let inter = labels.intersection(constraint);
         if labels == &inter { return None }
