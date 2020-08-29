@@ -55,7 +55,7 @@ fn exec_collapse<D>(
     to_observe: &mut Vec<VertexIndex>,
     heap: &mut BinaryHeap<Observe>,
     vertices: &mut Vec<Multiset<D>>,
-) -> Option<Vec<Multiset<D>>>
+) -> bool //Option<Vec<Multiset<D>>>
     where D: Dim + DimName,
           DefaultAllocator: Allocator<MultisetScalar, D>
 {
