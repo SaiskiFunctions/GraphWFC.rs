@@ -9,7 +9,7 @@ mod collapse {
     use wfc_rust::io::text_parser::{parse, make_edges_cardinal_grid};
     use wfc_rust::graph::graph::Graph;
     use wfc_rust::multiset::Multiset;
-    use nalgebra::{U6, U4};
+    use nalgebra::U4;
 
     pub fn bench_collapse(bench: &mut Bencher) {
         let out_width = 100;
@@ -22,7 +22,7 @@ mod collapse {
             let output_graph = Graph::<U4>::new(output_vertices, output_edges, all_labels);
 
             bench.iter(|| {
-                collapse::<U4>(&input_graph, output_graph.clone(), None)
+                collapse::<U4>(&input_graph, output_graph.clone(), None, None)
             })
         }
     }
@@ -33,8 +33,6 @@ mod graphs {
     use wfc_rust::graph::graph::*;
     use wfc_rust::utils::hash_map;
     use wfc_rust::multiset::{Multiset, MultisetTrait};
-    use hashbrown::HashMap;
-    use rand::prelude::*;
     use nalgebra::U6;
 
     fn graph_edges() -> Edges {
@@ -60,49 +58,6 @@ mod graphs {
             graph.rules()
         })
     }
-
-    pub fn graph_observe(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[3, 3, 0, 0]),
-            Multiset::from_row_slice_u(&[3, 3, 1, 2]),
-            Multiset::from_row_slice_u(&[0, 3, 0, 2]),
-            Multiset::from_row_slice_u(&[3, 0, 0, 0])
-        ];
-
-        let graph = Graph::<U6>::new(graph_vertices, HashMap::new(), Multiset::from_row_slice_u(&[3, 3, 1, 2]));
-        let mut test_rng = StdRng::seed_from_u64(2);
-        let index = 1;
-
-        bench.iter(|| {
-            graph.clone().observe(&mut test_rng, &index)
-        });
-    }
-
-    pub fn graph_constrain_true(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[1, 1, 1, 1])
-        ];
-
-        let constraint = Multiset::from_row_slice_u(&[1, 1, 0, 0]);
-        let graph = Graph::<U6>::new(graph_vertices, HashMap::new(), Multiset::from_row_slice_u(&[1, 1, 1, 1]));
-
-        bench.iter(|| {
-            graph.clone().constrain(&0, &constraint);
-        });
-    }
-
-    pub fn graph_constrain_false(bench: &mut Bencher) {
-        let graph_vertices: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[1, 1, 0])
-        ];
-
-        let constraint = Multiset::from_row_slice_u(&[1, 1, 1]);
-        let graph = Graph::<U6>::new(graph_vertices, HashMap::new(), Multiset::from_row_slice_u(&[1, 1, 1]));
-
-        bench.iter(|| {
-            graph.clone().constrain(&0, &constraint);
-        });
-    }
 }
 
 
@@ -110,8 +65,5 @@ benchmark_group!(
     benches,
     collapse::bench_collapse,
     graphs::graph_rules,
-    graphs::graph_observe,
-    graphs::graph_constrain_true,
-    graphs::graph_constrain_false
 );
 benchmark_main!(benches);

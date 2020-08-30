@@ -15,7 +15,7 @@ fn run_collapse<D>(input: &str, output: &str, width: usize, depth: usize)
         let output_vertices: Vec<Multiset<D>> = vec![all_labels.clone(); width * depth];
         let output_edges = make_edges_cardinal_grid(width, depth);
         let output_graph = Graph::<D>::new(output_vertices, output_edges, all_labels);
-        if let Some(collapsed_graph) = collapse::<D>(&input_graph, output_graph, Some(134522)) {
+        if let Some(collapsed_graph) = collapse::<D>(&input_graph, output_graph, Some(134522), None) {
             render::<D>(output, &collapsed_graph, &keys, width);
         }
     }

@@ -1,6 +1,5 @@
-use rand::prelude::*;
 use hashbrown::HashMap;
-use std::ops::{Index, IndexMut};
+use std::ops::Index;
 use crate::multiset::{Multiset, MultisetTrait, MultisetScalar};
 use nalgebra::{DimName, Dim, DefaultAllocator};
 use nalgebra::allocator::Allocator;
@@ -56,25 +55,6 @@ impl<D> Graph<D>
             });
             rules
         })
-    }
-
-    /// Collapses the set of vertex labels at the given index to a singleton set.
-    pub fn observe(&mut self, rng: &mut StdRng, index: &VertexIndex) {
-        assert!(self.vertices.len() >= *index as usize);
-        let labels_multiset = self.vertices.index_mut(*index as usize);
-        labels_multiset.choose(rng);
-    }
-
-    /// Constrain the vertex labels at the given index by intersecting the
-    /// vertex labels with the constraint set.
-    /// Return Some(labels) if the labels set was changed else return None.
-    pub fn constrain(&mut self, index: &VertexIndex, constraint: &Multiset<D>) -> Option<&Multiset<D>> {
-        assert!(self.vertices.len() >= *index as usize);
-        let labels = self.vertices.index_mut(*index as usize);
-        let inter = labels.intersection(constraint);
-        if labels == &inter { return None }
-        *labels = inter;
-        Some(labels)
     }
 }
 
@@ -231,69 +211,5 @@ mod graph2_tests {
         ]);
 
         assert_eq!(test_graph.rules(), result);
-    }
-
-    #[test]
-    fn test_observe() {
-        let graph_vertices: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[3, 3, 0, 0]),
-            Multiset::from_row_slice_u(&[3, 3, 1, 2]),
-            Multiset::from_row_slice_u(&[0, 3, 0, 2]),
-            Multiset::from_row_slice_u(&[3, 0, 0, 0])
-        ];
-
-        let mut test_graph = Graph::<U6> {
-            vertices: graph_vertices,
-            edges: HashMap::new(),
-            all_labels: Multiset::from_row_slice_u(&[3, 3, 1, 2])
-        };
-
-        let mut test_rng = StdRng::seed_from_u64(2);
-        let index = 1;
-
-        test_graph.observe(&mut test_rng, &index);
-
-        let expected: Multiset<U6> = Multiset::from_row_slice_u(&[0, 0, 1, 0]);
-
-        assert_eq!(*test_graph.vertices.index(index as usize), expected);
-    }
-
-    #[test]
-    fn test_constrain_true() {
-        let graph_vertices: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[1, 1, 1, 1])
-        ];
-
-        let test_constraint = Multiset::from_row_slice_u(&[1, 1, 0, 0]);
-
-        let mut test_graph = Graph::<U6> {
-            vertices: graph_vertices,
-            edges: HashMap::new(),
-            all_labels: Multiset::<U6>::from_row_slice_u(&[1, 1, 1, 1])
-        };
-
-        let result: Multiset<U6> = Multiset::from_row_slice_u(&[1, 1, 0, 0]);
-        assert_eq!(test_graph.constrain(&0, &test_constraint), Some(&result));
-        assert_eq!(*test_graph.vertices.index(0), test_constraint);
-    }
-
-    #[test]
-    fn test_constrain_false() {
-        let graph_vertices: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[1, 1, 0])
-        ];
-
-        let test_constraint: Multiset<U6> = Multiset::from_row_slice_u(&[1, 1, 1]);
-
-        let mut test_graph = Graph::<U6> {
-            vertices: graph_vertices,
-            edges: HashMap::new(),
-            all_labels: Multiset::from_row_slice_u(&[1, 1, 0])
-        };
-
-        let vertex_result: Multiset<U6> =  Multiset::from_row_slice_u(&[1, 1, 0]);
-
-        assert_eq!(test_graph.constrain(&0, &test_constraint), None);
-        assert_eq!(*test_graph.vertices.index(0), vertex_result);
     }
 }

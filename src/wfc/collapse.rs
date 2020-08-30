@@ -2,7 +2,7 @@ use rand::prelude::*;
 use rand::thread_rng;
 use rand::seq::SliceRandom;
 use std::collections::{BinaryHeap};
-use hashbrown::{HashSet, HashMap};
+use hashbrown::HashSet;
 use std::ops::{Index, IndexMut};
 use crate::graph::graph::{VertexIndex, Rules, Graph, Edges};
 use crate::wfc::observe::Observe;
@@ -55,17 +55,14 @@ fn exec_collapse<D>(
     to_observe: &mut Vec<VertexIndex>,
     heap: &mut BinaryHeap<Observe>,
     vertices: &mut Vec<Multiset<D>>,
-) -> bool //Option<Vec<Multiset<D>>>
+) -> bool
     where D: Dim + DimName,
           DefaultAllocator: Allocator<MultisetScalar, D>
 {
     let gen_observe: &mut HashSet<VertexIndex> = &mut HashSet::new();
-    // let mut vertices_map: HashMap<usize, Multiset<D>> = HashMap::new();
-
     loop {
         if let Some(propagate) = propagations.pop() {
             assert!(vertices.len() >= propagate.from as usize);
-
             let prop_labels = vertices.index(propagate.from as usize);
             let constraint = build_constraint(prop_labels, &propagate.direction, rules);
             let labels = vertices.index_mut(propagate.to as usize);
@@ -99,6 +96,7 @@ fn exec_collapse<D>(
             };
 
             if observed.contains(&observe_index) { continue; }
+            assert!(vertices.len() >= observe_index as usize);
             let labels_multiset = vertices.index_mut(observe_index as usize);
             labels_multiset.choose(rng);
             observed.insert(observe_index);
@@ -131,7 +129,7 @@ fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<V
     });
 }
 
-pub fn collapse<D>(input_graph: &Graph<D>, mut output_graph: Graph<D>, seed: Option<u64>) -> Option<Graph<D>>
+pub fn collapse<D>(input_graph: &Graph<D>, mut output_graph: Graph<D>, seed: Option<u64>, tries: Option<usize>) -> Option<Graph<D>>
     where D: Dim + DimName,
           DefaultAllocator: Allocator<MultisetScalar, D>
 {
@@ -140,20 +138,23 @@ pub fn collapse<D>(input_graph: &Graph<D>, mut output_graph: Graph<D>, seed: Opt
     }));
 
     let rules = &input_graph.rules();
-    let (mut observed, mut propagations, mut to_observe, mut heap) = init_collapse(rng, &mut output_graph);
+    let (observed, propagations, to_observe, heap) = init_collapse(rng, &mut output_graph);
 
-    let out_vertices = &mut output_graph.vertices;
-
-    if exec_collapse(rng,
-                     rules,
-                     &output_graph.edges,
-                     &mut observed,
-                     &mut propagations,
-                     &mut to_observe,
-                     &mut heap,
-                     out_vertices) {
-        Some(output_graph)
-    } else { None }
+    for _ in 0..tries.unwrap_or(10) {
+        let mut out_vertices = output_graph.vertices.clone();
+        if exec_collapse(rng,
+                         rules,
+                         &output_graph.edges,
+                         &mut observed.clone(),
+                         &mut propagations.clone(),
+                         &mut to_observe.clone(),
+                         &mut heap.clone(),
+                         &mut out_vertices) {
+            output_graph.vertices = out_vertices;
+            return Some(output_graph)
+        }
+    }
+    None
 }
 
 #[cfg(test)]
