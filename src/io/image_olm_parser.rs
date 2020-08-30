@@ -90,12 +90,15 @@ pub fn is_sym(matrix: &DMatrix<i32>) -> bool {
 mod tests {
 
     use super::*;
+    use image::ImageBuffer;
 
     // we need to be more aware of when trait implementations imply things about syntactical constructs
 
     #[test]
     fn test_alias_pixels() {
-        let img = image::open("resources/test/4pix.png").unwrap();
+        let img = DynamicImage::ImageRgb8(
+            ImageBuffer::from_vec(2, 2, vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96]).unwrap()
+        );
         let pixel_aliases = alias_pixels(&img);
         assert_eq!(pixel_aliases.len(), 4);
     }
