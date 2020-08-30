@@ -1,7 +1,8 @@
-use image::{GenericImageView, DynamicImage, RgbImage};
+use image::{GenericImageView, DynamicImage, RgbImage, Rgb};
 use nalgebra::{DMatrix, Matrix2};
 use nalgebra::geometry::Rotation2;
 use std::collections::HashSet;
+use hashbrown::HashMap;
 
 static RGB_CHANNELS: u8 = 3;
 
@@ -29,20 +30,37 @@ impl Rotation for DMatrix<u32> {
     }
 }
 
-fn chunk_image(image: &DynamicImage) -> HashSet<DMatrix<u32>> {
-    let chunk_size = 2;
-    let sub_chunk_size = 1; // pixels per sub chunk
+// A function that returns an iterator of aliased image chunks (unrotated) ->
 
+// alias_image
+fn alias_pixels(image: &DynamicImage) -> HashMap<u32, Rgb<u8>> {
+    image
+        .to_rgb()
+        .pixels()
+        .fold(HashSet::<Rgb<u8>>::new(), |mut acc, pixel| {
+            acc.insert(*pixel);
+            acc
+        })
+        .into_iter()
+        .enumerate()
+        .map(|(i, p)| (i as u32, p))
+        .collect()
+}
+
+// TODO: variable sub_chunk_size
+fn chunk_image(image: &DynamicImage, chunk_size: u32) -> HashSet<DMatrix<u32>> {
+    let chunk_size_u = chunk_size as usize;
     let (height, width) = image.dimensions();
-
     let mut chunk_set: HashSet<DMatrix<u32>> = HashSet::new();
 
-    for y in (0..height - (chunk_size - 1)) {
-        for x in (0..width - (chunk_size - 1)) {
+    for y in 0..height - (chunk_size - 1) {
+        for x in 0..width - (chunk_size - 1) {
             // get vec of pixel channels
             let pixels = image.crop_imm(x, y, chunk_size, chunk_size).to_rgb().into_vec().chunks(RGB_CHANNELS as usize);
 
-            let chunk = DMatrix::from_column_slice(chunk_size as usize, chunk_size as usize, &[1, 2, 3, 4]);
+
+
+            let chunk = DMatrix::from_column_slice(chunk_size_u, chunk_size_u, &[1, 2, 3, 4]);
 
             if chunk_set.contains(&chunk) { continue }
             chunk_set.insert(chunk.clone());
@@ -59,9 +77,6 @@ fn chunk_image(image: &DynamicImage) -> HashSet<DMatrix<u32>> {
             chunk_set.insert(chunk_r270);
         }
     }
-
-    println!("{:?}", chunk_set);
-
     chunk_set
 }
 
@@ -77,6 +92,13 @@ mod tests {
     use super::*;
 
     // we need to be more aware of when trait implementations imply things about syntactical constructs
+
+    #[test]
+    fn test_alias_pixels() {
+        let img = image::open("resources/test/4pix.png").unwrap();
+        let pixel_aliases = alias_pixels(&img);
+        assert_eq!(pixel_aliases.len(), 4);
+    }
 
     #[test]
     fn test_move_data() {
@@ -102,7 +124,7 @@ mod tests {
     #[test]
     fn test_image_bytes() {
         let img = image::open("resources/test/City.png").unwrap();
-        chunk_image(&img);
+        chunk_image(&img, 2);
         let img_rgb = img.into_rgb();
         // img_rgb.pixels().for_each(|pixel| println!("{:?}", pixel));
     }
