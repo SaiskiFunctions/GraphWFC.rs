@@ -96,8 +96,9 @@ mod tests {
 
     #[test]
     fn test_alias_pixels() {
+        let pixels = vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96];
         let img = DynamicImage::ImageRgb8(
-            ImageBuffer::from_vec(2, 2, vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96]).unwrap()
+            ImageBuffer::from_vec(2, 2, pixels).unwrap()
         );
         let pixel_aliases = alias_pixels(&img);
         assert_eq!(pixel_aliases.len(), 4);
