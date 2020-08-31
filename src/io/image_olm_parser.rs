@@ -62,10 +62,9 @@ fn chunk_image(image: &RgbImage, chunk_size: u32, pixel_aliases: &BiMap<u32, Rgb
 
     for y in 0..height - (chunk_size - 1) {
         for x in 0..width - (chunk_size - 1) {
-            // get vec of pixel channels
+            // get vec of pixel aliases
             let pixels: Vec<u32> = imageops::crop_imm(image, x, y, chunk_size, chunk_size).to_image()
                 .pixels()
-                // .chunks(RGB_CHANNELS as usize)
                 .map(|p| *pixel_aliases.get_by_right(&p).unwrap())
                 .collect();
 
@@ -87,6 +86,14 @@ fn chunk_image(image: &RgbImage, chunk_size: u32, pixel_aliases: &BiMap<u32, Rgb
         }
     }
     chunk_set
+}
+
+pub fn f() {
+    /*
+        1. For each a chunk, generate all possible chunks that can be adjacent to it
+        2. For each adjacent chunk do the intersection of the shared adjacencies
+        3. If both shared adjacencies are non empty then add a graph edge
+     */
 }
 
 pub fn is_sym(matrix: &DMatrix<i32>) -> bool {
@@ -137,7 +144,9 @@ mod tests {
         let pixels = vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96];
         let img = ImageBuffer::from_vec(2, 2, pixels).unwrap();
         let pixel_aliases = alias_pixels(&img);
+
         let chunk_set = chunk_image(&img, 2, &pixel_aliases);
+
         assert_eq!(chunk_set.len(), 4);
         assert!(chunk_set.contains(&DMatrix::from_column_slice(2, 2, &vec![2, 0, 3, 1])));
         assert!(chunk_set.contains(&DMatrix::from_column_slice(2, 2, &vec![3, 2, 1, 0])));
