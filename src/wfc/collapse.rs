@@ -1,4 +1,4 @@
-use crate::graph::graph::{Edges, Graph, Rules, VertexIndex, EdgeDirection};
+use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
 use crate::multiset::{Multiset, MultisetScalar, MultisetTrait};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
@@ -12,10 +12,10 @@ use std::collections::BinaryHeap;
 use std::ops::{Index, IndexMut};
 
 type InitCollapse = (
-    HashSet<VertexIndex>,  // observed
-    Vec<Propagate>,        // propagations
-    Vec<VertexIndex>,      // to_observe
-    BinaryHeap<Observe>,   // heap
+    HashSet<VertexIndex>, // observed
+    Vec<Propagate>,       // propagations
+    Vec<VertexIndex>,     // to_observe
+    BinaryHeap<Observe>,  // heap
 );
 
 fn init_collapse<D>(rng: &mut StdRng, out_graph: &Graph<D>) -> InitCollapse
@@ -51,7 +51,9 @@ where
 
     let to_observe_len = out_graph.vertices.len() as VertexIndex;
     let mut to_observe: Vec<VertexIndex> = {
-        (0..to_observe_len).filter(|i| !observed.contains(i)).collect()
+        (0..to_observe_len)
+            .filter(|i| !observed.contains(i))
+            .collect()
     };
     to_observe.shuffle(rng);
 
@@ -82,9 +84,9 @@ where
             let labels = vertices.index_mut(propagate.to as usize);
             let constrained = labels.intersection(&constraint);
             if labels != &constrained {
-                if constrained.is_empty() {
+                if constrained.empty() {
                     // No possible value for this vertex, indicating contradiction!
-                    return None
+                    return None;
                 } else if constrained.is_singleton() {
                     observed.insert(propagate.to);
                 } else {
@@ -96,7 +98,9 @@ where
         }
 
         // check if all vertices observed, if so we have finished
-        if observed.len() == vertices.len() { return Some(vertices) }
+        if observed.len() == vertices.len() {
+            return Some(vertices);
+        }
 
         // generate observes for constrained vertices
         gen_observe.drain().for_each(|index| {
@@ -107,24 +111,26 @@ where
 
         // try to find a vertex index to observe
         let mut observe_index: Option<VertexIndex> = None;
+        // check the heap first
         while !heap.is_empty() {
             let observe = heap.pop().unwrap();
             if !observed.contains(&observe.index) {
                 observe_index = Some(observe.index);
-                break
+                break;
             }
         }
+        // if no index to check in heap, check vec of initial vertices to observe
         if observe_index.is_none() {
             while !to_observe.is_empty() {
                 let index = to_observe.pop().unwrap();
                 if !observed.contains(&index) {
                     observe_index = Some(index);
-                    break
+                    break;
                 }
             }
         }
         match observe_index {
-            None => return Some(vertices),  // Nothing left to observe, therefore we've finished
+            None => return Some(vertices), // Nothing left to observe, therefore we've finished
             Some(index) => {
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
@@ -136,7 +142,11 @@ where
     }
 }
 
-pub fn build_constraint<D>(labels: &Multiset<D>, direction: EdgeDirection, rules: &Rules<D>) -> Multiset<D>
+pub fn build_constraint<D>(
+    labels: &Multiset<D>,
+    direction: EdgeDirection,
+    rules: &Rules<D>,
+) -> Multiset<D>
 where
     D: Dim + DimName,
     DefaultAllocator: Allocator<MultisetScalar, D>,
@@ -274,12 +284,14 @@ mod tests {
 
         let init = init_collapse::<U6>(&mut rng, &out_graph);
 
-        let result = exec_collapse::<U6>(&mut rng, rules, &out_graph.edges, init, simple_vertices()).unwrap();
+        let result =
+            exec_collapse::<U6>(&mut rng, rules, &out_graph.edges, init, simple_vertices())
+                .unwrap();
         let expected: Vec<Multiset<U6>> = vec![
             Multiset::from_row_slice_u(&[1, 0, 0]),
             Multiset::from_row_slice_u(&[0, 2, 0]),
             Multiset::from_row_slice_u(&[0, 0, 1]),
-            Multiset::from_row_slice_u(&[0, 2, 0])
+            Multiset::from_row_slice_u(&[0, 2, 0]),
         ];
 
         assert_eq!(result, expected);
@@ -304,7 +316,7 @@ mod tests {
             (2, vec![(1, 3), (5, 1)]),
             (3, vec![(0, 0), (4, 2)]),
             (4, vec![(3, 3), (1, 0), (5, 2)]),
-            (5, vec![(4, 3), (2, 0)])
+            (5, vec![(4, 3), (2, 0)]),
         ]);
 
         let vertices: Vec<Multiset<U2>> = vec![
@@ -331,11 +343,14 @@ mod tests {
         let out_graph = Graph::<U2>::new(vertices, edges, all_labels);
         let init = init_collapse::<U2>(&mut rng, &out_graph);
 
-        let result = exec_collapse::<U2>(&mut rng,
-                                         &rules,
-                                         &out_graph.edges,
-                                         init,
-                                         out_graph.vertices.clone()).unwrap();
+        let result = exec_collapse::<U2>(
+            &mut rng,
+            &rules,
+            &out_graph.edges,
+            init,
+            out_graph.vertices.clone(),
+        )
+        .unwrap();
 
         let expected: Vec<Multiset<U2>> = vec![
             Multiset::from_row_slice_u(&[0, 3]),
@@ -345,7 +360,6 @@ mod tests {
             Multiset::from_row_slice_u(&[0, 3]),
             Multiset::from_row_slice_u(&[0, 3]),
         ];
-
 
         assert_eq!(result, expected);
     }
@@ -369,7 +383,7 @@ mod tests {
             (2, vec![(1, 3)]),
             (3, vec![(4, 2)]),
             (4, vec![(3, 3), (0, 0), (5, 2)]),
-            (5, vec![(4, 3), (1, 0)])
+            (5, vec![(4, 3), (1, 0)]),
         ]);
 
         let input_vertices: Vec<Multiset<U2>> = vec![
@@ -378,7 +392,7 @@ mod tests {
             Multiset::from_row_slice_u(&[0, 3]),
             Multiset::from_row_slice_u(&[3, 0]),
             Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3])
+            Multiset::from_row_slice_u(&[0, 3]),
         ];
 
         let all_labels: Multiset<U2> = Multiset::from_row_slice_u(&[3, 3]);
@@ -408,7 +422,7 @@ mod tests {
             (8, vec![(4, 0), (9, 2)]),
             (9, vec![(8, 3), (5, 0), (10, 2)]),
             (10, vec![(9, 3), (6, 0), (11, 2)]),
-            (11, vec![(10, 3), (7, 0)])
+            (11, vec![(10, 3), (7, 0)]),
         ]);
 
         let output_vertices: Vec<Multiset<U2>> = vec![
@@ -423,7 +437,7 @@ mod tests {
             Multiset::from_row_slice_u(&[3, 3]),
             Multiset::from_row_slice_u(&[3, 3]),
             Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3])
+            Multiset::from_row_slice_u(&[3, 3]),
         ];
 
         // should be same as all labels but Multiset.clone() is outputs false
@@ -433,11 +447,14 @@ mod tests {
         let output_graph = Graph::<U2>::new(output_vertices, output_edges, out_all_labels);
         let init = init_collapse::<U2>(&mut rng, &output_graph);
 
-        let result = exec_collapse::<U2>(&mut rng,
-                                         &rules,
-                                         &output_graph.edges,
-                                         init,
-                                         output_graph.vertices.clone()).unwrap();
+        let result = exec_collapse::<U2>(
+            &mut rng,
+            &rules,
+            &output_graph.edges,
+            init,
+            output_graph.vertices.clone(),
+        )
+        .unwrap();
 
         let expected: Vec<Multiset<U2>> = vec![
             Multiset::from_row_slice_u(&[3, 0]),
@@ -451,7 +468,7 @@ mod tests {
             Multiset::from_row_slice_u(&[3, 0]),
             Multiset::from_row_slice_u(&[3, 0]),
             Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3])
+            Multiset::from_row_slice_u(&[0, 3]),
         ];
 
         assert_eq!(result, expected);

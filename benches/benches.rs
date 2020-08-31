@@ -6,7 +6,8 @@ mod collapse {
     use bencher::Bencher;
     use nalgebra::U4;
     use wfc_rust::graph::graph::Graph;
-    use wfc_rust::io::text_parser::{make_edges_cardinal_grid, parse};
+    use wfc_rust::io::text_parser::parse;
+    use wfc_rust::io::utils::make_edges_cardinal_grid;
     use wfc_rust::multiset::Multiset;
     use wfc_rust::wfc::collapse::collapse;
 
@@ -59,9 +60,5 @@ mod graphs {
     }
 }
 
-benchmark_group!(
-    benches,
-    collapse::bench_collapse,
-    graphs::graph_rules,
-);
+benchmark_group!(benches, collapse::bench_collapse, graphs::graph_rules,);
 benchmark_main!(benches);

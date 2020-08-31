@@ -1,7 +1,8 @@
 use nalgebra::allocator::Allocator;
 use nalgebra::{DefaultAllocator, Dim, DimName, U6};
 use wfc_rust::graph::graph::Graph;
-use wfc_rust::io::text_parser::{make_edges_cardinal_grid, parse, render};
+use wfc_rust::io::text_parser::{parse, render};
+use wfc_rust::io::utils::make_edges_cardinal_grid;
 use wfc_rust::multiset::{Multiset, MultisetScalar};
 use wfc_rust::wfc::collapse::collapse;
 
