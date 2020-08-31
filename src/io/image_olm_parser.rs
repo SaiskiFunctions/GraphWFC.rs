@@ -1,8 +1,16 @@
-use image::{GenericImageView, DynamicImage, RgbImage, Rgb};
+use image::{GenericImageView, DynamicImage, RgbImage, Rgb, imageops};
 use nalgebra::{DMatrix, Matrix2};
 use nalgebra::geometry::Rotation2;
 use std::collections::HashSet;
 use hashbrown::HashMap;
+use bimap::BiMap;
+
+// Matrix and image data is in COLUMN MAJOR so:
+// [1, 2, 3, 4] is equivalent to:
+/*
+ 1 3
+ 2 4
+ */
 
 static RGB_CHANNELS: u8 = 3;
 
@@ -33,9 +41,8 @@ impl Rotation for DMatrix<u32> {
 // A function that returns an iterator of aliased image chunks (unrotated) ->
 
 // alias_image
-fn alias_pixels(image: &DynamicImage) -> HashMap<u32, Rgb<u8>> {
+fn alias_pixels(image: &RgbImage) -> BiMap<u32, Rgb<u8>> {
     image
-        .to_rgb()
         .pixels()
         .fold(HashSet::<Rgb<u8>>::new(), |mut acc, pixel| {
             acc.insert(*pixel);
@@ -48,7 +55,7 @@ fn alias_pixels(image: &DynamicImage) -> HashMap<u32, Rgb<u8>> {
 }
 
 // TODO: variable sub_chunk_size
-fn chunk_image(image: &DynamicImage, chunk_size: u32) -> HashSet<DMatrix<u32>> {
+fn chunk_image(image: &RgbImage, chunk_size: u32, pixel_aliases: &BiMap<u32, Rgb<u8>>) -> HashSet<DMatrix<u32>> {
     let chunk_size_u = chunk_size as usize;
     let (height, width) = image.dimensions();
     let mut chunk_set: HashSet<DMatrix<u32>> = HashSet::new();
@@ -56,11 +63,13 @@ fn chunk_image(image: &DynamicImage, chunk_size: u32) -> HashSet<DMatrix<u32>> {
     for y in 0..height - (chunk_size - 1) {
         for x in 0..width - (chunk_size - 1) {
             // get vec of pixel channels
-            let pixels = image.crop_imm(x, y, chunk_size, chunk_size).to_rgb().into_vec().chunks(RGB_CHANNELS as usize);
+            let pixels: Vec<u32> = imageops::crop_imm(image, x, y, chunk_size, chunk_size).to_image()
+                .pixels()
+                // .chunks(RGB_CHANNELS as usize)
+                .map(|p| *pixel_aliases.get_by_right(&p).unwrap())
+                .collect();
 
-
-
-            let chunk = DMatrix::from_column_slice(chunk_size_u, chunk_size_u, &[1, 2, 3, 4]);
+            let chunk = DMatrix::from_column_slice(chunk_size_u, chunk_size_u, &pixels);
 
             if chunk_set.contains(&chunk) { continue }
             chunk_set.insert(chunk.clone());
@@ -97,9 +106,7 @@ mod tests {
     #[test]
     fn test_alias_pixels() {
         let pixels = vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96];
-        let img = DynamicImage::ImageRgb8(
-            ImageBuffer::from_vec(2, 2, pixels).unwrap()
-        );
+        let img = ImageBuffer::from_vec(2, 2, pixels).unwrap();
         let pixel_aliases = alias_pixels(&img);
         assert_eq!(pixel_aliases.len(), 4);
     }
@@ -126,11 +133,16 @@ mod tests {
     }
 
     #[test]
-    fn test_image_bytes() {
-        let img = image::open("resources/test/City.png").unwrap();
-        chunk_image(&img, 2);
-        let img_rgb = img.into_rgb();
-        // img_rgb.pixels().for_each(|pixel| println!("{:?}", pixel));
+    fn test_chunk_image() {
+        let pixels = vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96];
+        let img = ImageBuffer::from_vec(2, 2, pixels).unwrap();
+        let pixel_aliases = alias_pixels(&img);
+        let chunk_set = chunk_image(&img, 2, &pixel_aliases);
+        assert_eq!(chunk_set.len(), 4);
+        assert!(chunk_set.contains(&DMatrix::from_column_slice(2, 2, &vec![2, 0, 3, 1])));
+        assert!(chunk_set.contains(&DMatrix::from_column_slice(2, 2, &vec![3, 2, 1, 0])));
+        assert!(chunk_set.contains(&DMatrix::from_column_slice(2, 2, &vec![1, 3, 0, 2])));
+        assert!(chunk_set.contains(&DMatrix::from_column_slice(2, 2, &vec![0, 1, 2, 3])));
     }
 
     #[test]

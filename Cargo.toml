@@ -12,6 +12,7 @@ nalgebra = "0.21.1"
 bencher = "0.1.5"
 hashbrown = "0.8.1"
 image = "0.23.8"
+bimap = "0.5.2"
 
 [[bench]]
 name = "benches"
