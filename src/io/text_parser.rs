@@ -1,18 +1,18 @@
+use crate::graph::graph::{EdgeDirection, Edges, Graph, VertexIndex};
+use crate::multiset::{Multiset, MultisetScalar, MultisetTrait};
 use hashbrown::HashMap;
+use nalgebra::allocator::Allocator;
+use nalgebra::{DefaultAllocator, Dim, DimName};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
-use crate::graph::graph::{Edges, EdgeDirection, VertexIndex, Graph};
-use crate::multiset::{Multiset, MultisetTrait, MultisetScalar};
-use nalgebra::{Dim, DimName, DefaultAllocator};
-use nalgebra::allocator::Allocator;
-
 
 pub type CharKeyMap = HashMap<usize, char>;
 
 pub fn parse<D>(filename: &str) -> Result<(Graph<D>, CharKeyMap), Error>
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
     read_to_string(filename).map(|string| {
         let edges = make_edges(&string);
@@ -35,24 +35,38 @@ fn char_frequency(string: &str) -> HashMap<char, u32> {
 }
 
 fn make_all_labels<D>(char_frequency: &HashMap<char, u32>, char_keys: &CharKeyMap) -> Multiset<D>
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
-    Multiset::from_iter_u((0..char_keys.len()).map(|index| {
-        *char_frequency.index(char_keys.index(&index))
-    }))
+    Multiset::from_iter_u(
+        (0..char_keys.len()).map(|index| *char_frequency.index(char_keys.index(&index))),
+    )
 }
 
-fn make_vertices<D>(string: &str, char_frequency: &HashMap<char, u32>, char_keys: &CharKeyMap) -> Vec<Multiset<D>>
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
+fn make_vertices<D>(
+    string: &str,
+    char_frequency: &HashMap<char, u32>,
+    char_keys: &CharKeyMap,
+) -> Vec<Multiset<D>>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
-    string.chars().filter(|c| c != &'\n').map(|c| {
-        Multiset::from_iter_u((0..char_keys.len()).map(|index| {
-            let char = char_keys.index(&index);
-            if char == &c { *char_frequency.index(&c) } else { 0 }
-        }))
-    }).collect()
+    string
+        .chars()
+        .filter(|c| c != &'\n')
+        .map(|c| {
+            Multiset::from_iter_u((0..char_keys.len()).map(|index| {
+                let char = char_keys.index(&index);
+                if char == &c {
+                    *char_frequency.index(&c)
+                } else {
+                    0
+                }
+            }))
+        })
+        .collect()
 }
 
 fn make_edges(string: &str) -> Edges {
@@ -83,9 +97,10 @@ pub fn make_edges_cardinal_grid(width: usize, depth: usize) -> Edges {
                 direction_pairs.push(((width_index + 1) + depth_index * width, 2))
             }
 
-            let direction_pairs = direction_pairs.into_iter().map(|(i, d)| {
-                (i as VertexIndex, d as EdgeDirection)
-            }).collect::<Vec<(VertexIndex, EdgeDirection)>>();
+            let direction_pairs = direction_pairs
+                .into_iter()
+                .map(|(i, d)| (i as VertexIndex, d as EdgeDirection))
+                .collect::<Vec<(VertexIndex, EdgeDirection)>>();
 
             let this_vertex_index = ((depth_index * width) + width_index) as VertexIndex;
             edges.insert(this_vertex_index, direction_pairs);
@@ -95,19 +110,24 @@ pub fn make_edges_cardinal_grid(width: usize, depth: usize) -> Edges {
 }
 
 pub fn render<D>(filename: &str, graph: &Graph<D>, key: &HashMap<usize, char>, width: usize)
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
-    let rendered_vertices: Vec<char> = graph.vertices.iter().map(|labels| {
-        let k = labels.get_non_zero().unwrap();
-        *key.index(&k)
-    }).collect();
-    let lines: String = rendered_vertices.chunks_exact(width).map(|chunk| {
-        chunk.iter().collect::<String>() + "\n"
-    }).collect::<String>();
+    let rendered_vertices: Vec<char> = graph
+        .vertices
+        .iter()
+        .map(|labels| {
+            let k = labels.get_non_zero().unwrap();
+            *key.index(&k)
+        })
+        .collect();
+    let lines: String = rendered_vertices
+        .chunks_exact(width)
+        .map(|chunk| chunk.iter().collect::<String>() + "\n")
+        .collect::<String>();
     if write(filename, lines).is_ok() {}
 }
-
 
 #[cfg(test)]
 mod tests {
