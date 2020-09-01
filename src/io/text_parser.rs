@@ -1,4 +1,5 @@
 use crate::graph::graph::{Edges, Graph};
+use crate::io::utils::make_edges_cardinal_grid;
 use crate::multiset::{Multiset, MultisetScalar, MultisetTrait};
 use hashbrown::HashMap;
 use nalgebra::allocator::Allocator;
@@ -6,7 +7,6 @@ use nalgebra::{DefaultAllocator, Dim, DimName};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
-use crate::io::utils::make_edges_cardinal_grid;
 
 pub type CharKeyMap = HashMap<usize, char>;
 
@@ -40,9 +40,10 @@ where
     D: Dim + DimName,
     DefaultAllocator: Allocator<MultisetScalar, D>,
 {
-    Multiset::from_iter_u(
-        (0..char_keys.len()).map(|index| *char_frequency.index(char_keys.index(&index))),
-    )
+    Multiset::from_iter_u((0..char_keys.len()).map(|index| {
+        let character = char_keys.index(&index);
+        *char_frequency.index(character)
+    }))
 }
 
 fn make_vertices<D>(

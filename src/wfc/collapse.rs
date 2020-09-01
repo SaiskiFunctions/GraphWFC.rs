@@ -37,6 +37,7 @@ where
             assert!(labels.is_subset(&out_graph.all_labels));
             let from_index = _index as VertexIndex;
             if labels.is_singleton() {
+                init_propagations.push(from_index);
                 observed.insert(from_index);
             } else if labels != &out_graph.all_labels {
                 init_propagations.push(from_index);
@@ -50,11 +51,9 @@ where
     });
 
     let to_observe_len = out_graph.vertices.len() as VertexIndex;
-    let mut to_observe: Vec<VertexIndex> = {
-        (0..to_observe_len)
-            .filter(|i| !observed.contains(i))
-            .collect()
-    };
+    let mut to_observe: Vec<VertexIndex> = (0..to_observe_len)
+        .filter(|i| !observed.contains(i))
+        .collect();
     to_observe.shuffle(rng);
 
     (observed, propagations, to_observe, heap)
