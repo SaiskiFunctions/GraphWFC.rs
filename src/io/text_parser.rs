@@ -63,6 +63,7 @@ where
                 let char = char_keys.index(&index);
                 if char == &c {
                     *char_frequency.index(&c)
+                    // 1
                 } else {
                     0
                 }

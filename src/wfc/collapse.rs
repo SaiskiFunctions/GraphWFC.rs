@@ -59,6 +59,8 @@ where
     (observed, propagations, to_observe, heap)
 }
 
+use std::mem::replace;
+
 fn exec_collapse<D>(
     rng: &mut StdRng,
     rules: &Rules<D>,
@@ -72,32 +74,41 @@ where
 {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
+
+    let mut to_propagate: Vec<Propagate> = Vec::new();
+    let mut prop_counter: u32 = 0;
+
     loop {
         // propagate constraints
         while !propagations.is_empty() {
-            let propagate = propagations.pop().unwrap();
-            assert!(vertices.len() >= propagate.from as usize);
-            let prop_labels = vertices.index(propagate.from as usize);
-            let constraint = build_constraint(prop_labels, propagate.direction, rules);
-            assert!(vertices.len() >= propagate.to as usize);
-            let labels = vertices.index_mut(propagate.to as usize);
-            let constrained = labels.intersection(&constraint);
-            if labels != &constrained {
-                if constrained.empty() {
-                    // No possible value for this vertex, indicating contradiction!
-                    return None;
-                } else if constrained.is_singleton() {
-                    observed.insert(propagate.to);
-                } else {
-                    gen_observe.insert(propagate.to);
+            for propagate in propagations.drain(..) {
+                prop_counter += 1;
+                assert!(vertices.len() >= propagate.from as usize);
+                let prop_labels = vertices.index(propagate.from as usize);
+                let constraint = build_constraint(prop_labels, propagate.direction, rules);
+                assert!(vertices.len() >= propagate.to as usize);
+                let labels = vertices.index_mut(propagate.to as usize);
+                let constrained = labels.intersection(&constraint);
+                if labels != &constrained {
+                    if constrained.empty() {
+                        println!("{}", prop_counter);
+                        // No possible value for this vertex, indicating contradiction!
+                        return None;
+                    } else if constrained.is_singleton() {
+                        observed.insert(propagate.to);
+                    } else {
+                        gen_observe.insert(propagate.to);
+                    }
+                    generate_propagations(&mut to_propagate, &observed, edges, &propagate.to);
+                    *labels = constrained
                 }
-                generate_propagations(&mut propagations, &observed, edges, &propagate.to);
-                *labels = constrained
             }
+            to_propagate = replace(&mut propagations, to_propagate);
         }
 
         // check if all vertices observed, if so we have finished
         if observed.len() == vertices.len() {
+            println!("{}", prop_counter);
             return Some(vertices);
         }
 
@@ -129,7 +140,10 @@ where
             }
         }
         match observe_index {
-            None => return Some(vertices), // Nothing left to observe, therefore we've finished
+            None => {
+                println!("{}", prop_counter);
+                return Some(vertices)
+            }, // Nothing left to observe, therefore we've finished}
             Some(index) => {
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);

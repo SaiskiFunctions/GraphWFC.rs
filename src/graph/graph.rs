@@ -37,10 +37,6 @@ where
         }
     }
 
-    pub fn empty() -> Graph<D> {
-        Graph::new(Vec::new(), HashMap::new(), Multiset::<D>::zeros())
-    }
-
     /// Construct HashMap of rules for this graph.
     /// Rules connect a tuple of direction and vertex label to a set of labels.
     pub fn rules(&self) -> Rules<D> {
@@ -58,6 +54,7 @@ where
                             let union_labels = self.vertices.index(*to_vertex_index as usize);
                             rules
                                 .entry(rules_key)
+                                // .and_modify(|to_labels| to_labels.add_assign(union_labels))
                                 .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
                                 .or_insert(union_labels.clone());
                         })
