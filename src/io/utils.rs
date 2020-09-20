@@ -2,17 +2,18 @@ use crate::graph::graph::{Edges, VertexIndex};
 use hashbrown::HashMap;
 
 pub struct Directions {
-    code: u8
+    code: u8,
 }
 
 impl Directions {
-    pub fn new(code: u8) -> Directions { Directions { code } }
+    pub fn new(code: u8) -> Directions {
+        Directions { code }
+    }
 
     fn fns(&self) -> Vec<impl Fn(u32, u32, u32, u32) -> Option<(u32, u16)>> {
         let mask = format!("{:b}", self.code);
         let fns = &[
-            north, north_east, east, south_east,
-            south, south_west, west, north_west,
+            north, north_east, east, south_east, south, south_west, west, north_west,
         ];
         fns.iter()
             .zip(mask.chars())

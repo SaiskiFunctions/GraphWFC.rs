@@ -1,15 +1,17 @@
 use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
-use crate::multiset::{Multiset, MultisetScalar, MultisetTrait};
+use crate::multiset::Multiset;
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
 use hashbrown::HashSet;
-use nalgebra::allocator::Allocator;
-use nalgebra::{DefaultAllocator, Dim, DimName};
+use num_traits::Zero;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::BinaryHeap;
+use std::mem::replace;
 use std::ops::{Index, IndexMut};
+use std::fmt::{Display, Formatter};
+use std::fmt;
 
 type InitCollapse = (
     HashSet<VertexIndex>, // observed
@@ -18,11 +20,7 @@ type InitCollapse = (
     BinaryHeap<Observe>,  // heap
 );
 
-fn init_collapse<D>(rng: &mut StdRng, out_graph: &Graph<D>) -> InitCollapse
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCollapse {
     let mut observed: HashSet<VertexIndex> = HashSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
     let mut init_propagations: Vec<VertexIndex> = Vec::new();
@@ -45,7 +43,7 @@ where
             }
         });
 
-    // Ensure that output graph is fully propagated before collapse.
+    // Ensure that output graph will be fully propagated before further collapse.
     init_propagations.drain(..).for_each(|index| {
         generate_propagations(&mut propagations, &observed, &out_graph.edges, &index);
     });
@@ -59,30 +57,82 @@ where
     (observed, propagations, to_observe, heap)
 }
 
-use std::mem::replace;
+fn print_metrics(props: u32, observes: u32, prop_loops: u32) {
+    println!("METRICS:");
+    println!("Prop count: {}", props);
+    println!("Observe count: {}", observes);
+    println!("Avg prop/obs: {}", props as f64 / observes as f64);
+    println!("Prop loops: {}", prop_loops);
+    println!("Avg prop/loop: {}", props as f64 / prop_loops as f64)
+}
 
-fn exec_collapse<D>(
+struct Metrics {
+    props: usize,
+    observes: usize,
+    prop_loops: usize,
+}
+
+impl Metrics {
+    pub fn new() -> Metrics {
+        Metrics { props: 0, observes: 0, prop_loops: 0 }
+    }
+
+    pub fn inc_props(&mut self) {
+        self.props += 1
+    }
+
+    pub fn inc_obs(&mut self) {
+        self.observes += 1
+    }
+
+    pub fn inc_loops(&mut self) {
+        self.prop_loops += 1
+    }
+
+    pub fn print(&self) {
+        println!("{}", self)
+    }
+}
+
+impl Display for Metrics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let avg_prop_obs = self.props as f64 / self.observes as f64;
+        let avg_prop_loops = self.props as f64 / self.prop_loops as f64;
+        write!(f,
+               "Metrics:\n\
+               Prop count: {}\n\
+               Observe count: {}\n\
+               Avg prop/obs: {}\n\
+               Prop loops: {}\n\
+               Avg prop/loop: {}\n",
+               self.props, self.observes, avg_prop_obs,
+               self.prop_loops, avg_prop_loops)
+    }
+}
+
+fn exec_collapse<S: Multiset>(
     rng: &mut StdRng,
-    rules: &Rules<D>,
+    rules: &Rules<S>,
     edges: &Edges,
     init: InitCollapse,
-    mut vertices: Vec<Multiset<D>>,
-) -> Option<Vec<Multiset<D>>>
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+    mut vertices: Vec<S>,
+) -> Option<Vec<S>> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
 
     let mut to_propagate: Vec<Propagate> = Vec::new();
-    let mut prop_counter: u32 = 0;
+
+    // metrics
+    let mut metrics = Metrics::new();
 
     loop {
         // propagate constraints
         while !propagations.is_empty() {
+            metrics.inc_loops();
+
             for propagate in propagations.drain(..) {
-                prop_counter += 1;
+                metrics.inc_props();
+
                 assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
                 let constraint = build_constraint(prop_labels, propagate.direction, rules);
@@ -90,8 +140,9 @@ where
                 let labels = vertices.index_mut(propagate.to as usize);
                 let constrained = labels.intersection(&constraint);
                 if labels != &constrained {
-                    if constrained.empty() {
-                        println!("{}", prop_counter);
+                    if constrained.is_empty_m() {
+                        metrics.print();
+
                         // No possible value for this vertex, indicating contradiction!
                         return None;
                     } else if constrained.is_singleton() {
@@ -108,7 +159,7 @@ where
 
         // check if all vertices observed, if so we have finished
         if observed.len() == vertices.len() {
-            println!("{}", prop_counter);
+            metrics.print();
             return Some(vertices);
         }
 
@@ -141,10 +192,13 @@ where
         }
         match observe_index {
             None => {
-                println!("{}", prop_counter);
-                return Some(vertices)
-            }, // Nothing left to observe, therefore we've finished}
+                metrics.print();
+                // Nothing left to observe, therefore we've finished}
+                return Some(vertices);
+            }
             Some(index) => {
+                metrics.inc_obs();
+
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
                 labels_multiset.choose(rng);
@@ -155,20 +209,13 @@ where
     }
 }
 
-pub fn build_constraint<D>(
-    labels: &Multiset<D>,
-    direction: EdgeDirection,
-    rules: &Rules<D>,
-) -> Multiset<D>
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &Rules<S>) -> S
+where {
     labels
-        .iter()
+        .iter_m()
         .enumerate()
-        .fold(Multiset::<D>::zeros(), |mut acc, (index, frq)| {
-            if frq > &0 {
+        .fold(S::empty(labels.num_elems()), |mut acc, (index, frq)| {
+            if frq > &Zero::zero() {
                 if let Some(a) = rules.get(&(direction, index)) {
                     acc = acc.union(a)
                 }
@@ -194,16 +241,12 @@ fn generate_propagations(
         });
 }
 
-pub fn collapse<D>(
-    input_graph: &Graph<D>,
-    mut output_graph: Graph<D>,
+pub fn collapse<S: Multiset>(
+    input_graph: &Graph<S>,
+    mut output_graph: Graph<S>,
     seed: Option<u64>,
     tries: Option<usize>,
-) -> Option<Graph<D>>
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+) -> Option<Graph<S>> {
     let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
 
     let rules = &input_graph.rules();
@@ -230,7 +273,10 @@ mod tests {
     use super::*;
     use crate::graph::graph::Edges;
     use crate::utils::hash_map;
-    use nalgebra::{U2, U6};
+    use nalgebra::{VectorN, U2, U6};
+
+    type MS6 = VectorN<u16, U6>;
+    type MS2 = VectorN<u16, U2>;
 
     //noinspection DuplicatedCode
     fn simple_edges() -> Edges {
@@ -243,41 +289,41 @@ mod tests {
     }
 
     //noinspection DuplicatedCode
-    fn simple_vertices() -> Vec<Multiset<U6>> {
+    fn simple_vertices() -> Vec<MS6> {
         vec![
-            Multiset::from_row_slice_u(&[1, 0, 0]),
-            Multiset::from_row_slice_u(&[0, 2, 0]),
-            Multiset::from_row_slice_u(&[0, 0, 1]),
-            Multiset::from_row_slice_u(&[0, 2, 0]),
+            MS6::from_row_slice_u(&[1, 0, 0]),
+            MS6::from_row_slice_u(&[0, 2, 0]),
+            MS6::from_row_slice_u(&[0, 0, 1]),
+            MS6::from_row_slice_u(&[0, 2, 0]),
         ]
     }
 
     //noinspection DuplicatedCode
-    fn simple_rules() -> Rules<U6> {
+    fn simple_rules() -> Rules<MS6> {
         hash_map(&[
-            ((0, 0), Multiset::from_row_slice_u(&[0, 2, 0])),
-            ((0, 1), Multiset::from_row_slice_u(&[0, 0, 1])),
-            ((1, 1), Multiset::from_row_slice_u(&[1, 0, 0])),
-            ((1, 2), Multiset::from_row_slice_u(&[0, 2, 0])),
-            ((2, 0), Multiset::from_row_slice_u(&[0, 2, 0])),
-            ((2, 1), Multiset::from_row_slice_u(&[0, 0, 1])),
-            ((3, 1), Multiset::from_row_slice_u(&[1, 0, 0])),
-            ((3, 2), Multiset::from_row_slice_u(&[0, 2, 0])),
+            ((0, 0), MS6::from_row_slice_u(&[0, 2, 0])),
+            ((0, 1), MS6::from_row_slice_u(&[0, 0, 1])),
+            ((1, 1), MS6::from_row_slice_u(&[1, 0, 0])),
+            ((1, 2), MS6::from_row_slice_u(&[0, 2, 0])),
+            ((2, 0), MS6::from_row_slice_u(&[0, 2, 0])),
+            ((2, 1), MS6::from_row_slice_u(&[0, 0, 1])),
+            ((3, 1), MS6::from_row_slice_u(&[1, 0, 0])),
+            ((3, 2), MS6::from_row_slice_u(&[0, 2, 0])),
         ])
     }
 
     #[test]
     fn test_constraint() {
-        let a: Multiset<U6> = Multiset::from_row_slice_u(&[1, 0, 0, 0, 0, 0]);
-        let b: Multiset<U6> = Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0]);
-        let c: Multiset<U6> = Multiset::from_row_slice_u(&[1, 1, 1, 0, 0, 0]);
-        let rules: Rules<U6> = hash_map(&[((0, 0), a), ((0, 1), b), ((0, 2), c)]);
+        let a: MS6 = MS6::from_row_slice_u(&[1, 0, 0, 0, 0, 0]);
+        let b: MS6 = MS6::from_row_slice_u(&[0, 0, 1, 0, 0, 0]);
+        let c: MS6 = MS6::from_row_slice_u(&[1, 1, 1, 0, 0, 0]);
+        let rules: Rules<MS6> = hash_map(&[((0, 0), a), ((0, 1), b), ((0, 2), c)]);
 
-        let labels: &Multiset<U6> = &Multiset::from_row_slice_u(&[2, 4, 0, 0, 0, 0]);
+        let labels: &MS6 = &MS6::from_row_slice_u(&[2, 4, 0, 0, 0, 0]);
         let direction: EdgeDirection = 0;
 
         let result = build_constraint(labels, direction, &rules);
-        let expected: Multiset<U6> = Multiset::from_row_slice_u(&[1, 0, 1, 0, 0, 0]);
+        let expected: MS6 = MS6::from_row_slice_u(&[1, 0, 1, 0, 0, 0]);
         assert_eq!(result, expected)
     }
 
@@ -291,20 +337,20 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(3);
 
         let edges = simple_edges();
-        let all_labels = Multiset::<U6>::from_row_slice_u(&[1, 2, 1]);
-        let out_graph = Graph::<U6>::new(simple_vertices(), edges, all_labels);
-        let rules: &Rules<U6> = &simple_rules();
+        let all_labels = MS6::from_row_slice_u(&[1, 2, 1]);
+        let out_graph = Graph::<MS6>::new(simple_vertices(), edges, all_labels);
+        let rules: &Rules<MS6> = &simple_rules();
 
-        let init = init_collapse::<U6>(&mut rng, &out_graph);
+        let init = init_collapse::<MS6>(&mut rng, &out_graph);
 
         let result =
-            exec_collapse::<U6>(&mut rng, rules, &out_graph.edges, init, simple_vertices())
+            exec_collapse::<MS6>(&mut rng, rules, &out_graph.edges, init, simple_vertices())
                 .unwrap();
-        let expected: Vec<Multiset<U6>> = vec![
-            Multiset::from_row_slice_u(&[1, 0, 0]),
-            Multiset::from_row_slice_u(&[0, 2, 0]),
-            Multiset::from_row_slice_u(&[0, 0, 1]),
-            Multiset::from_row_slice_u(&[0, 2, 0]),
+        let expected: Vec<MS6> = vec![
+            MS6::from_row_slice_u(&[1, 0, 0]),
+            MS6::from_row_slice_u(&[0, 2, 0]),
+            MS6::from_row_slice_u(&[0, 0, 1]),
+            MS6::from_row_slice_u(&[0, 2, 0]),
         ];
 
         assert_eq!(result, expected);
@@ -321,7 +367,7 @@ mod tests {
             Output structure same as input structure.
             North = 0, South = 1, East = 2, West = 3
         */
-        let mut rng = StdRng::seed_from_u64(234);
+        let mut rng = StdRng::seed_from_u64(23456);
 
         let edges = hash_map(&[
             (0, vec![(3, 1), (1, 2)]),
@@ -332,31 +378,31 @@ mod tests {
             (5, vec![(4, 3), (2, 0)]),
         ]);
 
-        let vertices: Vec<Multiset<U2>> = vec![
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
+        let vertices: Vec<MS2> = vec![
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
         ];
 
-        let rules: Rules<U2> = hash_map(&[
-            ((0, 0), Multiset::from_row_slice_u(&[3, 3])),
-            ((0, 1), Multiset::from_row_slice_u(&[3, 3])),
-            ((1, 0), Multiset::from_row_slice_u(&[3, 3])),
-            ((1, 1), Multiset::from_row_slice_u(&[3, 3])),
-            ((2, 0), Multiset::from_row_slice_u(&[3, 3])),
-            ((2, 1), Multiset::from_row_slice_u(&[3, 3])),
-            ((3, 0), Multiset::from_row_slice_u(&[3, 3])),
-            ((3, 1), Multiset::from_row_slice_u(&[3, 3])),
+        let rules: Rules<MS2> = hash_map(&[
+            ((0, 0), MS2::from_row_slice_u(&[3, 3])),
+            ((0, 1), MS2::from_row_slice_u(&[3, 3])),
+            ((1, 0), MS2::from_row_slice_u(&[3, 3])),
+            ((1, 1), MS2::from_row_slice_u(&[3, 3])),
+            ((2, 0), MS2::from_row_slice_u(&[3, 3])),
+            ((2, 1), MS2::from_row_slice_u(&[3, 3])),
+            ((3, 0), MS2::from_row_slice_u(&[3, 3])),
+            ((3, 1), MS2::from_row_slice_u(&[3, 3])),
         ]);
 
-        let all_labels = Multiset::from_row_slice_u(&[3, 3]);
-        let out_graph = Graph::<U2>::new(vertices, edges, all_labels);
-        let init = init_collapse::<U2>(&mut rng, &out_graph);
+        let all_labels = MS2::from_row_slice_u(&[3, 3]);
+        let out_graph = Graph::<MS2>::new(vertices, edges, all_labels);
+        let init = init_collapse::<MS2>(&mut rng, &out_graph);
 
-        let result = exec_collapse::<U2>(
+        let result = exec_collapse::<MS2>(
             &mut rng,
             &rules,
             &out_graph.edges,
@@ -365,13 +411,13 @@ mod tests {
         )
         .unwrap();
 
-        let expected: Vec<Multiset<U2>> = vec![
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
+        let expected: Vec<MS2> = vec![
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
         ];
 
         assert_eq!(result, expected);
@@ -388,7 +434,7 @@ mod tests {
             Directions: North = 0, South = 1, East = 2, West = 3
         */
 
-        let mut rng = StdRng::seed_from_u64(1);
+        let mut rng = StdRng::seed_from_u64(4);
 
         let input_edges = hash_map(&[
             (0, vec![(1, 2), (4, 1)]),
@@ -399,18 +445,18 @@ mod tests {
             (5, vec![(4, 3), (1, 0)]),
         ]);
 
-        let input_vertices: Vec<Multiset<U2>> = vec![
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3]),
+        let input_vertices: Vec<MS2> = vec![
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[0, 3]),
         ];
 
-        let all_labels: Multiset<U2> = Multiset::from_row_slice_u(&[3, 3]);
+        let all_labels: MS2 = MS2::from_row_slice_u(&[3, 3]);
 
-        let input_graph = Graph::<U2>::new(input_vertices, input_edges, all_labels);
+        let input_graph = Graph::<MS2>::new(input_vertices, input_edges, all_labels);
 
         let rules = input_graph.rules();
 
@@ -438,29 +484,29 @@ mod tests {
             (11, vec![(10, 3), (7, 0)]),
         ]);
 
-        let output_vertices: Vec<Multiset<U2>> = vec![
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
-            Multiset::from_row_slice_u(&[3, 3]),
+        let output_vertices: Vec<MS2> = vec![
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
+            MS2::from_row_slice_u(&[3, 3]),
         ];
 
         // should be same as all labels but Multiset.clone() is outputs false
         // positive errors, so recreating here to avoid.
-        let out_all_labels: Multiset<U2> = Multiset::from_row_slice_u(&[3, 3]);
+        let out_all_labels: MS2 = MS2::from_row_slice_u(&[3, 3]);
 
-        let output_graph = Graph::<U2>::new(output_vertices, output_edges, out_all_labels);
-        let init = init_collapse::<U2>(&mut rng, &output_graph);
+        let output_graph = Graph::<MS2>::new(output_vertices, output_edges, out_all_labels);
+        let init = init_collapse::<MS2>(&mut rng, &output_graph);
 
-        let result = exec_collapse::<U2>(
+        let result = exec_collapse::<MS2>(
             &mut rng,
             &rules,
             &output_graph.edges,
@@ -469,19 +515,19 @@ mod tests {
         )
         .unwrap();
 
-        let expected: Vec<Multiset<U2>> = vec![
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[3, 0]),
-            Multiset::from_row_slice_u(&[0, 3]),
-            Multiset::from_row_slice_u(&[0, 3]),
+        let expected: Vec<MS2> = vec![
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[3, 0]),
+            MS2::from_row_slice_u(&[0, 3]),
+            MS2::from_row_slice_u(&[0, 3]),
         ];
 
         assert_eq!(result, expected);

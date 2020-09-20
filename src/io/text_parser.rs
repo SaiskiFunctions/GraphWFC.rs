@@ -1,71 +1,63 @@
 use crate::graph::graph::{Edges, Graph};
-use crate::io::utils::make_edges_cardinal_grid;
-use crate::multiset::{Multiset, MultisetScalar, MultisetTrait};
+use crate::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
+use crate::multiset::Multiset;
 use hashbrown::HashMap;
-use nalgebra::allocator::Allocator;
-use nalgebra::{DefaultAllocator, Dim, DimName};
+use num_traits::{One, Zero};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
 
 pub type CharKeyMap = HashMap<usize, char>;
 
-pub fn parse<D>(filename: &str) -> Result<(Graph<D>, CharKeyMap), Error>
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+pub fn parse<S: Multiset>(filename: &str) -> Result<(Graph<S>, CharKeyMap), Error> {
     read_to_string(filename).map(|string| {
         let edges = make_edges(&string);
-        let char_frequency: HashMap<char, u32> = char_frequency(&string);
+        let char_frequency = char_frequency::<S>(&string);
         let char_keys: CharKeyMap = char_frequency.keys().copied().enumerate().collect();
-        let all_labels: Multiset<D> = make_all_labels(&char_frequency, &char_keys);
-        let vertices: Vec<Multiset<D>> = make_vertices(&string, &char_frequency, &char_keys);
+        let all_labels = make_all_labels(&char_frequency, &char_keys);
+        let vertices = make_vertices(&string, &char_frequency, &char_keys);
 
         (Graph::new(vertices, edges, all_labels), char_keys)
     })
 }
 
-fn char_frequency(string: &str) -> HashMap<char, u32> {
+fn char_frequency<S: Multiset>(string: &str) -> HashMap<char, S::Item> {
     string.chars().fold(HashMap::new(), |mut map, char| {
         if char != '\n' {
-            map.entry(char).and_modify(|freq| *freq += 1).or_insert(1);
+            map.entry(char)
+                .and_modify(|freq| *freq += One::one())
+                .or_insert(One::one());
         }
         map
     })
 }
 
-fn make_all_labels<D>(char_frequency: &HashMap<char, u32>, char_keys: &CharKeyMap) -> Multiset<D>
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
-    Multiset::from_iter_u((0..char_keys.len()).map(|index| {
+fn make_all_labels<S: Multiset>(
+    char_frequency: &HashMap<char, S::Item>,
+    char_keys: &CharKeyMap,
+) -> S {
+    S::from_iter_u((0..char_keys.len()).map(|index| {
         let character = char_keys.index(&index);
         *char_frequency.index(character)
     }))
 }
 
-fn make_vertices<D>(
+fn make_vertices<S: Multiset>(
     string: &str,
-    char_frequency: &HashMap<char, u32>,
+    char_frequency: &HashMap<char, S::Item>,
     char_keys: &CharKeyMap,
-) -> Vec<Multiset<D>>
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+) -> Vec<S> {
     string
         .chars()
         .filter(|c| c != &'\n')
         .map(|c| {
-            Multiset::from_iter_u((0..char_keys.len()).map(|index| {
+            S::from_iter_u((0..char_keys.len()).map(|index| {
                 let char = char_keys.index(&index);
                 if char == &c {
                     *char_frequency.index(&c)
-                    // 1
+                    // One::one()
                 } else {
-                    0
+                    Zero::zero()
                 }
             }))
         })
@@ -76,13 +68,15 @@ fn make_edges(string: &str) -> Edges {
     let lines: Vec<&str> = string.split('\n').filter(|l| !l.is_empty()).collect();
     let line_len = lines.index(0).chars().count();
     make_edges_cardinal_grid(line_len, lines.len())
+    // make_edges_8_way_grid(line_len, lines.len())
 }
 
-pub fn render<D>(filename: &str, graph: &Graph<D>, key: &HashMap<usize, char>, width: usize)
-where
-    D: Dim + DimName,
-    DefaultAllocator: Allocator<MultisetScalar, D>,
-{
+pub fn render<S: Multiset>(
+    filename: &str,
+    graph: &Graph<S>,
+    key: &HashMap<usize, char>,
+    width: usize,
+) {
     let rendered_vertices: Vec<char> = graph
         .vertices
         .iter()
@@ -101,11 +95,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::U6;
+    use nalgebra::{VectorN, U6};
+
+    type MS6 = VectorN<u16, U6>;
 
     #[test]
     fn test_parse_easy() {
-        if let Ok((graph, keys)) = parse::<U6>("resources/test/easy_emoji.txt") {
+        if let Ok((graph, keys)) = parse::<MS6>("resources/test/easy_emoji.txt") {
             println!("{:?}", keys);
             println!("{:?}", graph);
             assert_eq!(keys.len(), 3);
@@ -115,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_parse_medium() {
-        if let Ok((graph, keys)) = parse::<U6>("resources/test/medium_emoji.txt") {
+        if let Ok((graph, keys)) = parse::<MS6>("resources/test/medium_emoji.txt") {
             println!("{:?}", keys);
             println!("{:?}", graph);
             assert_eq!(keys.len(), 7);

@@ -4,12 +4,12 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
 pub struct Observe {
-    entropy: f32,
+    entropy: f64,
     pub index: VertexIndex,
 }
 
 impl Observe {
-    pub fn new(index: &VertexIndex, entropy: f32) -> Observe {
+    pub fn new(index: &VertexIndex, entropy: f64) -> Observe {
         Observe {
             entropy,
             index: *index,
