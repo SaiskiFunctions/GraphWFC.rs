@@ -1,16 +1,15 @@
-use rand::prelude::*;
-use rand::thread_rng;
-use std::collections::{BinaryHeap};
-use hashbrown::HashSet;
-use std::mem::replace;
-use std::ops::Index;
-use crate::graph::graph::{VertexIndex, Rules, Graph, Edges};
+use crate::graph::graph::{Edges, Graph, Rules, VertexIndex};
+use crate::multiset::{Multiset, MultisetScalar, MultisetTrait};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
-use crate::multiset::{MultisetTrait, Multiset, MultisetScalar};
-use nalgebra::{Dim, DimName, DefaultAllocator};
+use hashbrown::HashSet;
 use nalgebra::allocator::Allocator;
-
+use nalgebra::{DefaultAllocator, Dim, DimName};
+use rand::prelude::*;
+use rand::thread_rng;
+use std::collections::BinaryHeap;
+use std::mem::replace;
+use std::ops::Index;
 
 fn exec_collapse<D>(
     rng: &mut StdRng,
@@ -18,8 +17,9 @@ fn exec_collapse<D>(
     all_labels: &Multiset<D>,
     out_graph: &mut Graph<D>,
 ) -> Option<Graph<D>>
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
     let heap: &mut BinaryHeap<Observe> = &mut BinaryHeap::new();
     let gen_observe: &mut HashSet<VertexIndex> = &mut HashSet::new();
@@ -32,13 +32,21 @@ fn exec_collapse<D>(
     // todo:
     //  Should we even initialize the heap? Maybe it would be better
     //  to only make these Observe elements when necessary.
-    out_graph.vertices.iter().enumerate().for_each(|(_index, labels)| {
-        assert!(labels.is_subset(all_labels));
-        let from_index = _index as u32;
-        if labels.is_singleton() { observed.insert(from_index); }
-        else if labels != all_labels { init_propagations.push(from_index) }
-        else { heap.push(Observe::new_fuzz(rng, &from_index, labels.entropy())) }
-    });
+    out_graph
+        .vertices
+        .iter()
+        .enumerate()
+        .for_each(|(_index, labels)| {
+            assert!(labels.is_subset(all_labels));
+            let from_index = _index as u32;
+            if labels.is_singleton() {
+                observed.insert(from_index);
+            } else if labels != all_labels {
+                init_propagations.push(from_index)
+            } else {
+                heap.push(Observe::new_fuzz(rng, &from_index, labels.entropy()))
+            }
+        });
 
     let out_edges = &out_graph.edges.clone();
 
@@ -60,7 +68,9 @@ fn exec_collapse<D>(
             });
 
             let observe = heap.pop().unwrap();
-            if observed.contains(&observe.index) { continue }
+            if observed.contains(&observe.index) {
+                continue;
+            }
             out_graph.observe(rng, &observe.index);
             observed.insert(observe.index);
             generate_propagations(propagations, observed, out_edges, &observe.index);
@@ -69,10 +79,15 @@ fn exec_collapse<D>(
             let prop_labels = out_graph.vertices.index(propagate.from as usize);
             let constraint = constraint(prop_labels, &propagate.direction, rules);
 
-            if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) { //🎸
-                if labels.is_empty() { return None }
-                else if labels.is_singleton() { observed.insert(propagate.to); }
-                else { gen_observe.insert(propagate.to); }
+            if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) {
+                //🎸
+                if labels.is_empty() {
+                    return None;
+                } else if labels.is_singleton() {
+                    observed.insert(propagate.to);
+                } else {
+                    gen_observe.insert(propagate.to);
+                }
                 generate_propagations(propagations, observed, out_edges, &propagate.to);
             }
         }
@@ -80,10 +95,13 @@ fn exec_collapse<D>(
 }
 
 pub fn constraint<D>(labels: &Multiset<D>, direction: &u16, rules: &Rules<D>) -> Multiset<D>
-where D: Dim + DimName,
-      DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
-    labels.iter().enumerate()
+    labels
+        .iter()
+        .enumerate()
         .fold(Multiset::<D>::zeros(), |mut acc, (index, frq)| {
             if frq > &0 {
                 if let Some(a) = rules.get(&(*direction, index)) {
@@ -94,21 +112,33 @@ where D: Dim + DimName,
         })
 }
 
-fn generate_propagations(propagations: &mut Vec<Propagate>, observed: &HashSet<VertexIndex>, edges: &Edges, from_index: &VertexIndex) {
-    edges.index(from_index).iter().for_each(|(to_index, direction)| {
-        if !observed.contains(to_index) {
-            propagations.push(Propagate::new(*from_index, *to_index, *direction))
-        }
-    });
+fn generate_propagations(
+    propagations: &mut Vec<Propagate>,
+    observed: &HashSet<VertexIndex>,
+    edges: &Edges,
+    from_index: &VertexIndex,
+) {
+    edges
+        .index(from_index)
+        .iter()
+        .for_each(|(to_index, direction)| {
+            if !observed.contains(to_index) {
+                propagations.push(Propagate::new(*from_index, *to_index, *direction))
+            }
+        });
 }
 
-pub fn collapse<D>(input_graph: &Graph<D>, output_graph: Graph<D>, seed: Option<u64>, tries: Option<u16>) -> Option<Graph<D>>
-    where D: Dim + DimName,
-          DefaultAllocator: Allocator<MultisetScalar, D>
+pub fn collapse<D>(
+    input_graph: &Graph<D>,
+    output_graph: Graph<D>,
+    seed: Option<u64>,
+    tries: Option<u16>,
+) -> Option<Graph<D>>
+where
+    D: Dim + DimName,
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
-    let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| {
-        thread_rng().next_u64()
-    }));
+    let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let tries = tries.unwrap_or(10);
     let rules = &input_graph.rules();
     let all_labels = &input_graph.all_labels;
@@ -135,7 +165,7 @@ mod tests {
             (0, vec![(1, 0), (3, 2)]),
             (1, vec![(0, 1), (2, 2)]),
             (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)])
+            (3, vec![(0, 3), (2, 0)]),
         ])
     }
 
@@ -144,7 +174,7 @@ mod tests {
             Multiset::from_row_slice_u(&[1, 0, 0]),
             Multiset::from_row_slice_u(&[0, 2, 0]),
             Multiset::from_row_slice_u(&[0, 0, 1]),
-            Multiset::from_row_slice_u(&[0, 2, 0])
+            Multiset::from_row_slice_u(&[0, 2, 0]),
         ]
     }
 
@@ -166,11 +196,7 @@ mod tests {
         let a: Multiset<U6> = Multiset::from_row_slice_u(&[1, 0, 0, 0, 0, 0]);
         let b: Multiset<U6> = Multiset::from_row_slice_u(&[0, 0, 1, 0, 0, 0]);
         let c: Multiset<U6> = Multiset::from_row_slice_u(&[1, 1, 1, 0, 0, 0]);
-        let rules: Rules<U6> = hash_map(&[
-            ((0, 0), a),
-            ((0, 1), b),
-            ((0, 2), c)
-        ]);
+        let rules: Rules<U6> = hash_map(&[((0, 0), a), ((0, 1), b), ((0, 2), c)]);
 
         let labels: &Multiset<U6> = &Multiset::from_row_slice_u(&[2, 4, 0, 0, 0, 0]);
         let direction: &u16 = &0;
@@ -198,7 +224,7 @@ mod tests {
             Multiset::from_row_slice_u(&[1, 0, 0]),
             Multiset::from_row_slice_u(&[0, 2, 0]),
             Multiset::from_row_slice_u(&[0, 0, 1]),
-            Multiset::from_row_slice_u(&[0, 2, 0])
+            Multiset::from_row_slice_u(&[0, 2, 0]),
         ];
 
         assert_eq!(result.vertices, expected);

@@ -1,15 +1,17 @@
-use nalgebra::{VectorN, Dim, DimName, DefaultAllocator};
 use nalgebra::allocator::Allocator;
+use nalgebra::{DefaultAllocator, Dim, DimName, VectorN};
 use rand::prelude::*;
 
 pub type MultisetScalar = u32;
 pub type Multiset<D> = VectorN<MultisetScalar, D>;
 
 pub trait MultisetTrait<D: Dim + DimName>
-    where DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
     fn from_iter_u<I>(iter: I) -> Multiset<D>
-        where I: IntoIterator<Item = MultisetScalar>;
+    where
+        I: IntoIterator<Item = MultisetScalar>;
 
     fn from_row_slice_u(slice: &[MultisetScalar]) -> Multiset<D> {
         Multiset::from_iter_u(slice.iter().copied())
@@ -36,22 +38,24 @@ pub trait MultisetTrait<D: Dim + DimName>
 }
 
 impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
-    where DefaultAllocator: Allocator<MultisetScalar, D>
+where
+    DefaultAllocator: Allocator<MultisetScalar, D>,
 {
     fn from_iter_u<I>(iter: I) -> Multiset<D>
-        where I: IntoIterator<Item = MultisetScalar>
+    where
+        I: IntoIterator<Item = MultisetScalar>,
     {
         let mut it = iter.into_iter();
         Multiset::zeros().map(|n| match it.next() {
             Some(v) => v,
-            None => n
+            None => n,
         })
     }
 
     fn contains(&self, elem: usize) -> bool {
         match self.get(elem as usize) {
             Some(i) => i > &0,
-            _ => false
+            _ => false,
         }
     }
 
@@ -78,17 +82,19 @@ impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
     fn get_non_zero(&self) -> Option<usize> {
         match self.argmax() {
             (_, 0) => None,
-            (i, _) => Some(i)
+            (i, _) => Some(i),
         }
     }
 
     fn entropy(&self) -> f32 {
         let total = self.sum() as f32;
-        - self.fold(0.0, |acc, frequency| {
+        -self.fold(0.0, |acc, frequency| {
             if frequency > 0 {
                 let prob = frequency as f32 / total;
                 acc + prob * prob.log2()
-            } else { acc }
+            } else {
+                acc
+            }
         })
     }
 
@@ -98,11 +104,15 @@ impl<D: Dim + DimName> MultisetTrait<D> for VectorN<MultisetScalar, D>
         let mut acc = 0;
         let mut chosen = false;
         self.iter_mut().for_each(|elem| {
-            if chosen { *elem = 0 }
-            else {
+            if chosen {
+                *elem = 0
+            } else {
                 acc += *elem;
-                if acc < choice { *elem = 0 }
-                else { chosen = true; }
+                if acc < choice {
+                    *elem = 0
+                } else {
+                    chosen = true;
+                }
             }
         });
     }
