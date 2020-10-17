@@ -57,15 +57,6 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
     (observed, propagations, to_observe, heap)
 }
 
-fn print_metrics(props: u32, observes: u32, prop_loops: u32) {
-    println!("METRICS:");
-    println!("Prop count: {}", props);
-    println!("Observe count: {}", observes);
-    println!("Avg prop/obs: {}", props as f64 / observes as f64);
-    println!("Prop loops: {}", prop_loops);
-    println!("Avg prop/loop: {}", props as f64 / prop_loops as f64)
-}
-
 struct Metrics {
     props: usize,
     observes: usize,
@@ -248,7 +239,6 @@ pub fn collapse<S: Multiset>(
     tries: Option<usize>,
 ) -> Option<Graph<S>> {
     let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
-
     let rules = &input_graph.rules();
     let init = init_collapse(rng, &output_graph);
 

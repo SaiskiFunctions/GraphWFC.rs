@@ -12,6 +12,7 @@ bencher = "0.1.5"
 hashbrown = "0.8.1"
 alga = "0.9.3"
 num-traits = "0.2.12"
+bimap = "0.5.2"
 
 [[bench]]
 name = "benches"

@@ -6,38 +6,41 @@ use num_traits::{One, Zero};
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
+use bimap::BiHashMap;
 
-pub type CharKeyMap = HashMap<usize, char>;
+pub type CharKeyBimap = BiHashMap<usize, char>;
 
-pub fn parse<S: Multiset>(filename: &str) -> Result<(Graph<S>, CharKeyMap), Error> {
+pub fn parse<S: Multiset>(filename: &str) -> Result<(Graph<S>, CharKeyBimap), Error> {
     read_to_string(filename).map(|string| {
         let edges = make_edges(&string);
         let char_frequency = char_frequency::<S>(&string);
-        let char_keys: CharKeyMap = char_frequency.keys().copied().enumerate().collect();
+        let char_keys: CharKeyBimap = char_keys::<S>(&char_frequency);
         let all_labels = make_all_labels(&char_frequency, &char_keys);
-        let vertices = make_vertices(&string, &char_frequency, &char_keys);
+        let vertices = make_vertices(&string, &char_frequency, &char_keys, true);
 
         (Graph::new(vertices, edges, all_labels), char_keys)
     })
 }
 
+fn char_keys<S: Multiset>(char_frequency: &HashMap<char, S::Item>) -> CharKeyBimap {
+    char_frequency.keys().copied().enumerate().collect()
+}
+
 fn char_frequency<S: Multiset>(string: &str) -> HashMap<char, S::Item> {
-    string.chars().fold(HashMap::new(), |mut map, char| {
-        if char != '\n' {
-            map.entry(char)
-                .and_modify(|freq| *freq += One::one())
-                .or_insert(One::one());
-        }
+    string.chars().filter(|c| c != &'\n').fold(HashMap::new(), |mut map, char| {
+        map.entry(char)
+            .and_modify(|freq| *freq += One::one())
+            .or_insert(One::one());
         map
     })
 }
 
 fn make_all_labels<S: Multiset>(
     char_frequency: &HashMap<char, S::Item>,
-    char_keys: &CharKeyMap,
+    char_keys: &CharKeyBimap,
 ) -> S {
     S::from_iter_u((0..char_keys.len()).map(|index| {
-        let character = char_keys.index(&index);
+        let character = char_keys.get_by_left(&index).unwrap();
         *char_frequency.index(character)
     }))
 }
@@ -45,36 +48,38 @@ fn make_all_labels<S: Multiset>(
 fn make_vertices<S: Multiset>(
     string: &str,
     char_frequency: &HashMap<char, S::Item>,
-    char_keys: &CharKeyMap,
+    char_keys: &CharKeyBimap,
+    directional: bool
 ) -> Vec<S> {
     string
         .chars()
         .filter(|c| c != &'\n')
         .map(|c| {
-            S::from_iter_u((0..char_keys.len()).map(|index| {
-                let char = char_keys.index(&index);
-                if char == &c {
-                    *char_frequency.index(&c)
-                    // One::one()
-                } else {
-                    Zero::zero()
-                }
-            }))
+            let index = char_keys.get_by_right(&c).unwrap();
+            let mut set = S::empty(char_keys.len());
+            if directional {
+                *set.index_mut(*index) = One::one()
+            } else {
+                *set.index_mut(*index) = *char_frequency.index(&c)
+            }
+            set
         })
         .collect()
 }
 
 fn make_edges(string: &str) -> Edges {
-    let lines: Vec<&str> = string.split('\n').filter(|l| !l.is_empty()).collect();
-    let line_len = lines.index(0).chars().count();
-    make_edges_cardinal_grid(line_len, lines.len())
-    // make_edges_8_way_grid(line_len, lines.len())
+    let width = string.chars().enumerate()
+        .find_map(|t| if t.1 == '\n' { Some(t.0) } else { None })
+        .unwrap_or_else(|| string.chars().count());
+    let height = string.split('\n').filter(|l| !l.is_empty()).count();
+    // make_edges_cardinal_grid(width, height)
+    make_edges_8_way_grid(width, height)
 }
 
 pub fn render<S: Multiset>(
     filename: &str,
     graph: &Graph<S>,
-    key: &HashMap<usize, char>,
+    key: &CharKeyBimap,
     width: usize,
 ) {
     let rendered_vertices: Vec<char> = graph
@@ -82,7 +87,7 @@ pub fn render<S: Multiset>(
         .iter()
         .map(|labels| {
             let k = labels.get_non_zero().unwrap();
-            *key.index(&k)
+            *key.get_by_left(&k).unwrap()
         })
         .collect();
     let lines: String = rendered_vertices
@@ -95,13 +100,11 @@ pub fn render<S: Multiset>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nalgebra::{VectorN, U6};
-
-    type MS6 = VectorN<u16, U6>;
+    use nalgebra::{VectorN, U6, U7};
 
     #[test]
     fn test_parse_easy() {
-        if let Ok((graph, keys)) = parse::<MS6>("resources/test/easy_emoji.txt") {
+        if let Ok((graph, keys)) = parse::<VectorN<u16, U6>>("resources/test/easy_emoji.txt") {
             println!("{:?}", keys);
             println!("{:?}", graph);
             assert_eq!(keys.len(), 3);
@@ -111,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_parse_medium() {
-        if let Ok((graph, keys)) = parse::<MS6>("resources/test/medium_emoji.txt") {
+        if let Ok((graph, keys)) = parse::<VectorN<u16, U7>>("resources/test/medium_emoji.txt") {
             println!("{:?}", keys);
             println!("{:?}", graph);
             assert_eq!(keys.len(), 7);

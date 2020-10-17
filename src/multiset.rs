@@ -11,7 +11,7 @@ use std::cmp::{max, min};
 
 pub trait Multiset
 where
-    Self: Clone + PartialEq + IndexMut<usize>,
+    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item>,
 {
     type Item: Zero + One + Copy + AddAssign + PartialOrd;
 

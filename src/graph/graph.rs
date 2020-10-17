@@ -45,8 +45,8 @@ impl<S: Multiset> Graph<S> {
                             let union_labels = self.vertices.index(*to_vertex_index as usize);
                             rules
                                 .entry(rules_key)
-                                // .and_modify(|to_labels| to_labels.add_assign_m(union_labels))
-                                .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
+                                .and_modify(|to_labels| to_labels.add_assign_m(union_labels))
+                                // .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
                                 .or_insert(union_labels.clone());
                         })
                 });
@@ -112,6 +112,7 @@ mod graph2_tests {
         // (3: W, 2: c) -> (1: b)
 
         let result: Rules<MS> = hash_map(&[
+            //                              a  b  c  <-- the labels
             ((0, 0), MS::from_row_slice_u(&[0, 2, 0])),
             ((0, 1), MS::from_row_slice_u(&[0, 0, 1])),
             ((1, 1), MS::from_row_slice_u(&[1, 0, 0])),

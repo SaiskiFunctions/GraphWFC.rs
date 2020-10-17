@@ -9,8 +9,8 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
     if let Ok((input_graph, keys)) = parse::<S>(input) {
         let all_labels = input_graph.all_labels.clone();
         let output_vertices = vec![all_labels.clone(); width * depth];
-        let output_edges = make_edges_cardinal_grid(width, depth);
-        // let output_edges = make_edges_8_way_grid(width, depth);
+        // let output_edges = make_edges_cardinal_grid(width, depth);
+        let output_edges = make_edges_8_way_grid(width, depth);
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
         if let Some(collapsed_graph) = collapse(&input_graph, output_graph, Some(134522), None)
         {
