@@ -556,5 +556,6 @@ dependencies = [
  "image",
  "itertools",
  "nalgebra",
+ "num-traits",
  "rand",
 ]
