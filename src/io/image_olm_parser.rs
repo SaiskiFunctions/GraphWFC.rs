@@ -6,6 +6,8 @@ use nalgebra::geometry::Rotation2;
 use nalgebra::{DMatrix, Matrix2};
 use std::collections::HashSet;
 use num_traits::{Zero, One};
+use std::f32::consts::PI;
+// use std::f32::sin;
 
 // Matrix and image data is in COLUMN MAJOR so:
 // [1, 2, 3, 4] is equivalent to:
@@ -154,6 +156,33 @@ impl SubMatrix for DMatrix<u32> {
             .crop_top(position.1)
             .crop_bottom(size.1)
     }
+}
+
+
+fn seq_wave(base: usize, x: usize) -> usize {
+    let period = (base * 2) - 1;
+    let position = x % period;
+    if position > base { return base - ((position % base) + 1) }
+    position
+}
+
+//
+//       ┏   x + 1              IF: x < base * 2 -1
+// f(x)  ┫
+//       ┗  -x + base * 2 -1    IF: x >= base
+fn wave_sequence(base: i32, x: i32) -> i32 {
+    let period = (base * 2) - 1;
+    let position = x % (period - 1);
+    if position < (base - 1) { return position + 1 }
+    -position + period
+}
+
+
+fn zero_wave_sequence(base: i32, x: i32) -> i32 {
+    let period = (base * 2) - 2;
+    let position = x % period;
+    if position < (base - 1) { return position }
+    -position + period
 }
 
 /*
@@ -465,5 +494,19 @@ mod tests {
         assert_eq!(matrix.sub_matrix((0, 0), (3, 1)), target_c);
 
         assert_eq!(matrix.sub_matrix((1, 1), (1, 1)), target_d);
+    }
+
+    #[test]
+    fn test_seq_wave() {
+        // let result_base_3: Vec<i32> = (0..8).map(|x| seq_straight(3, x)).collect();
+        // assert_eq!(result_base_3, vec![1, 2, 3, 2, 1, 2, 3, 2]);
+        //
+        // let result_base_4: Vec<i32> = (0..8).map(|x| seq_straight(4, x)).collect();
+        // assert_eq!(result_base_4, vec![1, 2, 3, 4, 3, 2, 1, 2]);
+        // println!("{}", 3 % 5);
+        // println!("{}", seq_straight(3, 5))
+
+        let result_base_3: Vec<i32> = (0..8).map(|x| zero_wave_sequence(3, x)).collect();
+        assert_eq!(result_base_3, vec![0, 1, 2, 1, 0, 1, 2, 1]);
     }
 }
