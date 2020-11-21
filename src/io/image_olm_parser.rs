@@ -158,27 +158,11 @@ impl SubMatrix for DMatrix<u32> {
     }
 }
 
-
-fn seq_wave(base: usize, x: usize) -> usize {
-    let period = (base * 2) - 1;
-    let position = x % period;
-    if position > base { return base - ((position % base) + 1) }
-    position
-}
-
 //
-//       ┏   x + 1              IF: x < base * 2 -1
+//       ┏   x                    IF: x < base -1
 // f(x)  ┫
-//       ┗  -x + base * 2 -1    IF: x >= base
+//       ┗  -x + (base * 2 -2)    IF: x >= base
 fn wave_sequence(base: i32, x: i32) -> i32 {
-    let period = (base * 2) - 1;
-    let position = x % (period - 1);
-    if position < (base - 1) { return position + 1 }
-    -position + period
-}
-
-
-fn zero_wave_sequence(base: i32, x: i32) -> i32 {
     let period = (base * 2) - 2;
     let position = x % period;
     if position < (base - 1) { return position }
@@ -506,7 +490,7 @@ mod tests {
         // println!("{}", 3 % 5);
         // println!("{}", seq_straight(3, 5))
 
-        let result_base_3: Vec<i32> = (0..8).map(|x| zero_wave_sequence(3, x)).collect();
+        let result_base_3: Vec<i32> = (0..8).map(|x| wave_sequence(3, x)).collect();
         assert_eq!(result_base_3, vec![0, 1, 2, 1, 0, 1, 2, 1]);
     }
 }
