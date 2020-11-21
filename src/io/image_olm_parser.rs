@@ -169,6 +169,11 @@ fn wave_sequence(base: i32, x: i32) -> i32 {
     -position + period
 }
 
+fn limit_sequence(base: i32, x: i32) -> i32 {
+    if x < (base -1) { return 0 }
+    x - (base - 1)
+}
+
 /*
     1. Convert chunk_set to a map with indexes
         Each chunk needs to be assigned a label (this is the same as a VertexLabel)
@@ -191,24 +196,51 @@ fn wave_sequence(base: i32, x: i32) -> i32 {
 
 // a function that returns a list of 4D tuples that contain sub chunk positions
 // we don't care about the case where the overlap is the entire chunk
+// There are period^2 - 1 tuples per chunk
+
 type Position = (i32, i32);
 type Size = (i32, i32);
 type Direction = i32;
-// 0 => NW, 1 => NE, 2 => SW, 3 => SE
-// 4 => W, 5 => E, 6 => N, 7 => S
-// rewrite this shit
-fn sub_chunk_positions(chunk: &DMatrix<u32>, chunk_size: u32) -> Vec<(Position, Size, Direction)> {
+fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
     //(y, x) (height, width) (dir)
-    vec![
-        ((0, 0), (1, 1), 0),
-        ((0, 1), (1, 1), 1),
-        ((1, 0), (1, 1), 2),
-        ((1, 1), (1, 1), 3),
-        ((0, 0), (2, 1), 4),
-        ((0, 1), (2, 1), 5),
-        ((0, 0), (1, 2), 6),
-        ((1, 0), (1, 2), 7)
-    ]
+
+    let period = (chunk_size * 2) - 1;
+    let overlaps = (period ^ 2) - 1;
+
+    // use cartesian product here?
+
+    (0..overlaps).map(|direction| {
+        let mut thing = ((9, 9), (9, 9), 9000);
+        for y in 0..period {
+            for x in 0..period {
+                thing = (
+                    (limit_sequence(chunk_size as i32, x as i32), limit_sequence(chunk_size as i32, y as i32)),
+                    (wave_sequence(chunk_size as i32, x as i32), wave_sequence(chunk_size as i32, y as i32)),
+                    direction as i32
+                    )
+            }
+        }
+        thing
+    }).collect()
+
+    //
+    // (0..period).map(|x| {
+    //     ((limit_sequence(chunk_size as i32, x as i32), 9), // position
+    //       (wave_sequence(chunk_size as i32, x as i32) + 1, 9), // size
+    //       0)
+    // }).collect()
+
+//     vec![
+//         ((0, 0), (1, 1), 0),
+//         ((0, 0), (2, 1), 1),
+//         ((1, 0), (1, 1), 2),
+//         ((0, 0), (1, 2), 3),
+// //      ((0, 0), (2, 2), X) --> Implicit full overlap removed
+//         ((1, 0), (1, 2), 4),
+//         ((0, 1), (1, 1), 5),
+//         ((0, 1), (2, 1), 6),
+//         ((1, 1), (1, 1), 7)
+//     ]
 }
 
 fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
@@ -321,30 +353,30 @@ mod tests {
     use image::ImageBuffer;
     use std::iter::FromIterator;
 
-    #[test]
-    fn test_sub_chunk_positions() {
-        let side = 2;
-        let basic_matrix = DMatrix::from_column_slice(
-            side,
-            side,
-            &vec![1, 2, 3, 4]
-        );
-        let expected = vec![
-            (0, 0, 1, 1),
-            (0, 1, 1, 1),
-            (1, 0, 1, 1),
-            (1, 1, 1, 1),
-            (0, 0, 2, 1),
-            (0, 1, 2, 1),
-            (0, 0, 1, 2),
-            (1, 0, 1, 2),
-            (0, 0, 2, 2)
-        ];
-
-        let result = sub_chunk_positions(&basic_matrix, side as u32);
-
-        //assert_eq!()
-    }
+    // #[test]
+    // fn test_sub_chunk_positions() {
+    //     let side = 2;
+    //     let basic_matrix = DMatrix::from_column_slice(
+    //         side,
+    //         side,
+    //         &vec![1, 2, 3, 4]
+    //     );
+    //     let expected = vec![
+    //         (0, 0, 1, 1),
+    //         (0, 1, 1, 1),
+    //         (1, 0, 1, 1),
+    //         (1, 1, 1, 1),
+    //         (0, 0, 2, 1),
+    //         (0, 1, 2, 1),
+    //         (0, 0, 1, 2),
+    //         (1, 0, 1, 2),
+    //         (0, 0, 2, 2)
+    //     ];
+    //
+    //     let result = sub_chunk_positions(&basic_matrix, side as u32);
+    //
+    //     //assert_eq!()
+    // }
 
     #[test]
     fn test_alias_pixels() {
@@ -492,5 +524,16 @@ mod tests {
 
         let result_base_3: Vec<i32> = (0..8).map(|x| wave_sequence(3, x)).collect();
         assert_eq!(result_base_3, vec![0, 1, 2, 1, 0, 1, 2, 1]);
+    }
+
+    #[test]
+    fn test_limit_sequence() {
+        let result_base_3: Vec<i32> = (0..5).map(|x| limit_sequence(3, x)).collect();
+        assert_eq!(result_base_3, vec![0, 0, 0, 1, 2]);
+    }
+
+    #[test]
+    fn test_subchunks() {
+        println!("{:?}", sub_chunk_positions(3));
     }
 }
