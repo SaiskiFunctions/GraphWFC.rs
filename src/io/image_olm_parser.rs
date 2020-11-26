@@ -158,7 +158,6 @@ impl SubMatrix for DMatrix<u32> {
     }
 }
 
-//
 //       ┏   x                    IF: x < base -1
 // f(x)  ┫
 //       ┗  -x + (base * 2 -2)    IF: x >= base
@@ -209,19 +208,35 @@ fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
 
     // use cartesian product here?
 
-    (0..overlaps).map(|direction| {
-        let mut thing = ((9, 9), (9, 9), 9000);
-        for y in 0..period {
-            for x in 0..period {
-                thing = (
+    let mut chunk_positions: Vec<(Position, Size, Direction)> = Vec::new();
+    let mut directionIndex = 0;
+    for y in 0..period {
+        for x in 0..period {
+            chunk_positions.push(
+                (
                     (limit_sequence(chunk_size as i32, x as i32), limit_sequence(chunk_size as i32, y as i32)),
-                    (wave_sequence(chunk_size as i32, x as i32), wave_sequence(chunk_size as i32, y as i32)),
-                    direction as i32
-                    )
-            }
+                    (wave_sequence(chunk_size as i32, x as i32) + 1, wave_sequence(chunk_size as i32, y as i32) + 1),
+                    directionIndex as i32
+                )
+            );
+            directionIndex+=1;
         }
-        thing
-    }).collect()
+    }
+    chunk_positions
+
+    // (0..overlaps).map(|direction| {
+    //     let mut thing = ((9, 9), (9, 9), 9000);
+    //     for y in 0..period {
+    //         for x in 0..period {
+    //             thing = (
+    //                         (limit_sequence(chunk_size as i32, x as i32), limit_sequence(chunk_size as i32, y as i32)),
+    //                         (wave_sequence(chunk_size as i32, x as i32), wave_sequence(chunk_size as i32, y as i32)),
+    //                         direction as i32
+    //                     )
+    //         }
+    //     }
+    //     thing
+    // }).collect()
 
     //
     // (0..period).map(|x| {
@@ -535,5 +550,13 @@ mod tests {
     #[test]
     fn test_subchunks() {
         println!("{:?}", sub_chunk_positions(3));
+    }
+
+    #[test]
+    fn test_cartesian() {
+        let x_iter = (10..20);
+        let y_iter = (30..40);
+        // x_iter.cartesian_product(y_iter).for_each(|(y, x)| println!("{} and {}", y, x))
+        x_iter.cartesian_product(y_iter).enumerate().for_each(|(index, (x, y))| println!("{} and {} and {}", index, x, y));
     }
 }
