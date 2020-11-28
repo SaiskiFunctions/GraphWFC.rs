@@ -1,7 +1,7 @@
 use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Rgb, RgbImage};
-use itertools::Itertools;
+use itertools::{Itertools,kmerge};
 use nalgebra::geometry::Rotation2;
 use nalgebra::{DMatrix, Matrix2};
 use std::collections::HashSet;
@@ -197,65 +197,25 @@ fn limit_sequence(base: i32, x: i32) -> i32 {
 // we don't care about the case where the overlap is the entire chunk
 // There are period^2 - 1 tuples per chunk
 
-type Position = (i32, i32);
-type Size = (i32, i32);
-type Direction = i32;
+type Position = (u32, u32);
+type Size = (u32, u32);
+type Direction = u32;
 fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
-    //(y, x) (height, width) (dir)
-
+    // zip one set of limit and wave together
+    // zip another est of limit and wave together
+    // cartesian prod the two zipped iterators
+    // destructure and pass into map
     let period = (chunk_size * 2) - 1;
-    let overlaps = (period ^ 2) - 1;
-
-    // use cartesian product here?
-
-    let mut chunk_positions: Vec<(Position, Size, Direction)> = Vec::new();
-    let mut directionIndex = 0;
-    for y in 0..period {
-        for x in 0..period {
-            chunk_positions.push(
-                (
-                    (limit_sequence(chunk_size as i32, x as i32), limit_sequence(chunk_size as i32, y as i32)),
-                    (wave_sequence(chunk_size as i32, x as i32) + 1, wave_sequence(chunk_size as i32, y as i32) + 1),
-                    directionIndex as i32
-                )
-            );
-            directionIndex+=1;
-        }
-    }
-    chunk_positions
-
-    // (0..overlaps).map(|direction| {
-    //     let mut thing = ((9, 9), (9, 9), 9000);
-    //     for y in 0..period {
-    //         for x in 0..period {
-    //             thing = (
-    //                         (limit_sequence(chunk_size as i32, x as i32), limit_sequence(chunk_size as i32, y as i32)),
-    //                         (wave_sequence(chunk_size as i32, x as i32), wave_sequence(chunk_size as i32, y as i32)),
-    //                         direction as i32
-    //                     )
-    //         }
-    //     }
-    //     thing
-    // }).collect()
-
-    //
-    // (0..period).map(|x| {
-    //     ((limit_sequence(chunk_size as i32, x as i32), 9), // position
-    //       (wave_sequence(chunk_size as i32, x as i32) + 1, 9), // size
-    //       0)
-    // }).collect()
-
-//     vec![
-//         ((0, 0), (1, 1), 0),
-//         ((0, 0), (2, 1), 1),
-//         ((1, 0), (1, 1), 2),
-//         ((0, 0), (1, 2), 3),
-// //      ((0, 0), (2, 2), X) --> Implicit full overlap removed
-//         ((1, 0), (1, 2), 4),
-//         ((0, 1), (1, 1), 5),
-//         ((0, 1), (2, 1), 6),
-//         ((1, 1), (1, 1), 7)
-//     ]
+    (0..period)
+        .cartesian_product(0..period)
+        .enumerate()
+        .map(|(direction, (y, x))| (
+            (limit_sequence(chunk_size as i32, x as i32) as u32, limit_sequence(chunk_size as i32, y as i32) as u32),
+            ((wave_sequence(chunk_size as i32, x as i32) + 1) as u32, (wave_sequence(chunk_size as i32, y as i32) + 1) as u32),
+            direction as u32
+        ))
+        .filter(|(_,(w, h),_)| w != &chunk_size || h != &chunk_size)
+        .collect()
 }
 
 fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
@@ -550,6 +510,17 @@ mod tests {
     #[test]
     fn test_subchunks() {
         println!("{:?}", sub_chunk_positions(3));
+        //     vec![
+//         ((0, 0), (1, 1), 0),
+//         ((0, 0), (2, 1), 1),
+//         ((1, 0), (1, 1), 2),
+//         ((0, 0), (1, 2), 3),
+// //      ((0, 0), (2, 2), X) --> Implicit full overlap removed
+//         ((1, 0), (1, 2), 4),
+//         ((0, 1), (1, 1), 5),
+//         ((0, 1), (2, 1), 6),
+//         ((1, 1), (1, 1), 7)
+//     ]
     }
 
     #[test]
@@ -558,5 +529,20 @@ mod tests {
         let y_iter = (30..40);
         // x_iter.cartesian_product(y_iter).for_each(|(y, x)| println!("{} and {}", y, x))
         x_iter.cartesian_product(y_iter).enumerate().for_each(|(index, (x, y))| println!("{} and {} and {}", index, x, y));
+    }
+
+    #[test]
+    fn double_iterator() {
+        let first_iterator = (0..5);
+        let second_iterator = (5..10);
+        // first_iterator.chain(second_iterator).for_each(|x| println!("{}", x));
+        // first_iterator.combine_with(second_iterator); // -> (0, 5), (1, 6), (2, 7)]]
+        // for elt in kmerge(vec![vec![0, 2, 4], vec![1, 3, 5], vec![6, 7]]) {
+        //     println!("{}", elt)
+        // }
+        // first_iterator.zip(second_iterator).for_each(|x| println!("{:?}", x));
+        let v = first_iterator.zip(second_iterator).collect::<Vec<(usize, usize)>>();
+        // let v: Vec<(usize, usize)> = first_iterator.zip(second_iterator).collect();
+        println!("{:?}", v);
     }
 }
