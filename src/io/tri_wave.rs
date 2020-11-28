@@ -32,8 +32,12 @@ pub struct UTriWave {
     curr: i32
 }
 
+//       ┏   x                    IF: x < base -1
+// f(x)  ┫
+//       ┗  -x + (base * 2 -2)    IF: x >= base
 impl Iterator for UTriWave {
     type Item = u32;
+
     fn next(&mut self) -> Option<u32> {
         let position = self.curr % self.period;
         self.curr+=1;
@@ -41,6 +45,7 @@ impl Iterator for UTriWave {
         Some((-position + self.period) as u32)
     }
 }
+
 
 // Creates a integer triangle wave iterator that can calculates values for positive values of x
 pub fn u_tri_wave(base: u32) -> UTriWave {
