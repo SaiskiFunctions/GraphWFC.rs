@@ -25,7 +25,8 @@ fn i_tri_wave(base: u32, start: i32) -> ITriWave {
     ITriWave { period: ((base * 2) -2) as f32, curr: start }
 }
 
-struct UTriWave {
+#[derive(Clone)]
+pub struct UTriWave {
     base: i32,
     period: i32,
     curr: i32
@@ -42,7 +43,7 @@ impl Iterator for UTriWave {
 }
 
 // Creates a integer triangle wave iterator that can calculates values for positive values of x
-fn u_tri_wave(base: u32) -> UTriWave {
+pub fn u_tri_wave(base: u32) -> UTriWave {
     let period = ((base * 2) -2) as i32;
     UTriWave { base: (base as i32), period, curr: 0 }
 }

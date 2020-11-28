@@ -1,4 +1,5 @@
-struct Limit {
+#[derive(Clone)]
+pub struct Limit {
     curr: i32,
     base: i32
 }
@@ -12,7 +13,7 @@ impl Iterator for Limit {
     }
 }
 
-fn limit_iter(base: u32) -> Limit {
+pub fn limit_iter(base: u32) -> Limit {
     Limit { base: (base as i32), curr: -1 }
 }
 

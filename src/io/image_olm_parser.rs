@@ -7,6 +7,8 @@ use nalgebra::{DMatrix, Matrix2};
 use std::collections::HashSet;
 use num_traits::{Zero, One};
 use std::f32::consts::PI;
+use super::tri_wave::u_tri_wave;
+use super::limit_iter::limit_iter;
 // use std::f32::sin;
 
 // Matrix and image data is in COLUMN MAJOR so:
@@ -201,21 +203,35 @@ type Position = (u32, u32);
 type Size = (u32, u32);
 type Direction = u32;
 fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
-    // zip one set of limit and wave together
-    // zip another est of limit and wave together
-    // cartesian prod the two zipped iterators
-    // destructure and pass into map
-    let period = (chunk_size * 2) - 1;
-    (0..period)
-        .cartesian_product(0..period)
+    let period = ((chunk_size * 2) - 1) as usize;
+    u_tri_wave(chunk_size)
+        .zip(limit_iter(chunk_size))
+        .take(period)
+        .cartesian_product(
+            u_tri_wave(chunk_size)
+                .zip(limit_iter(chunk_size))
+                .take(period))
         .enumerate()
-        .map(|(direction, (y, x))| (
-            (limit_sequence(chunk_size as i32, x as i32) as u32, limit_sequence(chunk_size as i32, y as i32) as u32),
-            ((wave_sequence(chunk_size as i32, x as i32) + 1) as u32, (wave_sequence(chunk_size as i32, y as i32) + 1) as u32),
+        .map(|(direction, ((y_wave, y_limit), (x_wave, x_limit)))| (
+            (x_limit, y_limit),
+            (x_wave + 1,  y_wave + 1),
             direction as u32
         ))
-        .filter(|(_,(w, h),_)| w != &chunk_size || h != &chunk_size)
+        .filter(|(_,(w, h),_)| w != &chunk_size || h != &chunk_size) // TODO: Re-zero index directions
         .collect()
+
+
+    // let period = (chunk_size * 2) - 1;
+    // (0..period)
+    //     .cartesian_product(0..period)
+    //     .enumerate()
+    //     .map(|(direction, (y, x))| (
+    //         (limit_sequence(chunk_size as i32, x as i32) as u32, limit_sequence(chunk_size as i32, y as i32) as u32),
+    //         ((wave_sequence(chunk_size as i32, x as i32) + 1) as u32, (wave_sequence(chunk_size as i32, y as i32) + 1) as u32),
+    //         direction as u32
+    //     ))
+    //     .filter(|(_,(w, h),_)| w != &chunk_size || h != &chunk_size)
+    //     .collect()
 }
 
 fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
@@ -509,7 +525,7 @@ mod tests {
 
     #[test]
     fn test_subchunks() {
-        println!("{:?}", sub_chunk_positions(3));
+        sub_chunk_positions(2).iter().for_each(|x| println!("{:?}", x));
         //     vec![
 //         ((0, 0), (1, 1), 0),
 //         ((0, 0), (2, 1), 1),
@@ -521,6 +537,15 @@ mod tests {
 //         ((0, 1), (2, 1), 6),
 //         ((1, 1), (1, 1), 7)
 //     ]
+
+        // ((0, 0), (1, 1), 0)
+        //     ((0, 0), (2, 1), 1)
+        //     ((1, 0), (1, 1), 2)
+        //     ((0, 0), (1, 2), 3)
+        //     ((1, 0), (1, 2), 5)
+        //     ((0, 1), (1, 1), 6)
+        //     ((0, 1), (2, 1), 7)
+        //     ((1, 1), (1, 1), 8)
     }
 
     #[test]
@@ -544,5 +569,18 @@ mod tests {
         let v = first_iterator.zip(second_iterator).collect::<Vec<(usize, usize)>>();
         // let v: Vec<(usize, usize)> = first_iterator.zip(second_iterator).collect();
         println!("{:?}", v);
+    }
+
+    #[test]
+    fn double_wave() {
+        println!("Here is some \n Split")
+        // u_tri_wave(3)
+        //     .zip(limit_iter(3))
+        //     .take(5)
+        //     .cartesian_product(u_tri_wave(3)
+        //         .zip(limit_iter(3))
+        //         .take(5))
+        //     .enumerate()
+        //     .for_each(|(index, (x, y))| println!("{:?} and {:?} and {}", x, y, index));
     }
 }
