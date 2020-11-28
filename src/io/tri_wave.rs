@@ -21,6 +21,7 @@ impl Iterator for ITriWave {
 }
 
 // Creates a integer triangle wave iterator that can return values for ALL values of x
+// TODO: This was not a good idea, remove it, if you want a continuous Triangle wave don't use an iterator
 fn i_tri_wave(base: u32, start: i32) -> ITriWave {
     ITriWave { period: ((base * 2) -2) as f32, curr: start }
 }
@@ -45,7 +46,6 @@ impl Iterator for UTriWave {
         Some((-position + self.period) as u32)
     }
 }
-
 
 // Creates a integer triangle wave iterator that can calculates values for positive values of x
 pub fn u_tri_wave(base: u32) -> UTriWave {
