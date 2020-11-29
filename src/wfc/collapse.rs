@@ -80,7 +80,7 @@ where
             let constraint = constraint(prop_labels, &propagate.direction, rules);
 
             if let Some(labels) = out_graph.constrain(&propagate.to, &constraint) {
-                //🎸
+                // 🎸
                 if labels.is_empty() {
                     return None;
                 } else if labels.is_singleton() {

@@ -5,7 +5,7 @@ pub trait SubMatrix {
     fn crop_right(self, offset: usize) -> DMatrix<u32>;
     fn crop_top(self, offset: usize) -> DMatrix<u32>;
     fn crop_bottom(self, offset: usize) -> DMatrix<u32>;
-    fn sub_matrix(&self, position: (usize, usize), size: (usize, usize)) -> DMatrix<u32>;
+    fn sub_matrix(&self, position: (u32, u32), size: (u32, u32)) -> DMatrix<u32>;
 }
 
 impl SubMatrix for DMatrix<u32> {
@@ -29,13 +29,13 @@ impl SubMatrix for DMatrix<u32> {
         self.remove_rows(offset, rows - offset)
     }
 
-    fn sub_matrix(&self, position: (usize, usize), size: (usize, usize)) -> DMatrix<u32> {
+    fn sub_matrix(&self, position: (u32, u32), size: (u32, u32)) -> DMatrix<u32> {
         self
             .clone()
-            .crop_left(position.0)
-            .crop_right(size.0)
-            .crop_top(position.1)
-            .crop_bottom(size.1)
+            .crop_left(position.0 as usize)
+            .crop_right(size.0 as usize)
+            .crop_top(position.1 as usize)
+            .crop_bottom(size.1 as usize)
     }
 }
 
