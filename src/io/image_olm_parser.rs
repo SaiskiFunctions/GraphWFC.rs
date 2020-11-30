@@ -92,7 +92,21 @@ fn chunk_image(
         })
 }
 
+pub trait PureReverse<T>
+where T: Clone
+{
+    fn pure_reverse(self) -> Vec<T>;
+}
 
+impl<T> PureReverse<T> for Vec<T>
+where T: Clone
+{
+    fn pure_reverse(self) -> Vec<T> {
+        let mut vec_rev = self.clone();
+        vec_rev.reverse();
+        vec_rev
+    }
+}
 
 // ================================================================================================
 // ================================================================================================
@@ -158,7 +172,8 @@ fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
         })
 }
 
-//TODO: Intermediate step that converts the result of chunk_image to a vec so that chunks are labelled
+// TODO: Intermediate step that converts the result of chunk_image to a vec so that chunks are labelled
+// TODO: Generate implicit linked chunks automatically
 fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<(u32, u32)>> {
     chunks
         .iter()
@@ -172,19 +187,23 @@ fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<
                         .iter()
                         .enumerate()
                         .for_each(|(other_index, other_chunk)| {
-                            // get mirrored sub chunk position
-                            // UGLY -> Why is there not a pure version of reverse?
-                            let mut o_sub_chunk = sub_chunk_positions(chunk_size);
-                            o_sub_chunk.reverse();
-                            let ((o_x, o_y), (o_width, o_height), _) = o_sub_chunk[direction as usize];
-                            let other_sub_chunk = other_chunk.sub_matrix((o_x, o_y), (o_width, o_height));
+                            // reverse to find mirrored sub chunk
+                            let ((o_x, o_y), (o_width, o_height), _) =
+                                sub_chunk_positions(chunk_size)
+                                .pure_reverse()[direction as usize];
+                            let other_sub_chunk = other_chunk
+                                .sub_matrix((o_x, o_y), (o_width, o_height));
                             if sub_chunk == other_sub_chunk {
                                 match acc.get_mut(&(index as u32)) { // better way to convert here?
                                     Some(connection) => {
-                                        connection.insert((other_index as u32, direction));
+                                        connection
+                                            .insert((other_index as u32, direction));
                                     },
                                     None => {
-                                        acc.insert(index as u32, vec![(other_index as u32, direction)].into_iter().collect());
+                                        acc.insert(
+                                            index as u32, vec![(other_index as u32, direction)]
+                                                .into_iter()
+                                                .collect());
                                     }
                                 }
                             }
