@@ -4,6 +4,7 @@ use image::{imageops, Rgb, RgbImage};
 use itertools::{Itertools};
 use nalgebra::{DMatrix};
 use std::collections::HashSet;
+// TODO: Change to absolute paths?
 use super::tri_wave::u_tri_wave;
 use super::limit_iter::limit_iter;
 use super::sub_matrix::SubMatrix;
@@ -91,6 +92,8 @@ fn chunk_image(
         })
 }
 
+
+
 // ================================================================================================
 // ================================================================================================
 // ================================================================================================
@@ -156,7 +159,7 @@ fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
 }
 
 //TODO: Intermediate step that converts the result of chunk_image to a vec so that chunks are labelled
-fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, Vec<(u32, u32)>> {
+fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<(u32, u32)>> {
     chunks
         .iter()
         .enumerate()
@@ -176,14 +179,12 @@ fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, Vec<(u32
                             let ((o_x, o_y), (o_width, o_height), _) = o_sub_chunk[direction as usize];
                             let other_sub_chunk = other_chunk.sub_matrix((o_x, o_y), (o_width, o_height));
                             if sub_chunk == other_sub_chunk {
-                                match acc.get(&(index as u32)) { // better way to convert here?
+                                match acc.get_mut(&(index as u32)) { // better way to convert here?
                                     Some(connection) => {
-                                        let mut new_connections = connection.clone();
-                                        new_connections.push((other_index as u32, direction));
-                                        acc.insert(index as u32, new_connections);
+                                        connection.insert((other_index as u32, direction));
                                     },
                                     None => {
-                                        acc.insert(index as u32, vec![(other_index as u32, direction)]);
+                                        acc.insert(index as u32, vec![(other_index as u32, direction)].into_iter().collect());
                                     }
                                 }
                             }
@@ -341,43 +342,19 @@ mod tests {
     }
 
     #[test]
-    fn test_subchunk_reverse() {
-        let mut p = sub_chunk_positions(2);
-        p.reverse();
-        p.iter().for_each(|x| println!("{:?}", x));
-    }
-
-    #[test]
     fn test_overlaps() {
-        let chunks = vec![
+        let chunks_n2 = vec![
             DMatrix::from_row_slice(2, 2, &vec![0, 1, 2, 3]),
-            // DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1]),
-            DMatrix::from_row_slice(2, 2, &vec![3, 2, 0, 1])
+            DMatrix::from_row_slice(2, 2, &vec![3, 2, 0, 1]),
+            DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1])
         ];
 
-        chunks.iter().for_each(|x| println!("{}", x));
-        //
-        let mut overlaps_n2: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
-        overlaps_n2.insert(0, vec![(1, 1), (1, 5), (1, 7)]);
-        // overlaps_n2.insert(1, vec![(2, 2)]);
-        overlaps_n2.insert(1, vec![(0, 0), (0, 2), (0, 6)]);
+        let mut overlaps_n2: HashMap<u32, HashSet<(u32, u32)>> = HashMap::new();
+        overlaps_n2.insert(0, vec![(1, 1), (1, 5), (1, 7)].into_iter().collect());
+        overlaps_n2.insert(1, vec![(0, 0), (0, 2), (0, 6), (2, 5)].into_iter().collect());
+        overlaps_n2.insert(2, vec![(1, 2)].into_iter().collect());
 
-        let result_n2 = overlaps(chunks, 2);
+        let result_n2 = overlaps(chunks_n2, 2);
         assert_eq!(result_n2, overlaps_n2);
-        // overlaps.iter().for_each(|x| println!("{:?}", x));
-
-        // println!("{}", DMatrix::from_row_slice(2, 2, &vec![3, 2, 0, 1]).rotate_90().rotate_90());
-
-        // let res = DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
-        // let res2 = DMatrix::from_row_slice(3, 3, &vec![4, 5, 2, 7, 8, 5, 6, 7, 8]);
-        // println!("{}", res);
-        // println!("{}", res2);
-        // println!("{}", res2.rotate_90().rotate_90());
-        // println!("{}", res.rotate_90().rotate_90());
-
-        // left: `{
-        // 0: [(2, 6), (2, 7), (2, 8)],
-        // 1: [(2, 2)],
-        // 2: [(0, 0), (0, 1), (0, 2), (1, 6)]}`,
     }
 }
