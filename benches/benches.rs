@@ -63,5 +63,9 @@ mod graphs {
     }
 }
 
-benchmark_group!(benches, collapse::bench_collapse, graphs::graph_rules,);
+benchmark_group!(
+    benches,
+    collapse::bench_collapse,
+    graphs::graph_rules,
+);
 benchmark_main!(benches);

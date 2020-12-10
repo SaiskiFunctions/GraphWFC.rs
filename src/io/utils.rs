@@ -24,7 +24,7 @@ impl Directions {
     pub fn make_edges(&self, width: usize, depth: usize) -> Edges {
         let fns = self.fns();
         let (depth, width) = (depth as VertexIndex, width as VertexIndex);
-        let mut edges: Edges = HashMap::new();
+        let mut edges = HashMap::new();
         (0..depth).for_each(|depth_index| {
             (0..width).for_each(|width_index| {
                 let direction_pairs = fns

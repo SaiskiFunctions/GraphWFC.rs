@@ -53,17 +53,10 @@ impl<S: Multiset> Graph<S> {
                 rules
             })
     }
-
-    // fn ideal_propagations(&self) -> HashMap<S::Item, Vec<(u32, S)>> {
-    //     self.all_labels.iter_m().fold(HashMap::new(), |mut acc, elem| {
-    //
-    //         acc
-    //     })
-    // }
 }
 
 #[cfg(test)]
-mod graph2_tests {
+mod graph_tests {
     use super::*;
     use crate::utils::hash_map;
     use nalgebra::{VectorN, U6};

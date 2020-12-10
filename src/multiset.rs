@@ -3,15 +3,13 @@ use nalgebra::{ClosedAdd, DefaultAllocator, Dim, DimName, Scalar, SimdPartialOrd
 use num_traits::{One, Zero};
 use rand::distributions::uniform::SampleUniform;
 use rand::prelude::*;
-use std::iter::{FromIterator, Sum};
-use std::ops::{AddAssign, Index, IndexMut};
+use std::ops::{AddAssign, IndexMut};
 use std::slice::Iter;
-use std::cmp::{max, min};
 
 
 pub trait Multiset
 where
-    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item>,
+    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item>
 {
     type Item: Zero + One + Copy + AddAssign + PartialOrd;
 
@@ -34,6 +32,10 @@ where
     fn intersection(&self, other: &Self) -> Self;
 
     fn is_subset(&self, other: &Self) -> bool;
+
+    fn is_subset2(&self, other: &Self) -> bool;
+
+    fn is_subset3(&self, other: &Self) -> bool;
 
     fn is_singleton(&self) -> bool;
 
@@ -105,6 +107,14 @@ where
         &(self.inf(other)) == self
     }
 
+    fn is_subset2(&self, other: &Self) -> bool {
+        self.zip_fold(other, true, |acc, a, b| acc && a <= b)
+    }
+
+    fn is_subset3(&self, other: &Self) -> bool {
+        self.iter().zip(other).all(|(a, b)| a <= b)
+    }
+
     fn is_singleton(&self) -> bool {
         self.fold(0, |acc, n| if n != Zero::zero() { acc + 1 } else { acc }) == 1
     }
@@ -157,126 +167,6 @@ where
     }
 }
 
-impl<N> Multiset for Vec<N>
-where
-    f64: From<N>,
-    N: Zero + One + Copy + PartialOrd + SampleUniform + Sum + AddAssign,
-{
-    type Item = N;
-
-    fn from_iter_u<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = Self::Item>,
-    {
-        Vec::from_iter(iter)
-    }
-
-    fn from_row_slice_u(slice: &[Self::Item]) -> Self {
-        Self::from_iter_u(slice.iter().copied())
-    }
-
-    fn empty(size: usize) -> Self {
-        Self::from_iter((0..size).map(|_| Zero::zero()))
-    }
-
-    fn iter_m(&self) -> Iter<Self::Item> {
-        self.iter()
-    }
-
-    fn num_elems(&self) -> usize {
-        self.len()
-    }
-
-    fn contains(&self, elem: usize) -> bool {
-        match self.get(elem as usize) {
-            Some(i) => i > &Zero::zero(),
-            _ => false,
-        }
-    }
-
-    fn union(&self, other: &Self) -> Self {
-        let zero: N = Zero::zero();
-        (0..max(self.len(), other.len())).map(|i| {
-            let a = self.get(i).unwrap_or(&zero);
-            let b = other.get(i).unwrap_or(&zero);
-            if a < b { *b } else { *a }
-        }).collect()
-    }
-
-    fn intersection(&self, other: &Self) -> Self {
-        (0..min(self.len(), other.len())).map(|i| {
-            let a = self.index(i);
-            let b = other.index(i);
-            if a > b { *b } else { *a }
-        }).collect()
-    }
-
-    fn is_subset(&self, other: &Self) -> bool {
-        self.len() <= other.len() && self.iter_m().zip(other).all(|(a, b)| a <= b)
-    }
-
-    fn is_singleton(&self) -> bool {
-        self.iter_m()
-            .fold(0, |acc, &n| if n != Zero::zero() { acc + 1 } else { acc })
-            == 1
-    }
-
-    fn is_empty_m(&self) -> bool {
-        self.iter_m().copied().sum::<N>() == Zero::zero()
-    }
-
-    fn get_non_zero(&self) -> Option<usize> {
-        let mut max_: N = Zero::zero();
-        let mut index: Option<usize> = None;
-        for (i, &elem) in self.iter_m().enumerate() {
-            if elem > max_ {
-                max_ = elem;
-                index = Some(i)
-            }
-        }
-        index
-    }
-
-    fn entropy(&self) -> f64 {
-        let total = f64::from(self.iter_m().copied().sum::<N>());
-        -self.iter_m().fold(0.0, |acc, &frequency| {
-            if frequency > Zero::zero() {
-                let prob = f64::from(frequency) / total;
-                acc + prob * prob.log2()
-            } else {
-                acc
-            }
-        })
-    }
-
-    //noinspection DuplicatedCode
-    fn choose(&mut self, rng: &mut StdRng) {
-        let total: N = self.iter_m().copied().sum();
-        let choice = rng.gen_range::<_, N, N>(One::one(), total + One::one());
-        let mut acc: N = Zero::zero();
-        let mut chosen = false;
-        self.iter_mut().for_each(|elem| {
-            if chosen {
-                *elem = Zero::zero()
-            } else {
-                acc += *elem;
-                if acc < choice {
-                    *elem = Zero::zero()
-                } else {
-                    chosen = true;
-                }
-            }
-        });
-    }
-
-    fn add_assign_m(&mut self, other: &Self) {
-        if self.len() < other.len() {
-            self.resize(other.len(), Zero::zero());
-        }
-        self.iter_mut().zip(other).for_each(|(a, b)| *a += *b)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,7 +193,8 @@ mod tests {
 
     #[test]
     fn test_contains() {
-        let a = MultisetVector::from_row_slice_u(&[1, 0, 1, 0]);
+        let mut a: MultisetVector = MultisetVector::from_row_slice_u(&[1, 0, 1, 0]);
+        a.add_assign(MultisetVector::from_row_slice_u(&[1, 0, 1, 0]));
         assert!(a.contains(2));
         assert!(!a.contains(1));
         assert!(!a.contains(4))

@@ -2,7 +2,7 @@ use crate::graph::graph::{Edges, Graph};
 use crate::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use crate::multiset::Multiset;
 use hashbrown::HashMap;
-use num_traits::{One, Zero};
+use num_traits::One;
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
