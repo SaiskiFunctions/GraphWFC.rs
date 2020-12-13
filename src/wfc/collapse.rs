@@ -57,6 +57,8 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
     (observed, propagations, to_observe, heap)
 }
 
+static METRICS: bool = false;
+
 struct Metrics {
     props: usize,
     observes: usize,
@@ -119,10 +121,10 @@ fn exec_collapse<S: Multiset>(
     loop {
         // propagate constraints
         while !propagations.is_empty() {
-            metrics.inc_loops();
+            if METRICS { metrics.inc_loops() }
 
             for propagate in propagations.drain(..) {
-                metrics.inc_props();
+                if METRICS { metrics.inc_props() }
 
                 assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
@@ -132,7 +134,7 @@ fn exec_collapse<S: Multiset>(
                 let constrained = labels.intersection(&constraint);
                 if labels != &constrained {
                     if constrained.is_empty_m() {
-                        metrics.print();
+                        if METRICS { metrics.print() }
 
                         // No possible value for this vertex, indicating contradiction!
                         return None;
@@ -150,7 +152,7 @@ fn exec_collapse<S: Multiset>(
 
         // check if all vertices observed, if so we have finished
         if observed.len() == vertices.len() {
-            metrics.print();
+            if METRICS { metrics.print() }
             return Some(vertices);
         }
 
@@ -183,12 +185,12 @@ fn exec_collapse<S: Multiset>(
         }
         match observe_index {
             None => {
-                metrics.print();
+                if METRICS { metrics.print() }
                 // Nothing left to observe, therefore we've finished}
                 return Some(vertices);
             }
             Some(index) => {
-                metrics.inc_obs();
+                if METRICS { metrics.inc_obs() }
 
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
