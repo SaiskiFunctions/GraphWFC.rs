@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use super::tri_wave::u_tri_wave;
 use super::limit_iter::limit_iter;
 use super::sub_matrix::SubMatrix;
+use super::super::graph::graph::Rules;
 
 // Matrix and image data is in COLUMN MAJOR so:
 // [1, 2, 3, 4] is equivalent to:
@@ -174,6 +175,8 @@ fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
 
 // TODO: Intermediate step that converts the result of chunk_image to a vec so that chunks are labelled
 // TODO: Generate implicit linked chunks automatically
+// TODO: Change hashset to map
+// TODO: Change to rules format
 fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<(u32, u32)>> {
     chunks
         .iter()
@@ -212,6 +215,30 @@ fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<
             acc
         })
 }
+
+// type TempRules = HashMap<(u16, usize), HashSet<>>
+//                                 Vertex Label
+//                                      |
+//                                      V             V
+fn overlaps_to_rules(overlaps: HashMap<u32, HashSet<(u32, u32)>>)  -> Rules<u32> {
+    overlaps
+        .iter()
+        .fold(HashMap::new(), | mut acc, label, (overlap, direction) | {
+
+        })
+}
+
+// Create the raw set of rules
+// don't need to do this step as we already basically have created the rules
+fn raw_rules() {
+
+}
+
+// Create a raw graph for pruning
+fn raw_graph(overlaps: HashMap<u32, HashSet<(u32, u32)>>, size: (u32, u32)) {
+
+}
+
 // what structure does this actually return?
 // for each chunk it should return the chunk and a list of its connections (and the direction?)
 // so find all the intermediate connections -> do we need to know the direction for that?
