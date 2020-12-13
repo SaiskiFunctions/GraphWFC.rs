@@ -24,8 +24,6 @@ This implementation:
 
 The Wave Function Collapse algorithm is a constraint solving algorithm created by Maxim Gumin based on Paul Merrell's work in model generation and Paul F. Harrison's work in texture synthesis. Its primary application has been in generative media and games as a method for procedurally generating large amounts of original content from a small set of human defined inputs.
 
-![wfc_examples](resources/ref_images/mxgmn_examples.gif "Maxim Examples")
-
 <!---[MD NOTES: We should generate our own examples gif rather than using someone else's.]-->
 
 Since its release the algorithm has been ported across to many languages and content creation systems, however, because of the algorithms traditional area of application [MD NOTES: citation needed. We should rephrase this to just state the facts rather than reason why it's the case] it has generally been implemented with fairly obfuscated data structures (such as nested three dimensional arrays) and strongly coupled with the process of parsing in input data making it difficult for users to understand how the constraint solving elements of the algorithm work and how to implement the algorithm in arbitrary n dimensional spaces and across many media types.
