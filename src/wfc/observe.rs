@@ -1,32 +1,17 @@
 use crate::graph::graph::VertexIndex;
-use rand::prelude::*;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 
-// Lower and upper bounds for use in generating slightly different
-// entropy values for the initial set of Observe structs generated
-// before running collapse.
-static FUZZ_LB: f32 = 0.000001;
-static FUZZ_UB: f32 = 0.0005;
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Observe {
-    entropy: f32,
+    entropy: f64,
     pub index: VertexIndex,
 }
 
 impl Observe {
-    pub fn new(index: &VertexIndex, entropy: f32) -> Observe {
+    pub fn new(index: &VertexIndex, entropy: f64) -> Observe {
         Observe {
             entropy,
-            index: *index,
-        }
-    }
-
-    pub fn new_fuzz(rng: &mut StdRng, index: &VertexIndex, entropy: f32) -> Observe {
-        let fuzz = rng.gen_range(FUZZ_LB, FUZZ_UB);
-        Observe {
-            entropy: entropy + fuzz,
             index: *index,
         }
     }
@@ -59,8 +44,6 @@ impl PartialEq for Observe {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::multiset::{Multiset, MultisetTrait};
-    use nalgebra::U6;
     use std::collections::BinaryHeap;
 
     #[test]
@@ -113,15 +96,5 @@ mod tests {
         assert_eq!(test_heap.pop().unwrap().entropy, 2.5);
         assert_eq!(test_heap.pop().unwrap().entropy, 3.7);
         assert_eq!(test_heap.pop().unwrap().entropy, 4.1);
-    }
-
-    #[test]
-    fn test_new_fuzz() {
-        let ms: Multiset<U6> = Multiset::from_row_slice_u(&[2, 1, 1]);
-        let mut rng = StdRng::seed_from_u64(10);
-        let observe = Observe::new(&0, ms.entropy());
-        let observe_fuzz = Observe::new_fuzz(&mut rng, &0, ms.entropy());
-
-        assert!(observe.entropy < observe_fuzz.entropy);
     }
 }

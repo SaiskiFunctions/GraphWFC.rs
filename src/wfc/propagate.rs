@@ -1,6 +1,6 @@
 use crate::graph::graph::{EdgeDirection, VertexIndex};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Propagate {
     pub from: VertexIndex,
     pub to: VertexIndex,

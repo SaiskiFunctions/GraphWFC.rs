@@ -12,15 +12,26 @@ nalgebra = "0.21.1"
 bencher = "0.1.5"
 hashbrown = "0.8.1"
 image = "0.23.8"
-bimap = "0.5.2"
 itertools = "0.9.0"
 num-traits = "0.2.12"
+alga = "0.9.3"
+bimap = "0.5.2"
 
 [[bench]]
 name = "benches"
 harness = false
 
 [profile.bench]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+lto = "fat"
+incremental = false
+codegen-units = 1
+rpath = false
+
+[profile.release]
 opt-level = 3
 debug = false
 debug-assertions = false
