@@ -9,6 +9,8 @@ use super::tri_wave::u_tri_wave;
 use super::limit_iter::limit_iter;
 use super::sub_matrix::SubMatrix;
 use super::super::graph::graph::Rules;
+use super::super::multiset::Multiset;
+use num_traits::One;
 
 // Matrix and image data is in COLUMN MAJOR so:
 // [1, 2, 3, 4] is equivalent to:
@@ -139,7 +141,7 @@ where T: Clone
 
 type Position = (u32, u32);
 type Size = (u32, u32);
-type Direction = u32;
+type Direction = u16;
 fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
     let period = ((chunk_size * 2) - 1) as usize;
     limit_iter(chunk_size)
@@ -158,7 +160,7 @@ fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
         .map(|(direction, (position, size))| (
             position,
             size,
-            direction as u32
+            direction as u16
         ))
         .collect()
 }
@@ -177,7 +179,7 @@ fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
 // TODO: Generate implicit linked chunks automatically
 // TODO: Change hashset to map
 // TODO: Change to rules format
-fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<(u32, u32)>> {
+fn overlaps<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> Rules<S> {
     chunks
         .iter()
         .enumerate()
@@ -197,18 +199,14 @@ fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<
                             let other_sub_chunk = other_chunk
                                 .sub_matrix((o_x, o_y), (o_width, o_height));
                             if sub_chunk == other_sub_chunk {
-                                match acc.get_mut(&(index as u32)) { // better way to convert here?
-                                    Some(connection) => {
-                                        connection
-                                            .insert((other_index as u32, direction));
-                                    },
-                                    None => {
-                                        acc.insert(
-                                            index as u32, vec![(other_index as u32, direction)]
-                                                .into_iter()
-                                                .collect());
-                                    }
-                                }
+                                acc
+                                    .entry((direction, index as usize))
+                                    .and_modify(|labels| *labels.index_mut(other_index) = One::one())
+                                    .or_insert({
+                                        let mut set = S::empty(chunks.len());
+                                        *set.index_mut(other_index) = One::one();
+                                        set
+                                    });
                             }
                         })
                 });
@@ -216,17 +214,26 @@ fn overlaps(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> HashMap<u32, HashSet<
         })
 }
 
+// TODO: Generic version of Multiset for Rules used?
 // type TempRules = HashMap<(u16, usize), HashSet<>>
 //                                 Vertex Label
 //                                      |
 //                                      V             V
-fn overlaps_to_rules(overlaps: HashMap<u32, HashSet<(u32, u32)>>)  -> Rules<u32> {
-    overlaps
-        .iter()
-        .fold(HashMap::new(), | mut acc, label, (overlap, direction) | {
-
-        })
-}
+// fn overlaps_to_rules<S: Multiset>(overlaps: HashMap<u32, HashSet<(u32, u32)>>) -> Rules<S> {
+//     overlaps
+//         .iter()
+//         .fold(HashMap::new(), | mut acc, (label, (overlap, direction)) | {
+//             acc
+//                 .entry((*direction, label as usize))
+//                 .and_modify(|labels| *labels.index_mut(*overlap) = One::one())
+//                 .or_insert({
+//                     let mut set = S::empty(overlaps.len());
+//                     *set.index_mut(*overlap) = One::one();
+//                     set
+//                 });
+//             acc
+//         })
+// }
 
 // Create the raw set of rules
 // don't need to do this step as we already basically have created the rules
@@ -305,6 +312,7 @@ mod tests {
     use super::*;
     use image::ImageBuffer;
     use std::iter::FromIterator;
+    use nalgebra::{Vector4, Vector2};
 
     #[test]
     fn test_alias_pixels() {
@@ -395,12 +403,39 @@ mod tests {
             DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1])
         ];
 
-        let mut overlaps_n2: HashMap<u32, HashSet<(u32, u32)>> = HashMap::new();
-        overlaps_n2.insert(0, vec![(1, 1), (1, 5), (1, 7)].into_iter().collect());
-        overlaps_n2.insert(1, vec![(0, 0), (0, 2), (0, 6), (2, 5)].into_iter().collect());
-        overlaps_n2.insert(2, vec![(1, 2)].into_iter().collect());
+        let mut overlaps_n2: Rules<Vector4<u32>> = HashMap::new();
+        overlaps_n2.insert((5, 0), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
+        overlaps_n2.insert((0, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0]));
+        overlaps_n2.insert((6, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0]));
+        overlaps_n2.insert((1, 0), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
+        overlaps_n2.insert((2, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0]));
+        overlaps_n2.insert((7, 0), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
+        overlaps_n2.insert((2, 2), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
+        overlaps_n2.insert((5, 1), Multiset::from_row_slice_u(&[0, 0, 1, 0]));
 
         let result_n2 = overlaps(chunks_n2, 2);
         assert_eq!(result_n2, overlaps_n2);
+
+        let chunks_n3 = vec![
+            DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]),
+            DMatrix::from_row_slice(3, 3, &vec![9, 10, 11, 12, 13, 14, 15, 16, 0])
+        ];
+
+        chunks_n3
+            .iter()
+            .for_each(|c| println!("{}", c));
+
+        let mut overlaps_n3: Rules<Vector2<u32>> = HashMap::new();
+        overlaps_n3.insert((0, 0), Multiset::from_row_slice_u(&[0, 1]));
+        overlaps_n3.insert((23, 1), Multiset::from_row_slice_u(&[1, 0]));
+
+        let result_n3 = overlaps(chunks_n3, 3);
+
+        assert_eq!(result_n3, overlaps_n3);
+    }
+
+    #[test]
+    fn test_overlap_rules() {
+
     }
 }
