@@ -10,8 +10,7 @@ use rand::thread_rng;
 use std::collections::BinaryHeap;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
-use std::fmt::{Display, Formatter};
-use std::fmt;
+use crate::utils::Metrics;
 
 type InitCollapse = (
     HashSet<VertexIndex>, // observed
@@ -57,51 +56,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
     (observed, propagations, to_observe, heap)
 }
 
-static METRICS: bool = false;
-
-struct Metrics {
-    props: usize,
-    observes: usize,
-    prop_loops: usize,
-}
-
-impl Metrics {
-    pub fn new() -> Metrics {
-        Metrics { props: 0, observes: 0, prop_loops: 0 }
-    }
-
-    pub fn inc_props(&mut self) {
-        self.props += 1
-    }
-
-    pub fn inc_obs(&mut self) {
-        self.observes += 1
-    }
-
-    pub fn inc_loops(&mut self) {
-        self.prop_loops += 1
-    }
-
-    pub fn print(&self) {
-        println!("{}", self)
-    }
-}
-
-impl Display for Metrics {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let avg_prop_obs = self.props as f64 / self.observes as f64;
-        let avg_prop_loops = self.props as f64 / self.prop_loops as f64;
-        write!(f,
-               "Metrics:\n\
-               Prop count: {}\n\
-               Observe count: {}\n\
-               Avg prop/obs: {}\n\
-               Prop loops: {}\n\
-               Avg prop/loop: {}\n",
-               self.props, self.observes, avg_prop_obs,
-               self.prop_loops, avg_prop_loops)
-    }
-}
+static METRICS: bool = true;
 
 fn exec_collapse<S: Multiset>(
     rng: &mut StdRng,
@@ -115,14 +70,19 @@ fn exec_collapse<S: Multiset>(
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
     let mut metrics = Metrics::new();
+    
+    if METRICS {
+        metrics.avg("props/obs", ("props", "obs"));
+        metrics.avg("props/loops", ("props", "loops"));
+    }
 
     loop {
         // propagate constraints
         while !propagations.is_empty() {
-            if METRICS { metrics.inc_loops() }
+            if METRICS { metrics.inc("loops") }
 
             for propagate in propagations.drain(..) {
-                if METRICS { metrics.inc_props() }
+                if METRICS { metrics.inc("props") }
 
                 assert!(vertices.len() >= propagate.from as usize);
                 // heap access
@@ -137,7 +97,7 @@ fn exec_collapse<S: Multiset>(
                 let constrained = labels.intersection(&constraint);
                 if labels != &constrained {
                     if constrained.is_empty_m() {
-                        if METRICS { metrics.print() }
+                        if METRICS { metrics.print(Some("CONTRADICTION")) }
 
                         // No possible value for this vertex, indicating contradiction!
                         return None;
@@ -155,7 +115,7 @@ fn exec_collapse<S: Multiset>(
 
         // check if all vertices observed, if so we have finished
         if observed.len() == vertices.len() {
-            if METRICS { metrics.print() }
+            if METRICS { metrics.print(Some("All Observed")) }
             return Some(vertices);
         }
 
@@ -188,12 +148,12 @@ fn exec_collapse<S: Multiset>(
         }
         match observe_index {
             None => {
-                if METRICS { metrics.print() }
+                if METRICS { metrics.print(Some("All Observed")) }
                 // Nothing left to observe, therefore we've finished}
                 return Some(vertices);
             }
             Some(index) => {
-                if METRICS { metrics.inc_obs() }
+                if METRICS { metrics.inc("obs") }
 
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
