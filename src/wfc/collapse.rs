@@ -70,8 +70,11 @@ fn exec_collapse<S: Multiset>(
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
     let mut metrics = Metrics::new();
-    metrics.avg("props/obs", ("props", "obs"));
-    metrics.avg("props/loops", ("props", "loops"));
+    
+    if METRICS {
+        metrics.avg("props/obs", ("props", "obs"));
+        metrics.avg("props/loops", ("props", "loops"));
+    }
 
     loop {
         // propagate constraints
