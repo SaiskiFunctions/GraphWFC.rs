@@ -33,10 +33,6 @@ where
 
     fn is_subset(&self, other: &Self) -> bool;
 
-    fn is_subset2(&self, other: &Self) -> bool;
-
-    fn is_subset3(&self, other: &Self) -> bool;
-
     fn is_singleton(&self) -> bool;
 
     fn is_empty_m(&self) -> bool;
@@ -105,14 +101,6 @@ where
 
     fn is_subset(&self, other: &Self) -> bool {
         &(self.inf(other)) == self
-    }
-
-    fn is_subset2(&self, other: &Self) -> bool {
-        self.zip_fold(other, true, |acc, a, b| acc && a <= b)
-    }
-
-    fn is_subset3(&self, other: &Self) -> bool {
-        self.iter().zip(other).all(|(a, b)| a <= b)
     }
 
     fn is_singleton(&self) -> bool {

@@ -12,6 +12,8 @@ pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 //                                            v
 pub type Rules<S> = HashMap<(EdgeDirection, usize), S>;
 
+// It will always be true that: |rules| <= |directions| x |labels|
+
 #[derive(Debug, Clone)]
 pub struct Graph<S: Multiset> {
     pub vertices: Vec<S>, // index of vec == vertex index
