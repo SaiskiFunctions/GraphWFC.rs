@@ -29,7 +29,7 @@ impl Ord for Observe {
 
 impl PartialOrd for Observe {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 

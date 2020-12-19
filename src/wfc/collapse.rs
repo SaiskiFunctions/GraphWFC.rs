@@ -112,10 +112,8 @@ fn exec_collapse<S: Multiset>(
 ) -> Option<Vec<S>> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
-
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
-    // metrics
     let mut metrics = Metrics::new();
 
     loop {
