@@ -51,10 +51,6 @@ impl Metrics {
         self.averages.insert(key, value);
     }
 
-    fn get_counter(&self, key: &'static str) -> &i32 {
-        self.counters.get(key).expect(&format!("no such counter: {}", key))
-    }
-
     pub fn print(&self, msg: Option<&str>) {
         if let Some(string) = msg {
             println!("{}", string)
@@ -84,12 +80,11 @@ impl Display for Metrics {
 
         if !self.averages.is_empty() {
             output.push_str("Calculations:\n");
-            self.averages.iter().for_each(|(&k, v)| {
-                let (counter1, counter2) = v;
-                let value1 = self.get_counter(counter1);
-                let value2 = self.get_counter(counter2);
-                let result = *value1 as f64 / *value2 as f64;
-                output = format!("{}{}: {}\n", output, k, result);
+            self.averages.iter().for_each(|(&k, &v)| {
+                if let (Some(value1), Some(value2)) = (self.counters.get(v.0), self.counters.get(v.1)) {
+                    let result = *value1 as f64 / *value2 as f64;
+                    output = format!("{}{}: {}\n", output, k, result)
+                }
             });
             output.push_str("\n")
         }
