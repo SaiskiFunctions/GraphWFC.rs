@@ -69,100 +69,111 @@ fn exec_collapse<S: Multiset>(
     let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
-    let mut metrics = Metrics::new();
-    
-    if METRICS {
-        metrics.avg("props/obs", ("props", "obs"));
-        metrics.avg("props/loops", ("props", "loops"));
+    loop {
+        if !propagate(edges, rules, &mut vertices, &mut observed, &mut propagations, &mut gen_observe, &mut to_propagate) {
+            return None
+        }
+
+        if observe(rng, edges, &mut vertices, &mut observed, &mut propagations, &mut gen_observe, &mut heap, &mut to_observe) {
+            return Some(vertices)
+        }
+    }
+}
+
+fn propagate<'a, S: Multiset>(
+    edges: &Edges,
+    rules: &Rules<S>,
+    vertices: &mut Vec<S>,
+    observed: &mut HashSet<VertexIndex>,
+    mut propagations: &'a mut Vec<Propagate>,
+    gen_observe: &mut HashSet<VertexIndex>,
+    mut to_propagate: &'a mut Vec<Propagate>,
+) -> bool {
+    while !propagations.is_empty() {
+
+        for propagate in propagations.drain(..) {
+            assert!(vertices.len() >= propagate.from as usize);
+            let prop_labels = vertices.index(propagate.from as usize);
+            let constraint = build_constraint(prop_labels, propagate.direction, rules);
+            assert!(vertices.len() >= propagate.to as usize);
+            let labels = vertices.index_mut(propagate.to as usize);
+
+            let constrained = labels.intersection(&constraint);
+            if labels != &constrained {
+                if constrained.is_empty_m() {
+                    // No possible value for this vertex, indicating contradiction!
+                    return false;
+                } else if constrained.is_singleton() {
+                    observed.insert(propagate.to);
+                } else {
+                    gen_observe.insert(propagate.to);
+                }
+                generate_propagations(to_propagate, &observed, edges, &propagate.to);
+                *labels = constrained
+            }
+        }
+        to_propagate = replace(&mut propagations, to_propagate);
+    }
+    true
+}
+
+fn observe<S: Multiset>(
+    rng: &mut StdRng,
+    edges: &Edges,
+    vertices: &mut Vec<S>,
+    observed: &mut HashSet<VertexIndex>,
+    mut propagations: &mut Vec<Propagate>,
+    gen_observe: &mut HashSet<VertexIndex>,
+    heap: &mut BinaryHeap<Observe>,
+    to_observe: &mut Vec<VertexIndex>,
+) -> bool {
+    // check if all vertices observed, if so we have finished
+    if observed.len() == vertices.len() {
+        return true;
     }
 
-    loop {
-        // propagate constraints
-        while !propagations.is_empty() {
-            if METRICS { metrics.inc("loops") }
+    // generate observes for constrained vertices
+    gen_observe.drain().for_each(|index| {
+        assert!(vertices.len() >= index as usize);
+        let labels = vertices.index(index as usize);
+        heap.push(Observe::new(&index, labels.entropy()))
+    });
 
-            for propagate in propagations.drain(..) {
-                if METRICS { metrics.inc("props") }
-
-                assert!(vertices.len() >= propagate.from as usize);
-                // heap access
-                let prop_labels = vertices.index(propagate.from as usize);
-
-                let constraint = build_constraint(prop_labels, propagate.direction, rules);
-
-                assert!(vertices.len() >= propagate.to as usize);
-                // heap access
-                let labels = vertices.index_mut(propagate.to as usize);
-
-                let constrained = labels.intersection(&constraint);
-                if labels != &constrained {
-                    if constrained.is_empty_m() {
-                        if METRICS { metrics.print(Some("CONTRADICTION")) }
-
-                        // No possible value for this vertex, indicating contradiction!
-                        return None;
-                    } else if constrained.is_singleton() {
-                        observed.insert(propagate.to);
-                    } else {
-                        gen_observe.insert(propagate.to);
-                    }
-                    generate_propagations(&mut to_propagate, &observed, edges, &propagate.to);
-                    *labels = constrained
-                }
-            }
-            to_propagate = replace(&mut propagations, to_propagate);
+    // try to find a vertex index to observe
+    let mut observe_index: Option<VertexIndex> = None;
+    // check the heap first
+    while !heap.is_empty() {
+        let observe = heap.pop().unwrap();
+        if !observed.contains(&observe.index) {
+            observe_index = Some(observe.index);
+            break;
         }
-
-        // check if all vertices observed, if so we have finished
-        if observed.len() == vertices.len() {
-            if METRICS { metrics.print(Some("All Observed")) }
-            return Some(vertices);
-        }
-
-        // generate observes for constrained vertices
-        gen_observe.drain().for_each(|index| {
-            assert!(vertices.len() >= index as usize);
-            let labels = vertices.index(index as usize);
-            heap.push(Observe::new(&index, labels.entropy()))
-        });
-
-        // try to find a vertex index to observe
-        let mut observe_index: Option<VertexIndex> = None;
-        // check the heap first
-        while !heap.is_empty() {
-            let observe = heap.pop().unwrap();
-            if !observed.contains(&observe.index) {
-                observe_index = Some(observe.index);
+    }
+    // if no index to check in heap, check vec of initial vertices to observe
+    if observe_index.is_none() {
+        while !to_observe.is_empty() {
+            let index = to_observe.pop().unwrap();
+            if !observed.contains(&index) {
+                observe_index = Some(index);
                 break;
             }
         }
-        // if no index to check in heap, check vec of initial vertices to observe
-        if observe_index.is_none() {
-            while !to_observe.is_empty() {
-                let index = to_observe.pop().unwrap();
-                if !observed.contains(&index) {
-                    observe_index = Some(index);
-                    break;
-                }
-            }
+    }
+    match observe_index {
+        None => {
+            // Nothing left to observe, therefore we've finished}
+            return true;
         }
-        match observe_index {
-            None => {
-                if METRICS { metrics.print(Some("All Observed")) }
-                // Nothing left to observe, therefore we've finished}
-                return Some(vertices);
-            }
-            Some(index) => {
-                if METRICS { metrics.inc("obs") }
-
-                assert!(vertices.len() >= index as usize);
-                let labels_multiset = vertices.index_mut(index as usize);
-                labels_multiset.choose(rng);
-                observed.insert(index);
-                generate_propagations(&mut propagations, &observed, edges, &index);
-            }
+        Some(index) => {
+            assert!(vertices.len() >= index as usize);
+            let labels_multiset = vertices.index_mut(index as usize);
+            labels_multiset.choose(rng);
+            observed.insert(index);
+            generate_propagations(&mut propagations, &observed, edges, &index);
         }
     }
+
+    false
 }
 
 pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &Rules<S>) -> S {
