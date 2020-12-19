@@ -19,17 +19,17 @@ impl Observe {
 
 impl Ord for Observe {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.entropy.partial_cmp(&other.entropy).unwrap() {
-            Ordering::Greater => Ordering::Less,
-            Ordering::Less => Ordering::Greater,
-            ordering => ordering,
+        match (self.entropy <= other.entropy, self.entropy >= other.entropy) {
+            (false, true) => Ordering::Less,
+            (true, false) => Ordering::Greater,
+            _ => Ordering::Equal,
         }
     }
 }
 
 impl PartialOrd for Observe {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+        Some(self.cmp(&other))
     }
 }
 

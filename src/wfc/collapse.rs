@@ -127,10 +127,15 @@ fn exec_collapse<S: Multiset>(
                 if METRICS { metrics.inc_props() }
 
                 assert!(vertices.len() >= propagate.from as usize);
+                // heap access
                 let prop_labels = vertices.index(propagate.from as usize);
+
                 let constraint = build_constraint(prop_labels, propagate.direction, rules);
+
                 assert!(vertices.len() >= propagate.to as usize);
+                // heap access
                 let labels = vertices.index_mut(propagate.to as usize);
+
                 let constrained = labels.intersection(&constraint);
                 if labels != &constrained {
                     if constrained.is_empty_m() {
@@ -202,8 +207,7 @@ fn exec_collapse<S: Multiset>(
     }
 }
 
-pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &Rules<S>) -> S
-where {
+pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &Rules<S>) -> S {
     labels
         .iter_m()
         .enumerate()
