@@ -13,6 +13,7 @@ hashbrown = "0.8.1"
 alga = "0.9.3"
 num-traits = "0.2.12"
 bimap = "0.5.2"
+bit-set = "0.5.2"
 
 [[bench]]
 name = "benches"
@@ -30,7 +31,7 @@ rpath = false
 
 [profile.release]
 opt-level = 3
-debug = false
+debug = true
 debug-assertions = false
 overflow-checks = false
 lto = "fat"

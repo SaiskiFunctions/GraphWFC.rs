@@ -2,7 +2,6 @@ use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
 use crate::multiset::Multiset;
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
-use hashbrown::HashSet;
 use num_traits::Zero;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
@@ -11,16 +10,17 @@ use std::collections::BinaryHeap;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
 use crate::utils::Metrics;
+use bit_set::BitSet;
 
 type InitCollapse = (
-    HashSet<VertexIndex>, // observed
+    BitSet,               // observed
     Vec<Propagate>,       // propagations
     Vec<VertexIndex>,     // to_observe
     BinaryHeap<Observe>,  // heap
 );
 
 fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCollapse {
-    let mut observed: HashSet<VertexIndex> = HashSet::new();
+    let mut observed: BitSet = BitSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
     let mut init_propagations: Vec<VertexIndex> = Vec::new();
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
@@ -35,7 +35,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
             let from_index = _index as VertexIndex;
             if labels.is_singleton() {
                 init_propagations.push(from_index);
-                observed.insert(from_index);
+                observed.insert(from_index as usize);
             } else if labels != &out_graph.all_labels {
                 init_propagations.push(from_index);
                 heap.push(Observe::new(&from_index, labels.entropy()))
@@ -44,19 +44,19 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
 
     // Ensure that output graph will be fully propagated before further collapse.
     init_propagations.drain(..).for_each(|index| {
-        generate_propagations(&mut propagations, &observed, &out_graph.edges, &index);
+        generate_propagations(&mut propagations, &observed, &out_graph.edges, index);
     });
 
     let to_observe_len = out_graph.vertices.len() as VertexIndex;
     let mut to_observe: Vec<VertexIndex> = (0..to_observe_len)
-        .filter(|i| !observed.contains(i))
+        .filter(|i| !observed.contains(*i as usize))
         .collect();
     to_observe.shuffle(rng);
 
     (observed, propagations, to_observe, heap)
 }
 
-static METRICS: bool = true;
+static METRICS: bool = false;
 
 fn exec_collapse<S: Multiset>(
     rng: &mut StdRng,
@@ -66,7 +66,7 @@ fn exec_collapse<S: Multiset>(
     mut vertices: Vec<S>,
 ) -> Option<Vec<S>> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
-    let mut gen_observe: HashSet<VertexIndex> = HashSet::new();
+    let mut gen_observe: BitSet = BitSet::new();
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
     let mut metrics = Metrics::new();
@@ -102,11 +102,11 @@ fn exec_collapse<S: Multiset>(
                         // No possible value for this vertex, indicating contradiction!
                         return None;
                     } else if constrained.is_singleton() {
-                        observed.insert(propagate.to);
+                        observed.insert(propagate.to as usize);
                     } else {
-                        gen_observe.insert(propagate.to);
+                        gen_observe.insert(propagate.to as usize);
                     }
-                    generate_propagations(&mut to_propagate, &observed, edges, &propagate.to);
+                    generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
                 }
             }
@@ -120,18 +120,19 @@ fn exec_collapse<S: Multiset>(
         }
 
         // generate observes for constrained vertices
-        gen_observe.drain().for_each(|index| {
+        gen_observe.iter().for_each(|index| {
             assert!(vertices.len() >= index as usize);
             let labels = vertices.index(index as usize);
-            heap.push(Observe::new(&index, labels.entropy()))
+            heap.push(Observe::new(&(index as u32), labels.entropy()))
         });
+        gen_observe.clear();
 
         // try to find a vertex index to observe
         let mut observe_index: Option<VertexIndex> = None;
         // check the heap first
         while !heap.is_empty() {
             let observe = heap.pop().unwrap();
-            if !observed.contains(&observe.index) {
+            if !observed.contains(observe.index as usize) {
                 observe_index = Some(observe.index);
                 break;
             }
@@ -140,7 +141,7 @@ fn exec_collapse<S: Multiset>(
         if observe_index.is_none() {
             while !to_observe.is_empty() {
                 let index = to_observe.pop().unwrap();
-                if !observed.contains(&index) {
+                if !observed.contains(index as usize) {
                     observe_index = Some(index);
                     break;
                 }
@@ -158,8 +159,8 @@ fn exec_collapse<S: Multiset>(
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
                 labels_multiset.choose(rng);
-                observed.insert(index);
-                generate_propagations(&mut propagations, &observed, edges, &index);
+                observed.insert(index as usize);
+                generate_propagations(&mut propagations, &observed, edges, index);
             }
         }
     }
@@ -169,8 +170,8 @@ pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules
     labels
         .iter_m()
         .enumerate()
-        .fold(S::empty(labels.num_elems()), |mut acc, (index, frq)| {
-            if frq > &Zero::zero() {
+        .fold(S::empty(labels.num_elems()), |mut acc, (index, frequency)| {
+            if frequency > &Zero::zero() {
                 if let Some(a) = rules.get(&(direction, index)) {
                     acc = acc.union(a)
                 }
@@ -181,19 +182,16 @@ pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules
 
 fn generate_propagations(
     propagations: &mut Vec<Propagate>,
-    observed: &HashSet<VertexIndex>,
+    observed: &BitSet,
     edges: &Edges,
-    from_index: &VertexIndex,
+    from_index: VertexIndex,
 ) {
-    assert!(edges.len() >= *from_index as usize);
-    edges
-        .index(from_index)
-        .iter()
-        .for_each(|(to_index, direction)| {
-            if !observed.contains(to_index) {
-                propagations.push(Propagate::new(*from_index, *to_index, *direction))
-            }
-        });
+    assert!(edges.len() >= from_index as usize);
+    for (to_index, direction) in edges.index(&from_index) {
+        if !observed.contains(*to_index as usize) {
+            propagations.push(Propagate::new(from_index, *to_index, *direction))
+        }
+    }
 }
 
 pub fn collapse<S: Multiset>(
