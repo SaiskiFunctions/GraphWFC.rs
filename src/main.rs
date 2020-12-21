@@ -11,12 +11,9 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
         let output_vertices = vec![all_labels.clone(); width * depth];
         // let output_edges = make_edges_cardinal_grid(width, depth);
         let output_edges = make_edges_8_way_grid(width, depth);
-        println!("{}", output_edges.len());
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        if let Some(collapsed_graph) = collapse(&input_graph, output_graph, Some(134522), None)
-        {
-            render(output, &collapsed_graph, &keys, width);
-        }
+        let collapsed_graph = collapse(&input_graph, output_graph, Some(134522));
+        render(output, &collapsed_graph, &keys, width);
     }
 }
 

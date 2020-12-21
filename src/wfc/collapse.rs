@@ -11,6 +11,7 @@ use std::mem::replace;
 use std::ops::{Index, IndexMut};
 use crate::utils::Metrics;
 use bit_set::BitSet;
+use hashbrown::HashMap;
 
 type InitCollapse = (
     BitSet,               // observed
@@ -64,13 +65,14 @@ fn exec_collapse<S: Multiset>(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<S>,
-) -> Option<Vec<S>> {
+) -> Vec<S> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
-    let mut gen_observe: BitSet = BitSet::new();
     let mut to_propagate: Vec<Propagate> = Vec::new();
+    let vertices_len = vertices.len();
+    let mut observed_counter: usize = 0;
 
     let mut metrics = Metrics::new();
-    
+
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
         metrics.avg("props/loops", ("props", "loops"));
@@ -85,26 +87,23 @@ fn exec_collapse<S: Multiset>(
                 if METRICS { metrics.inc("props") }
 
                 assert!(vertices.len() >= propagate.from as usize);
-                // heap access
                 let prop_labels = vertices.index(propagate.from as usize);
+                if prop_labels.is_empty_m() {
+                    continue
+                }
 
                 let constraint = build_constraint(prop_labels, propagate.direction, rules);
 
                 assert!(vertices.len() >= propagate.to as usize);
-                // heap access
                 let labels = vertices.index_mut(propagate.to as usize);
 
                 let constrained = labels.intersection(&constraint);
                 if labels != &constrained {
-                    if constrained.is_empty_m() {
-                        if METRICS { metrics.print(Some("CONTRADICTION")) }
-
-                        // No possible value for this vertex, indicating contradiction!
-                        return None;
-                    } else if constrained.is_singleton() {
+                    if constrained.is_singleton() || constrained.is_empty_m() {
                         observed.insert(propagate.to as usize);
-                    } else {
-                        gen_observe.insert(propagate.to as usize);
+                        observed_counter += 1
+                    } else if rng.gen_range(1, 100) < 33 {
+                        heap.push(Observe::new(&propagate.to, constrained.entropy()))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
@@ -114,18 +113,10 @@ fn exec_collapse<S: Multiset>(
         }
 
         // check if all vertices observed, if so we have finished
-        if observed.len() == vertices.len() {
+        if observed_counter == vertices_len {
             if METRICS { metrics.print(Some("All Observed")) }
-            return Some(vertices);
+            return vertices;
         }
-
-        // generate observes for constrained vertices
-        gen_observe.iter().for_each(|index| {
-            assert!(vertices.len() >= index as usize);
-            let labels = vertices.index(index as usize);
-            heap.push(Observe::new(&(index as u32), labels.entropy()))
-        });
-        gen_observe.clear();
 
         // try to find a vertex index to observe
         let mut observe_index: Option<VertexIndex> = None;
@@ -151,7 +142,7 @@ fn exec_collapse<S: Multiset>(
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
                 // Nothing left to observe, therefore we've finished}
-                return Some(vertices);
+                return vertices;
             }
             Some(index) => {
                 if METRICS { metrics.inc("obs") }
@@ -198,26 +189,20 @@ pub fn collapse<S: Multiset>(
     input_graph: &Graph<S>,
     mut output_graph: Graph<S>,
     seed: Option<u64>,
-    tries: Option<usize>,
-) -> Option<Graph<S>> {
+) -> Graph<S> {
     let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let rules = &input_graph.rules();
     let init = init_collapse(rng, &output_graph);
 
-    for _ in 0..tries.unwrap_or(10) {
-        if let Some(vertices) = exec_collapse(
-            rng,
-            rules,
-            &output_graph.edges,
-            init.clone(),
-            output_graph.vertices.clone(),
-        ) {
-            output_graph.vertices = vertices;
-            return Some(output_graph);
-        }
-    }
-    println!("CONTRADICTION!");
-    None
+    let collapsed_vertices = exec_collapse(
+        rng,
+        rules,
+        &output_graph.edges,
+        init.clone(),
+        output_graph.vertices,
+    );
+    output_graph.vertices = collapsed_vertices;
+    output_graph
 }
 
 #[cfg(test)]
@@ -295,9 +280,7 @@ mod tests {
 
         let init = init_collapse::<MS6>(&mut rng, &out_graph);
 
-        let result =
-            exec_collapse::<MS6>(&mut rng, rules, &out_graph.edges, init, simple_vertices())
-                .unwrap();
+        let result = exec_collapse::<MS6>(&mut rng, rules, &out_graph.edges, init, simple_vertices());
         let expected: Vec<MS6> = vec![
             MS6::from_row_slice_u(&[1, 0, 0]),
             MS6::from_row_slice_u(&[0, 2, 0]),
@@ -360,8 +343,7 @@ mod tests {
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
-        )
-        .unwrap();
+        );
 
         let expected: Vec<MS2> = vec![
             MS2::from_row_slice_u(&[0, 3]),
@@ -464,8 +446,7 @@ mod tests {
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),
-        )
-        .unwrap();
+        );
 
         let expected: Vec<MS2> = vec![
             MS2::from_row_slice_u(&[3, 0]),
