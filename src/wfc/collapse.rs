@@ -11,7 +11,6 @@ use std::mem::replace;
 use std::ops::{Index, IndexMut};
 use crate::utils::Metrics;
 use bit_set::BitSet;
-use hashbrown::HashMap;
 
 type InitCollapse = (
     BitSet,               // observed
@@ -39,7 +38,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
                 observed.insert(from_index as usize);
             } else if labels != &out_graph.all_labels {
                 init_propagations.push(from_index);
-                heap.push(Observe::new(&from_index, labels.entropy()))
+                heap.push(Observe::new(from_index, labels.entropy()))
             }
         });
 
@@ -102,8 +101,8 @@ fn exec_collapse<S: Multiset>(
                     if constrained.is_singleton() || constrained.is_empty_m() {
                         observed.insert(propagate.to as usize);
                         observed_counter += 1
-                    } else if rng.gen_range(1, 100) < 33 {
-                        heap.push(Observe::new(&propagate.to, constrained.entropy()))
+                    } else if rng.gen_range(0, 100) < 33 {
+                        heap.push(Observe::new(propagate.to, constrained.entropy()))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
@@ -141,7 +140,7 @@ fn exec_collapse<S: Multiset>(
         match observe_index {
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
-                // Nothing left to observe, therefore we've finished}
+                // Nothing left to observe, therefore we've finished
                 return vertices;
             }
             Some(index) => {
@@ -177,7 +176,7 @@ fn generate_propagations(
     edges: &Edges,
     from_index: VertexIndex,
 ) {
-    assert!(edges.len() >= from_index as usize);
+    assert!(edges.contains_key(&from_index));
     for (to_index, direction) in edges.index(&from_index) {
         if !observed.contains(*to_index as usize) {
             propagations.push(Propagate::new(from_index, *to_index, *direction))

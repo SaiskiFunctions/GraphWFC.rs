@@ -9,10 +9,10 @@ pub struct Observe {
 }
 
 impl Observe {
-    pub fn new(index: &VertexIndex, entropy: f64) -> Observe {
+    pub fn new(index: VertexIndex, entropy: f64) -> Observe {
         Observe {
             entropy,
-            index: *index,
+            index,
         }
     }
 }
