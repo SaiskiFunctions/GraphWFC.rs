@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use super::tri_wave::u_tri_wave;
 use super::limit_iter::limit_iter;
 use super::sub_matrix::SubMatrix;
-use super::super::graph::graph::Rules;
+use super::super::graph::graph::{Rules, Edges};
 use super::super::multiset::Multiset;
 use num_traits::One;
 
@@ -242,8 +242,81 @@ fn raw_rules() {
 }
 
 // Create a raw graph for pruning
-fn raw_graph(overlaps: HashMap<u32, HashSet<(u32, u32)>>, size: (u32, u32)) {
+fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, size: (u32, u32)) {
+    let (height, width) = size;
+    let v_dim_x = (width * chunk_size) - (chunk_size - 1);
+    let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
+    let directions = ((chunk_size * 2) - 1) ^ 2;
+
+    let mut labels = S::empty(chunks.len());
+    for i in 0..chunks.len() {
+        *labels.index_mut(i) = One::one()
+    }
+
+    let mut vertices: Vec<S> = Vec::new();
+    for _ in 0..(v_dim_x * v_dim_y) {
+        vertices.push(labels.clone())
+    }
+
+    let mut edges: Edges = HashMap::new();
+
+    vertices
+        .iter()
+        .enumerate()
+        .for_each(|(index, _)| {
+            let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
+            // create negative indexed range to offset vertex centered directional field by N
+            let range = (0 - (chunk_size - 1))..(chunk_size);
+            range
+                .clone()
+                .cartesian_product(range)
+                // remove 0 offset for correct directional mapping
+                .filter(|v, w| v == 0 && w == 0)
+                .enumerate()
+                .for_each(|(direction, (x_offset, y_offset))| {
+                    let other_index = coords_to_index((x + x_offset, y + y_offset),
+                                                      (v_dim_x, v_dim_y));
+                    edges
+                        .entry(index as u32)
+                        .and_modify(|v| v.push((other_index, direction as u16)))
+                        .or_insert(vec![(other_index, direction as u16)]);
+                })
+        })
+}
+
+fn create_raw_edges(length: u32) { // -> Edges {
+    (0..length)
+        .for_each(|index| {
+            let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
+            // create negative indexed range to offset vertex centered directional field by N
+            let range = (0 - (chunk_size - 1))..(chunk_size);
+            range
+                .clone()
+                .cartesian_product(range)
+                // remove 0 offset for correct directional mapping
+                .filter(|v, w| v == 0 && w == 0)
+                .enumerate()
+                .for_each(|(direction, (x_offset, y_offset))| {
+                    let other_index = coords_to_index((x + x_offset, y + y_offset),
+                                                      (v_dim_x, v_dim_y));
+                    edges
+                        .entry(index as u32)
+                        .and_modify(|v| v.push((other_index, direction as u16)))
+                        .or_insert(vec![(other_index, direction as u16)]);
+                })
+        })
+}
+
+fn index_to_coords(index: u32, dim: (u32, u32)) -> (u32, u32) {
+    (index % dim.0, index / dim.1)
+}
+
+fn coords_to_index(point: (u32, u32), dim: (u32, u32)) -> u32 { point.0 + point.1 * dim.1 }
+
+fn is_inside(point: (i32, i32), dim: (u32, u32)) -> bool {
+    let (x, y) = point;
+    if x < 0 || y < 0 || x > dim.0 as i32 || y > dim.0 as i32 { false } else { true }
 }
 
 // what structure does this actually return?
@@ -432,10 +505,44 @@ mod tests {
         let result_n3 = overlaps(chunks_n3, 3);
 
         assert_eq!(result_n3, overlaps_n3);
+
+        let chunks_n4 = vec![
+            DMatrix::from_row_slice(4, 4, &vec![0, 0, 2, 3,
+                                                0, 1, 4, 5,
+                                                6, 7, 0, 0,
+                                                8, 9, 0, 1])
+        ];
+
+        // test overlapping with self only
+        let mut overlaps_n4: Rules<Vector2<u32>> = HashMap::new();
+        overlaps_n4.insert((8, 0), Multiset::from_row_slice_u(&[1, 0]));
+        overlaps_n4.insert((39, 0), Multiset::from_row_slice_u(&[1, 0]));
+
+        let results_n4 = overlaps(chunks_n4, 4);
+
+        assert_eq!(results_n4, overlaps_n4);
     }
 
     #[test]
-    fn test_overlap_rules() {
+    fn test_index_to_coords() {
+        assert_eq!(index_to_coords(4, (3, 3)), (1, 1));
+        assert_eq!(index_to_coords(4, (4, 4)), (0, 1));
+        assert_eq!(index_to_coords(11, (3, 5)), (2, 4));
+    }
 
+    #[test]
+    fn test_coords_to_index() {
+        assert_eq!(coords_to_index((2, 1), (3, 3)), 5);
+    }
+
+    #[test]
+    fn test_is_inside() {
+        assert!(!is_inside((-1, 0), (3, 3)))
+    }
+
+    #[test]
+    fn negative_range() {
+        let range = (0 - (3 - 1))..(3);
+        range.clone().cartesian_product(range).for_each(|(x, y)| println!("{},{}", x, y));
     }
 }
