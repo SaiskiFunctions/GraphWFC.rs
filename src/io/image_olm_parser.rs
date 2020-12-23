@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use super::tri_wave::u_tri_wave;
 use super::limit_iter::limit_iter;
 use super::sub_matrix::SubMatrix;
-use super::super::graph::graph::{Rules, Edges};
+use super::super::graph::graph::{Rules, Edges, Graph};
 use super::super::multiset::Multiset;
 use num_traits::One;
 
@@ -242,21 +242,20 @@ fn raw_rules() {
 }
 
 // Create a raw graph for pruning
-fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, size: (u32, u32)) {
-    let (height, width) = size;
+fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (height, width): (u32, u32)) -> Graph<S> {
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
-    let directions = ((chunk_size * 2) - 1) ^ 2;
+    // let directions = ((chunk_size * 2) - 1) ^ 2;
 
-    let mut labels = S::empty(chunks.len());
+    let mut all_labels = S::empty(chunks.len());
     for i in 0..chunks.len() {
-        *labels.index_mut(i) = One::one()
+        *all_labels.index_mut(i) = One::one()
     }
 
     let mut vertices: Vec<S> = Vec::new();
     for _ in 0..(v_dim_x * v_dim_y) {
-        vertices.push(labels.clone())
+        vertices.push(all_labels.clone())
     }
 
     let mut edges: Edges = HashMap::new();
@@ -267,56 +266,60 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, siz
         .for_each(|(index, _)| {
             let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
             // create negative indexed range to offset vertex centered directional field by N
-            let range = (0 - (chunk_size - 1))..(chunk_size);
+            let range = (0 - (chunk_size as i32 - 1))..(chunk_size as i32);
             range
                 .clone()
                 .cartesian_product(range)
                 // remove 0 offset for correct directional mapping
-                .filter(|v, w| v == 0 && w == 0)
+                .filter(|(v, w)| *v != 0 || *w != 0)
+                .map(|(x_offset, y_offset)| (x as i32 + x_offset, y as i32 + y_offset))
                 .enumerate()
+                .filter(|(direction, (x_offset, y_offset))| is_inside((*x_offset, *y_offset), (v_dim_x, v_dim_y)))
                 .for_each(|(direction, (x_offset, y_offset))| {
-                    let other_index = coords_to_index((x + x_offset, y + y_offset),
+                    println!("{}, {}, {}", direction, x_offset, y_offset);
+                    let other_index = coords_to_index((x_offset as u32, y_offset as u32),
                                                       (v_dim_x, v_dim_y));
                     edges
                         .entry(index as u32)
                         .and_modify(|v| v.push((other_index, direction as u16)))
                         .or_insert(vec![(other_index, direction as u16)]);
                 })
-        })
+        });
+
+    Graph::new(vertices, edges, all_labels)
+}
+//
+// fn create_raw_edges(length: u32) { // -> Edges {
+//     (0..length)
+//         .for_each(|index| {
+//             let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
+//             // create negative indexed range to offset vertex centered directional field by N
+//             let range = (0 - (chunk_size - 1))..(chunk_size);
+//             range
+//                 .clone()
+//                 .cartesian_product(range)
+//                 // remove 0 offset for correct directional mapping
+//                 .filter(|v, w| v == 0 && w == 0)
+//                 .enumerate()
+//                 .for_each(|(direction, (x_offset, y_offset))| {
+//                     let other_index = coords_to_index((x + x_offset, y + y_offset),
+//                                                       (v_dim_x, v_dim_y));
+//                     edges
+//                         .entry(index as u32)
+//                         .and_modify(|v| v.push((other_index, direction as u16)))
+//                         .or_insert(vec![(other_index, direction as u16)]);
+//                 })
+//         })
+// }
+
+fn index_to_coords(index: u32, (w, h): (u32, u32)) -> (u32, u32) {
+    (index % w, index / h)
 }
 
-fn create_raw_edges(length: u32) { // -> Edges {
-    (0..length)
-        .for_each(|index| {
-            let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
-            // create negative indexed range to offset vertex centered directional field by N
-            let range = (0 - (chunk_size - 1))..(chunk_size);
-            range
-                .clone()
-                .cartesian_product(range)
-                // remove 0 offset for correct directional mapping
-                .filter(|v, w| v == 0 && w == 0)
-                .enumerate()
-                .for_each(|(direction, (x_offset, y_offset))| {
-                    let other_index = coords_to_index((x + x_offset, y + y_offset),
-                                                      (v_dim_x, v_dim_y));
-                    edges
-                        .entry(index as u32)
-                        .and_modify(|v| v.push((other_index, direction as u16)))
-                        .or_insert(vec![(other_index, direction as u16)]);
-                })
-        })
-}
+fn coords_to_index((x, y): (u32, u32), (w, h): (u32, u32)) -> u32 { x + y * h }
 
-fn index_to_coords(index: u32, dim: (u32, u32)) -> (u32, u32) {
-    (index % dim.0, index / dim.1)
-}
-
-fn coords_to_index(point: (u32, u32), dim: (u32, u32)) -> u32 { point.0 + point.1 * dim.1 }
-
-fn is_inside(point: (i32, i32), dim: (u32, u32)) -> bool {
-    let (x, y) = point;
-    if x < 0 || y < 0 || x > dim.0 as i32 || y > dim.0 as i32 { false } else { true }
+fn is_inside((x, y): (i32, i32), (w, h): (u32, u32)) -> bool {
+    if x < 0 || y < 0 || x > w as i32 || y > h as i32 { false } else { true }
 }
 
 // what structure does this actually return?
@@ -385,7 +388,9 @@ mod tests {
     use super::*;
     use image::ImageBuffer;
     use std::iter::FromIterator;
-    use nalgebra::{Vector4, Vector2};
+    use nalgebra::{Vector4, Vector2, VectorN, U87};
+    use crate::utils::hash_map;
+    use std::hash::Hash;
 
     #[test]
     fn test_alias_pixels() {
@@ -541,8 +546,38 @@ mod tests {
     }
 
     #[test]
-    fn negative_range() {
-        let range = (0 - (3 - 1))..(3);
-        range.clone().cartesian_product(range).for_each(|(x, y)| println!("{},{}", x, y));
+    fn test_create_raw_graph() {
+
+        // 2 x 2 Graph case
+        // let mut edges: Edges = hash_map(&[
+        //     (0, vec![(1, 13), (2, 14), (5, 17), (6, 18), (7, 19), (8, 22), (9, 23), (10, 24)])
+        // ]);
+
+        let edge_assertion: HashSet<(u32, u16)> = HashSet::from_iter(vec![(1, 13),
+                                                     (2, 14),
+                                                     (5, 17),
+                                                     (6, 18),
+                                                     (7, 19),
+                                                     (8, 22),
+                                                     (9, 23),
+                                                     (10, 24)]);
+
+        let chunks = vec![
+            DMatrix::from_row_slice(1, 1, &vec![0]),
+            DMatrix::from_row_slice(1, 1, &vec![2]),
+            DMatrix::from_row_slice(1, 1, &vec![1])
+        ];
+
+        let raw_graph = create_raw_graph::<VectorN<u32, U87>>(chunks, 3, (2, 2));
+
+        let x = raw_graph.edges.get(&0).unwrap();
+
+        println!("{:?}", x);
+
+        // let edges_0: HashSet<(u32, u16)> = HashSet::from_iter(raw_graph.edges.get(&0).unwrap());
+
+        // println!("{:?}", edges_0);
+
+        // assert_eq!(edges_0, edge_assertion);
     }
 }
