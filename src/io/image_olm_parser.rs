@@ -22,8 +22,8 @@ use num_traits::One;
 // static RGB_CHANNELS: u8 = 3;
 
 // TODO: Implement parse function that will act like OLM Main
-// pub fn parse() {
-// }
+pub fn parse() {
+}
 
 fn sub_images(image: RgbImage, chunk_size: u32) -> impl Iterator<Item = RgbImage> {
     let height_iter = 0..image.dimensions().0 - (chunk_size - 1);
@@ -247,8 +247,6 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
-    // let directions = ((chunk_size * 2) - 1) ^ 2;
-
     let mut all_labels = S::empty(chunks.len());
     for i in 0..chunks.len() {
         *all_labels.index_mut(i) = One::one()
@@ -259,12 +257,10 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
         vertices.push(all_labels.clone())
     }
 
-    let mut edges: Edges = HashMap::new();
-
-    vertices
+    let edges: Edges = vertices
         .iter()
         .enumerate()
-        .for_each(|(index, _)| {
+        .fold(HashMap::new(), |mut acc, (index, _)| {
             let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
             // create negative indexed range to offset vertex centered directional field by N
             let range = (0 - (chunk_size as i32 - 1))..(chunk_size as i32);
@@ -279,14 +275,14 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
                 // remove coordinates outside of graph
                 .filter(|(direction, (y_offset, x_offset))| is_inside((*x_offset, *y_offset), (v_dim_x, v_dim_y)))
                 .for_each(|(direction, (y_offset, x_offset))| {
-                    println!("{}, {}, {}", direction, x_offset, y_offset);
                     let other_index = coords_to_index((x_offset as u32, y_offset as u32),
                                                       (v_dim_x, v_dim_y));
-                    edges
+                    acc
                         .entry(index as u32)
                         .and_modify(|v| v.push((other_index, direction as u16)))
                         .or_insert(vec![(other_index, direction as u16)]);
-                })
+                });
+            acc
         });
 
     Graph::new(vertices, edges, all_labels)
@@ -322,7 +318,7 @@ fn index_to_coords(index: u32, (w, h): (u32, u32)) -> (u32, u32) {
 fn coords_to_index((x, y): (u32, u32), (w, h): (u32, u32)) -> u32 { x + y * h }
 
 fn is_inside((x, y): (i32, i32), (w, h): (u32, u32)) -> bool {
-    if x < 0 || y < 0 || x > w as i32 || y > h as i32 { false } else { true }
+    if x < 0 || y < 0 || x > (w as i32 -1) || y > (h as i32 -1) { false } else { true }
 }
 
 // what structure does this actually return?
@@ -391,7 +387,7 @@ mod tests {
     use super::*;
     use image::ImageBuffer;
     use std::iter::FromIterator;
-    use nalgebra::{Vector4, Vector2, VectorN, U87};
+    use nalgebra::{Vector4, Vector2, VectorN, U87, Vector1};
     use crate::utils::hash_map;
     use std::hash::Hash;
 
@@ -541,46 +537,37 @@ mod tests {
     #[test]
     fn test_coords_to_index() {
         assert_eq!(coords_to_index((2, 1), (3, 3)), 5);
+        assert_eq!(coords_to_index((0, 1), (4, 4)), 4);
     }
 
     #[test]
     fn test_is_inside() {
-        assert!(!is_inside((-1, 0), (3, 3)))
+        assert!(!is_inside((-1, 0), (3, 3)));
+        assert!(!is_inside((0, 4), (4, 4)));
     }
 
     #[test]
     fn test_create_raw_graph() {
 
-        // 2 x 2 Graph case
-        // let mut edges: Edges = hash_map(&[
-        //     (0, vec![(1, 13), (2, 14), (5, 17), (6, 18), (7, 19), (8, 22), (9, 23), (10, 24)])
-        // ]);
-
-        let edge_assertion: HashSet<(u32, u16)> = HashSet::from_iter(vec![(1, 12),
-                                                     (2, 13),
-                                                     (5, 16),
-                                                     (6, 17),
-                                                     (7, 18),
-                                                     (8, 21),
-                                                     (9, 22),
-                                                     (10, 23)]);
-
-        let chunks = vec![
-            DMatrix::from_row_slice(1, 1, &vec![0]),
-            DMatrix::from_row_slice(1, 1, &vec![2]),
-            DMatrix::from_row_slice(1, 1, &vec![1])
+        let chunks_n3 = vec![
+            DMatrix::from_row_slice(1, 1, &vec![0])
         ];
 
-        let raw_graph = create_raw_graph::<VectorN<u32, U87>>(chunks, 3, (2, 2));
+        let mut edges_n3: Edges = hash_map(&[
+            (0, vec![(1, 12), (2, 13), (4, 16), (5, 17), (6, 18), (8, 21), (9, 22), (10, 23)]),
+            (1, vec![(0, 11), (2, 12), (3, 13), (4, 15), (5, 16), (6, 17), (7, 18), (8, 20), (9, 21), (10, 22), (11, 23)]),
+            (2, vec![(0, 10), (1, 11), (3, 12), (4, 14), (5, 15), (6, 16), (7, 17), (8, 19), (9, 20), (10, 21), (11, 22)]),
+            (3, vec![(1, 10), (2, 11), (5, 14), (6, 15), (7, 16), (9, 19), (10, 20), (11, 21)]),
+            (4, vec![(0, 7), (1, 8), (2, 9), (5, 12), (6, 13), (8, 16), (9, 17), (10, 18), (12, 21), (13, 22), (14, 23)]),
+            // (5, vec![(4, 11), ()])
+        ]);
 
-        let x = raw_graph.edges.get(&0).unwrap();
+        let raw_graph = create_raw_graph::<Vector1<u32>>(chunks_n3, 3, (2, 2));
 
-        println!("{:?}", x);
-
-        // let edges_0: HashSet<(u32, u16)> = HashSet::from_iter(raw_graph.edges.get(&0).unwrap());
-
-        // println!("{:?}", edges_0);
-
-        // assert_eq!(edges_0, edge_assertion);
+        assert_eq!(raw_graph.edges.get(&0).unwrap(), edges_n3.get(&0).unwrap());
+        assert_eq!(raw_graph.edges.get(&1).unwrap(), edges_n3.get(&1).unwrap());
+        assert_eq!(raw_graph.edges.get(&2).unwrap(), edges_n3.get(&2).unwrap());
+        assert_eq!(raw_graph.edges.get(&3).unwrap(), edges_n3.get(&3).unwrap());
+        assert_eq!(raw_graph.edges.get(&4).unwrap(), edges_n3.get(&4).unwrap());
     }
 }
