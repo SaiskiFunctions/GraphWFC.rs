@@ -89,8 +89,11 @@ pub fn render<S: Multiset>(
         .vertices
         .iter()
         .map(|labels| {
-            let k = labels.get_non_zero().unwrap();
-            *key.get_by_left(&k).unwrap()
+            if let Some(k) = labels.get_non_zero() {
+                *key.get_by_left(&k).unwrap()
+            } else {
+                '❌'
+            }
         })
         .collect();
     let lines: String = rendered_vertices

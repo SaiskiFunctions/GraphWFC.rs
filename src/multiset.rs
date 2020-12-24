@@ -5,13 +5,14 @@ use rand::distributions::uniform::SampleUniform;
 use rand::prelude::*;
 use std::ops::{AddAssign, IndexMut};
 use std::slice::Iter;
+use std::hash::Hash;
 
 
 pub trait Multiset
 where
-    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item>
+    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item> + Eq + Hash
 {
-    type Item: Zero + One + Copy + AddAssign + PartialOrd;
+    type Item: Zero + One + Copy + AddAssign + PartialOrd + Eq + Hash;
 
     fn from_iter_u<I>(iter: I) -> Self
     where
@@ -33,10 +34,6 @@ where
 
     fn is_subset(&self, other: &Self) -> bool;
 
-    fn is_subset2(&self, other: &Self) -> bool;
-
-    fn is_subset3(&self, other: &Self) -> bool;
-
     fn is_singleton(&self) -> bool;
 
     fn is_empty_m(&self) -> bool;
@@ -53,7 +50,7 @@ where
 impl<N, D> Multiset for VectorN<N, D>
 where
     f64: From<N>,
-    N: Scalar + Zero + One + Copy + SimdPartialOrd + PartialOrd + ClosedAdd + SampleUniform,
+    N: Scalar + Zero + One + Copy + SimdPartialOrd + PartialOrd + ClosedAdd + SampleUniform + Eq + Hash,
     D: Dim + DimName,
     DefaultAllocator: Allocator<N, D>,
 {
@@ -105,14 +102,6 @@ where
 
     fn is_subset(&self, other: &Self) -> bool {
         &(self.inf(other)) == self
-    }
-
-    fn is_subset2(&self, other: &Self) -> bool {
-        self.zip_fold(other, true, |acc, a, b| acc && a <= b)
-    }
-
-    fn is_subset3(&self, other: &Self) -> bool {
-        self.iter().zip(other).all(|(a, b)| a <= b)
     }
 
     fn is_singleton(&self) -> bool {
