@@ -4,7 +4,6 @@ cache:
   timeout: 1000
 
 os:
-  - linux
   - osx
 
 rust:
