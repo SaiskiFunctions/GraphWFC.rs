@@ -7,7 +7,7 @@ use rand::prelude::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::BinaryHeap;
-use std::mem::replace;
+use std::mem::{replace, ManuallyDrop};
 use std::ops::{Index, IndexMut};
 use crate::utils::Metrics;
 use bit_set::BitSet;
@@ -18,6 +18,32 @@ type InitCollapse = (
     Vec<VertexIndex>,     // to_observe
     BinaryHeap<Observe>,  // heap
 );
+
+unsafe fn transmute<A, B>(a: A) -> B {
+    let a = ManuallyDrop::new(a);
+    ::core::ptr::read(&*a as *const A as *const B)
+}
+
+const DIRECTIONS: usize = 8;
+const LABELS: usize = 6;
+
+fn rules_stack<S: Multiset>(rules: &Rules<S>) -> [Option<S>; DIRECTIONS * LABELS] {
+    let mut data: [std::mem::MaybeUninit<Option<S>>; DIRECTIONS * LABELS] = unsafe {
+        std::mem::MaybeUninit::uninit().assume_init()
+    };
+    for elem in &mut data[..] {
+        unsafe { std::ptr::write(elem.as_mut_ptr(), None); }
+    }
+    let mut array = unsafe {
+        transmute::<_, [Option<S>; DIRECTIONS * LABELS]>(data)
+    };
+    rules.into_iter().for_each(|((dir, label), set)| {
+        let index = *dir as usize * LABELS + *label as usize;
+        let elem = array.index_mut(index);
+        *elem = Some(set.clone());
+    });
+    array
+}
 
 fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCollapse {
     let mut observed: BitSet = BitSet::new();
@@ -73,6 +99,8 @@ fn exec_collapse<S: Multiset>(
 
     let mut metrics = Metrics::new();
 
+    let stack_rules = rules_stack(rules);
+
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
         metrics.avg("props/loops", ("props", "loops"));
@@ -92,7 +120,8 @@ fn exec_collapse<S: Multiset>(
                     continue
                 }
 
-                let constraint = build_constraint(prop_labels, propagate.direction, rules);
+                // let constraint = build_constraint(prop_labels, propagate.direction, rules);
+                let constraint = build_constraint2(prop_labels, propagate.direction, &stack_rules);
 
                 assert!(vertices.len() >= propagate.to as usize);
                 let labels = vertices.index_mut(propagate.to as usize);
@@ -164,6 +193,22 @@ pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules
         .fold(S::empty(labels.num_elems()), |mut acc, (index, frequency)| {
             if frequency > &Zero::zero() {
                 if let Some(a) = rules.get(&(direction, index)) {
+                    acc = acc.union(a)
+                }
+            }
+            acc
+        })
+}
+
+pub fn build_constraint2<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &[Option<S>; DIRECTIONS * LABELS]) -> S {
+    labels
+        .iter_m()
+        .enumerate()
+        .fold(S::empty(labels.num_elems()), |mut acc, (label, frequency)| {
+            if frequency > &Zero::zero() {
+                let arr_index = direction as usize * LABELS + label;
+                assert!(arr_index <= rules.len());
+                if let Some(a) = rules.index(arr_index) {
                     acc = acc.union(a)
                 }
             }
