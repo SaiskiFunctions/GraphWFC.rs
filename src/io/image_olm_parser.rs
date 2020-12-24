@@ -243,6 +243,7 @@ fn raw_rules() {
 
 // Create a raw graph for pruning
 fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (height, width): (u32, u32)) -> Graph<S> {
+    // pixel based graph dimensions
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
@@ -271,11 +272,13 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
                 .clone()
                 .cartesian_product(range)
                 // remove 0 offset for correct directional mapping
-                .filter(|(v, w)| *v != 0 || *w != 0)
-                .map(|(x_offset, y_offset)| (x as i32 + x_offset, y as i32 + y_offset))
+                .filter(|(y_offset, x_offset)| *y_offset != 0 || *x_offset != 0)
+                // calculate real cartesian space offest coordinates
+                .map(|(y_offset, x_offset)| (y as i32 + y_offset, x as i32 + x_offset))
                 .enumerate()
-                .filter(|(direction, (x_offset, y_offset))| is_inside((*x_offset, *y_offset), (v_dim_x, v_dim_y)))
-                .for_each(|(direction, (x_offset, y_offset))| {
+                // remove coordinates outside of graph
+                .filter(|(direction, (y_offset, x_offset))| is_inside((*x_offset, *y_offset), (v_dim_x, v_dim_y)))
+                .for_each(|(direction, (y_offset, x_offset))| {
                     println!("{}, {}, {}", direction, x_offset, y_offset);
                     let other_index = coords_to_index((x_offset as u32, y_offset as u32),
                                                       (v_dim_x, v_dim_y));
@@ -553,14 +556,14 @@ mod tests {
         //     (0, vec![(1, 13), (2, 14), (5, 17), (6, 18), (7, 19), (8, 22), (9, 23), (10, 24)])
         // ]);
 
-        let edge_assertion: HashSet<(u32, u16)> = HashSet::from_iter(vec![(1, 13),
-                                                     (2, 14),
-                                                     (5, 17),
-                                                     (6, 18),
-                                                     (7, 19),
-                                                     (8, 22),
-                                                     (9, 23),
-                                                     (10, 24)]);
+        let edge_assertion: HashSet<(u32, u16)> = HashSet::from_iter(vec![(1, 12),
+                                                     (2, 13),
+                                                     (5, 16),
+                                                     (6, 17),
+                                                     (7, 18),
+                                                     (8, 21),
+                                                     (9, 22),
+                                                     (10, 23)]);
 
         let chunks = vec![
             DMatrix::from_row_slice(1, 1, &vec![0]),
