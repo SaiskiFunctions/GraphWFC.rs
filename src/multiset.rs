@@ -5,13 +5,14 @@ use rand::distributions::uniform::SampleUniform;
 use rand::prelude::*;
 use std::ops::{AddAssign, IndexMut};
 use std::slice::Iter;
+use std::hash::Hash;
 
 
 pub trait Multiset
 where
-    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item>
+    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item> + Eq + Hash
 {
-    type Item: Zero + One + Copy + AddAssign + PartialOrd;
+    type Item: Zero + One + Copy + AddAssign + PartialOrd + Eq + Hash;
 
     fn from_iter_u<I>(iter: I) -> Self
     where
@@ -49,7 +50,7 @@ where
 impl<N, D> Multiset for VectorN<N, D>
 where
     f64: From<N>,
-    N: Scalar + Zero + One + Copy + SimdPartialOrd + PartialOrd + ClosedAdd + SampleUniform,
+    N: Scalar + Zero + One + Copy + SimdPartialOrd + PartialOrd + ClosedAdd + SampleUniform + Eq + Hash,
     D: Dim + DimName,
     DefaultAllocator: Allocator<N, D>,
 {
