@@ -300,8 +300,10 @@ dependencies = [
  "bencher",
  "bimap",
  "bit-set",
+ "generic-array",
  "hashbrown",
  "nalgebra",
  "num-traits",
  "rand",
+ "typenum",
 ]

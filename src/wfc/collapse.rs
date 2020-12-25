@@ -7,10 +7,13 @@ use rand::prelude::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::BinaryHeap;
-use std::mem::{replace, ManuallyDrop};
+use std::mem::replace;
 use std::ops::{Index, IndexMut};
 use crate::utils::Metrics;
 use bit_set::BitSet;
+use generic_array::{GenericArray, ArrayLength};
+use typenum::{Prod, Unsigned};
+use nalgebra::{U6, U8, DimName};
 
 type InitCollapse = (
     BitSet,               // observed
@@ -19,28 +22,16 @@ type InitCollapse = (
     BinaryHeap<Observe>,  // heap
 );
 
-unsafe fn transmute<A, B>(a: A) -> B {
-    let a = ManuallyDrop::new(a);
-    ::core::ptr::read(&*a as *const A as *const B)
-}
-
-const DIRECTIONS: usize = 8;
-const LABELS: usize = 6;
-
-fn rules_stack<S: Multiset>(rules: &Rules<S>) -> [Option<S>; DIRECTIONS * LABELS] {
-    let mut data: [std::mem::MaybeUninit<Option<S>>; DIRECTIONS * LABELS] = unsafe {
-        std::mem::MaybeUninit::uninit().assume_init()
-    };
-    for elem in &mut data[..] {
-        unsafe { std::ptr::write(elem.as_mut_ptr(), None); }
-    }
-    let mut array = unsafe {
-        transmute::<_, [Option<S>; DIRECTIONS * LABELS]>(data)
-    };
+fn rules_stack<S, L, D>(rules: &Rules<S>) -> GenericArray<Option<S>, Prod<L, D>>
+where
+    S: Multiset,
+    L: std::ops::Mul<D> + Unsigned,
+    <L as std::ops::Mul<D>>::Output: ArrayLength<Option<S>>,
+{
+    let mut array = GenericArray::default();
     rules.into_iter().for_each(|((dir, label), set)| {
-        let index = *dir as usize * LABELS + *label as usize;
-        let elem = array.index_mut(index);
-        *elem = Some(set.clone());
+        let index = *dir as usize * L::to_usize() + *label;
+        *array.index_mut(index) = Some(set.clone());
     });
     array
 }
@@ -99,7 +90,7 @@ fn exec_collapse<S: Multiset>(
 
     let mut metrics = Metrics::new();
 
-    let stack_rules = rules_stack(rules);
+    let stack_rules = rules_stack::<S, <U6 as DimName>::Value, <U8 as DimName>::Value>(rules);
 
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
@@ -120,8 +111,7 @@ fn exec_collapse<S: Multiset>(
                     continue
                 }
 
-                // let constraint = build_constraint(prop_labels, propagate.direction, rules);
-                let constraint = build_constraint2(prop_labels, propagate.direction, &stack_rules);
+                let constraint = build_constraint::<S, <U6 as DimName>::Value, <U8 as DimName>::Value>(prop_labels, propagate.direction, &stack_rules);
 
                 assert!(vertices.len() >= propagate.to as usize);
                 let labels = vertices.index_mut(propagate.to as usize);
@@ -186,27 +176,18 @@ fn exec_collapse<S: Multiset>(
     }
 }
 
-pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &Rules<S>) -> S {
-    labels
-        .iter_m()
-        .enumerate()
-        .fold(S::empty(labels.num_elems()), |mut acc, (index, frequency)| {
-            if frequency > &Zero::zero() {
-                if let Some(a) = rules.get(&(direction, index)) {
-                    acc = acc.union(a)
-                }
-            }
-            acc
-        })
-}
-
-pub fn build_constraint2<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &[Option<S>; DIRECTIONS * LABELS]) -> S {
+pub fn build_constraint<S, L, D>(labels: &S, direction: EdgeDirection, rules: &GenericArray<Option<S>, Prod<L, D>>) -> S
+where
+    S: Multiset,
+    L: std::ops::Mul<D> + Unsigned,
+    <L as std::ops::Mul<D>>::Output: ArrayLength<Option<S>>,
+{
     labels
         .iter_m()
         .enumerate()
         .fold(S::empty(labels.num_elems()), |mut acc, (label, frequency)| {
             if frequency > &Zero::zero() {
-                let arr_index = direction as usize * LABELS + label;
+                let arr_index = direction as usize * L::to_usize() + label;
                 assert!(arr_index <= rules.len());
                 if let Some(a) = rules.index(arr_index) {
                     acc = acc.union(a)
@@ -222,7 +203,7 @@ fn generate_propagations(
     edges: &Edges,
     from_index: VertexIndex,
 ) {
-    assert!(edges.contains_key(&from_index));
+    assert!(from_index as usize <= edges.len());
     for (to_index, direction) in edges.index(&from_index) {
         if !observed.contains(*to_index as usize) {
             propagations.push(Propagate::new(from_index, *to_index, *direction))
@@ -300,11 +281,12 @@ mod tests {
         let b: MS6 = MS6::from_row_slice_u(&[0, 0, 1, 0, 0, 0]);
         let c: MS6 = MS6::from_row_slice_u(&[1, 1, 1, 0, 0, 0]);
         let rules: Rules<MS6> = hash_map(&[((0, 0), a), ((0, 1), b), ((0, 2), c)]);
+        let stack_rules = rules_stack::<MS6, <U6 as DimName>::Value, <U8 as DimName>::Value>(&rules);
 
         let labels: &MS6 = &MS6::from_row_slice_u(&[2, 4, 0, 0, 0, 0]);
         let direction: EdgeDirection = 0;
 
-        let result = build_constraint(labels, direction, &rules);
+        let result = build_constraint::<MS6, <U6 as DimName>::Value, <U8 as DimName>::Value>(labels, direction, &stack_rules);
         let expected: MS6 = MS6::from_row_slice_u(&[1, 0, 1, 0, 0, 0]);
         assert_eq!(result, expected)
     }
