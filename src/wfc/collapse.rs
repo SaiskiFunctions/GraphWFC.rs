@@ -1,7 +1,11 @@
 use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
 use crate::multiset::Multiset;
+use crate::utils::Metrics;
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
+use bit_set::BitSet;
+use generic_array::{GenericArray, ArrayLength};
+use nalgebra::{U6, U8, DimName};
 use num_traits::Zero;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
@@ -9,11 +13,8 @@ use rand::thread_rng;
 use std::collections::BinaryHeap;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
-use crate::utils::Metrics;
-use bit_set::BitSet;
-use generic_array::{GenericArray, ArrayLength};
 use typenum::{Prod, Unsigned};
-use nalgebra::{U6, U8, DimName};
+
 
 type InitCollapse = (
     BitSet,               // observed
@@ -30,7 +31,7 @@ where
 {
     let mut array = GenericArray::default();
     rules.into_iter().for_each(|((dir, label), set)| {
-        let index = *dir as usize * L::to_usize() + *label;
+        let index = *dir as usize * L::USIZE + *label;
         *array.index_mut(index) = Some(set.clone());
     });
     array
@@ -47,9 +48,9 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
         .vertices
         .iter()
         .enumerate()
-        .for_each(|(_index, labels)| {
+        .for_each(|(index, labels)| {
             assert!(labels.is_subset(&out_graph.all_labels));
-            let from_index = _index as VertexIndex;
+            let from_index = index as VertexIndex;
             if labels.is_singleton() {
                 init_propagations.push(from_index);
                 observed.insert(from_index as usize);
@@ -74,7 +75,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
 }
 
 const METRICS: bool = false;
-const OBSERVE_CHANCE: usize = 33;
+const OBSERVE_CHANCE: usize = 33; // percent
 
 fn exec_collapse<S: Multiset>(
     rng: &mut StdRng,
@@ -85,13 +86,11 @@ fn exec_collapse<S: Multiset>(
 ) -> Vec<S> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
-    let vertices_len = vertices.len();
     let mut observed_counter: usize = 0;
-
-    let mut metrics = Metrics::new();
-
+    let vertices_len = vertices.len();
     let stack_rules = rules_stack::<S, <U6 as DimName>::Value, <U8 as DimName>::Value>(rules);
 
+    let mut metrics = Metrics::new();
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
         metrics.avg("props/loops", ("props", "loops"));
@@ -187,7 +186,7 @@ where
         .enumerate()
         .fold(S::empty(labels.num_elems()), |mut acc, (label, frequency)| {
             if frequency > &Zero::zero() {
-                let arr_index = direction as usize * L::to_usize() + label;
+                let arr_index = direction as usize * L::USIZE + label;
                 assert!(arr_index <= rules.len());
                 if let Some(a) = rules.index(arr_index) {
                     acc = acc.union(a)
