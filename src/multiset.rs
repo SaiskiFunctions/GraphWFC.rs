@@ -44,6 +44,8 @@ where
 
     fn choose(&mut self, rng: &mut StdRng);
 
+    fn determine(&mut self, choice: usize);
+
     fn add_assign_m(&mut self, other: &Self);
 }
 
@@ -131,7 +133,6 @@ where
         })
     }
 
-    //noinspection DuplicatedCode
     fn choose(&mut self, rng: &mut StdRng) {
         let total = self.sum();
         let choice = rng.gen_range::<_, N, N>(One::one(), total + One::one());
@@ -147,6 +148,14 @@ where
                 } else {
                     chosen = true;
                 }
+            }
+        });
+    }
+
+    fn determine(&mut self, choice: usize) {
+        self.iter_mut().enumerate().for_each(|(index, elem)| {
+            if choice != index {
+                *elem = N::zero()
             }
         });
     }
@@ -287,5 +296,13 @@ mod tests {
         let result2: MultisetVector = MultisetVector::from_row_slice_u(&[2, 0, 0, 0, 0, 0]);
         b.choose(test_rng2);
         assert_eq!(*b, result2)
+    }
+
+    #[test]
+    fn test_determine() {
+        let a: &mut MultisetVector = &mut MultisetVector::from_row_slice_u(&[2, 1, 3, 4, 0, 0]);
+        let result1: MultisetVector = MultisetVector::from_row_slice_u(&[0, 0, 3, 0, 0, 0]);
+        a.determine(2);
+        assert_eq!(*a, result1);
     }
 }

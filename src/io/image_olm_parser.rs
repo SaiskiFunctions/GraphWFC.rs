@@ -23,7 +23,12 @@ use num_traits::One;
 
 // TODO: Implement parse function that will act like OLM Main
 pub fn parse() {
+
 }
+
+// fn send_graph() -> Graph<S> {
+//
+// }
 
 fn sub_images(image: RgbImage, chunk_size: u32) -> impl Iterator<Item = RgbImage> {
     let height_iter = 0..image.dimensions().0 - (chunk_size - 1);
@@ -261,7 +266,7 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
         .iter()
         .enumerate()
         .fold(HashMap::new(), |mut acc, (index, _)| {
-            let (x, y) = index_to_coords(index as u32, (v_dim_x, v_dim_y));
+            let (x, y) = index_to_coords(index as u32, v_dim_x);
             // create negative indexed range to offset vertex centered directional field by N
             let range = (0 - (chunk_size as i32 - 1))..(chunk_size as i32);
             range
@@ -275,8 +280,7 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
                 // remove coordinates outside of graph
                 .filter(|(direction, (y_offset, x_offset))| is_inside((*x_offset, *y_offset), (v_dim_x, v_dim_y)))
                 .for_each(|(direction, (y_offset, x_offset))| {
-                    let other_index = coords_to_index((x_offset as u32, y_offset as u32),
-                                                      (v_dim_x, v_dim_y));
+                    let other_index = coords_to_index((x_offset as u32, y_offset as u32), v_dim_x);
                     acc
                         .entry(index as u32)
                         .and_modify(|v| v.push((other_index, direction as u16)))
@@ -287,6 +291,15 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
 
     Graph::new(vertices, edges, all_labels)
 }
+
+fn index_to_coords(index: u32, width: u32) -> (u32, u32) { (index % width, index / width) }
+
+fn coords_to_index((x, y): (u32, u32), width: u32) -> u32 { x + y * width }
+
+fn is_inside((x, y): (i32, i32), (w, h): (u32, u32)) -> bool {
+    if x < 0 || y < 0 || x > (w as i32 -1) || y > (h as i32 -1) { false } else { true }
+}
+
 //
 // fn create_raw_edges(length: u32) { // -> Edges {
 //     (0..length)
@@ -310,16 +323,6 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
 //                 })
 //         })
 // }
-
-fn index_to_coords(index: u32, (w, h): (u32, u32)) -> (u32, u32) {
-    (index % w, index / h)
-}
-
-fn coords_to_index((x, y): (u32, u32), (w, h): (u32, u32)) -> u32 { x + y * h }
-
-fn is_inside((x, y): (i32, i32), (w, h): (u32, u32)) -> bool {
-    if x < 0 || y < 0 || x > (w as i32 -1) || y > (h as i32 -1) { false } else { true }
-}
 
 // what structure does this actually return?
 // for each chunk it should return the chunk and a list of its connections (and the direction?)
@@ -529,15 +532,15 @@ mod tests {
 
     #[test]
     fn test_index_to_coords() {
-        assert_eq!(index_to_coords(4, (3, 3)), (1, 1));
-        assert_eq!(index_to_coords(4, (4, 4)), (0, 1));
-        assert_eq!(index_to_coords(11, (3, 5)), (2, 4));
+        assert_eq!(index_to_coords(4, 3), (1, 1));
+        assert_eq!(index_to_coords(4, 4), (0, 1));
+        assert_eq!(index_to_coords(11, 3), (2, 3));
     }
 
     #[test]
     fn test_coords_to_index() {
-        assert_eq!(coords_to_index((2, 1), (3, 3)), 5);
-        assert_eq!(coords_to_index((0, 1), (4, 4)), 4);
+        assert_eq!(coords_to_index((2, 1), 3), 5);
+        assert_eq!(coords_to_index((0, 1), 4), 4);
     }
 
     #[test]
