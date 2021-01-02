@@ -182,8 +182,7 @@ mod tests {
 
     #[test]
     fn test_contains() {
-        let mut a: MultisetVector = MultisetVector::from_row_slice_u(&[1, 0, 1, 0]);
-        a.add_assign(MultisetVector::from_row_slice_u(&[1, 0, 1, 0]));
+        let a: MultisetVector = MultisetVector::from_row_slice_u(&[1, 0, 1, 0]);
         assert!(a.contains(2));
         assert!(!a.contains(1));
         assert!(!a.contains(4))

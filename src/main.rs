@@ -1,4 +1,4 @@
-use nalgebra::{VectorN, U6};
+use nalgebra::{VectorN, U6, U4};
 use wfc_rust::graph::graph::Graph;
 use wfc_rust::io::text_parser::{parse, render};
 use wfc_rust::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
@@ -24,5 +24,5 @@ fn main() {
     let out_width = 1000;
     let out_depth = 1000;
 
-    run_collapse::<VectorN<u16, U6>>(input, output, out_width, out_depth);
+    run_collapse::<VectorN<u8, U4>>(input, output, out_width, out_depth);
 }
