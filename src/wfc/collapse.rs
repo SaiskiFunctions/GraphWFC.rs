@@ -61,7 +61,7 @@ const OBSERVE_CHANCE: usize = 33;
 
 fn exec_collapse<S: Multiset>(
     rng: &mut StdRng,
-    rules: Rules<S>,
+    rules: &Rules<S>,
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<S>,
@@ -93,7 +93,7 @@ fn exec_collapse<S: Multiset>(
                     continue
                 }
 
-                let constraint = build_constraint(prop_labels, propagate.direction, &rules);
+                let constraint = build_constraint(prop_labels, propagate.direction, rules);
 
                 assert!(vertices.len() >= propagate.to as usize);
                 let labels = vertices.index_mut(propagate.to as usize);
@@ -189,9 +189,10 @@ fn generate_propagations(
 }
 
 pub fn collapse<S: Multiset>(
-    rules: Rules<S>,
+    rules: &Rules<S>,
     mut output_graph: Graph<S>,
     seed: Option<u64>,
+    partial: bool
 ) -> Graph<S> {
     let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
@@ -202,7 +203,7 @@ pub fn collapse<S: Multiset>(
         &output_graph.edges,
         init.clone(),
         output_graph.vertices,
-        false
+        partial // 🐯
     );
     output_graph.vertices = collapsed_vertices;
     output_graph
@@ -283,7 +284,7 @@ mod tests {
 
         let init = init_collapse::<MS6>(&mut rng, &out_graph);
 
-        let result = exec_collapse::<MS6>(&mut rng, rules, &out_graph.edges, init, simple_vertices(), false);
+        let result = exec_collapse::<MS6>(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
         let expected: Vec<MS6> = vec![
             MS6::from_row_slice_u(&[1, 0, 0]),
             MS6::from_row_slice_u(&[0, 2, 0]),
@@ -342,7 +343,7 @@ mod tests {
 
         let result = exec_collapse::<MS2>(
             &mut rng,
-            rules,
+            &rules,
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
@@ -446,7 +447,7 @@ mod tests {
 
         let result = exec_collapse::<MS2>(
             &mut rng,
-            rules,
+            &rules,
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),

@@ -12,7 +12,7 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
         // let output_edges = make_edges_cardinal_grid(width, depth);
         let output_edges = make_edges_8_way_grid(width, depth);
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(input_graph.rules(), output_graph, Some(134522));
+        let collapsed_graph = collapse(input_graph.rules(), output_graph, Some(134522), false);
         render(output, &collapsed_graph, &keys, width);
     }
 }

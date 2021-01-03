@@ -1,16 +1,18 @@
 use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
-use itertools::{Itertools};
+use itertools::{Itertools, all};
 use nalgebra::{DMatrix};
 use std::collections::HashSet;
 // TODO: Change to absolute paths?
+use crate::wfc::collapse;
 use super::tri_wave::u_tri_wave;
 use super::limit_iter::limit_iter;
 use super::sub_matrix::SubMatrix;
-use super::super::graph::graph::{Rules, Edges, Graph};
+use crate::graph::graph::{Rules, Edges, Graph};
 use super::super::multiset::Multiset;
 use num_traits::One;
+use std::ops::{IndexMut, Index};
 
 // Matrix and image data is in COLUMN MAJOR so:
 // [1, 2, 3, 4] is equivalent to:
@@ -22,13 +24,60 @@ use num_traits::One;
 // static RGB_CHANNELS: u8 = 3;
 
 // TODO: Implement parse function that will act like OLM Main
-pub fn parse() {
+pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) {//-> (Rules<S>, BiMap<u32, Rgb<u8>>, S, Vec<DMatrix<u32>>) {
+    let img = image::open(filename).unwrap().to_rgb8();
+    let pixel_aliases = alias_pixels(&img);
+    let chunks = chunk_image(img, chunk_size, &pixel_aliases);
+    let rules = overlaps::<S>(&chunks, chunk_size);
 
+    let mut all_labels = S::empty(chunks.len());
+    for i in 0..chunks.len() {
+        *all_labels.index_mut(i) = One::one()
+    }
+
+    let mut pruned_rules: Rules<S> = HashMap::new();
+
+    (0..all_labels.count_non_zero())
+        .for_each(|label| {
+            let pruned_graph = propagate_overlaps_2(&all_labels, &rules, chunk_size, label);
+
+            real_vertex_indexes(chunk_size as usize)
+                .into_iter()
+                .enumerate()
+                .for_each(|(direction, index)| {
+                    let set = pruned_graph.vertices.index(index);
+                    if !set.is_empty_m() {
+                        pruned_rules.insert((direction as u16, label), set.clone());
+                    }
+                });
+        })
 }
+
+// chunksize = 2, step = 1, dim = 5
+// chunksize = 3, step = 2, dim = 7
+
+fn real_vertex_indexes(chunk_size: usize) -> Vec<usize> {
+    let dim = (3 * chunk_size) - (chunk_size - 1);
+    let step = chunk_size - 1;
+    vec![
+        0,                                      // NW
+        step + 1,                               // N
+        (step + 1) * 2,                         // NE
+        dim * chunk_size,                       // W
+        // dim * chunk_size + step + 1
+        dim * chunk_size + (step + 1) * 2,      // E
+        dim * chunk_size * 2,                   // SW
+        dim * chunk_size * 2 + step + 1,        // S
+        dim * chunk_size * 2 + (step + 1) * 2,  // SE
+    ]
+}
+
 
 // fn send_graph() -> Graph<S> {
 //
 // }
+
+// graph.vertices[coords_to_index(1, 1)].determine(vertex_label)
 
 fn sub_images(image: RgbImage, chunk_size: u32) -> impl Iterator<Item = RgbImage> {
     let height_iter = 0..image.dimensions().0 - (chunk_size - 1);
@@ -80,7 +129,7 @@ fn chunk_image(
     image: RgbImage,
     chunk_size: u32,
     pixel_aliases: &BiMap<u32, Rgb<u8>>,
-) -> HashSet<DMatrix<u32>> {
+) -> Vec<DMatrix<u32>> {
     sub_images(image, chunk_size)
         .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
         .fold(HashSet::new(), |mut acc, pixels| {
@@ -97,7 +146,7 @@ fn chunk_image(
             let chunk_r270 = chunk_r180.rotate_90();
             acc.insert(chunk_r270);
             acc
-        })
+        }).into_iter().collect()
 }
 
 pub trait PureReverse<T>
@@ -184,7 +233,7 @@ fn set_to_map<T>(set: HashSet<T>) -> HashMap<u32, T> {
 // TODO: Generate implicit linked chunks automatically
 // TODO: Change hashset to map
 // TODO: Change to rules format
-fn overlaps<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32) -> Rules<S> {
+fn overlaps<S: Multiset>(chunks: &Vec<DMatrix<u32>>, chunk_size: u32) -> Rules<S> {
     chunks
         .iter()
         .enumerate()
@@ -247,15 +296,10 @@ fn raw_rules() {
 }
 
 // Create a raw graph for pruning
-fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (height, width): (u32, u32)) -> Graph<S> {
+fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: u32, (height, width): (u32, u32)) -> Graph<S> {
     // pixel based graph dimensions
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
-
-    let mut all_labels = S::empty(chunks.len());
-    for i in 0..chunks.len() {
-        *all_labels.index_mut(i) = One::one()
-    }
 
     let mut vertices: Vec<S> = Vec::new();
     for _ in 0..(v_dim_x * v_dim_y) {
@@ -289,7 +333,14 @@ fn create_raw_graph<S: Multiset>(chunks: Vec<DMatrix<u32>>, chunk_size: u32, (he
             acc
         });
 
-    Graph::new(vertices, edges, all_labels)
+    Graph::new(vertices, edges, all_labels.clone())
+}
+
+fn propagate_overlaps_2<S: Multiset>(all_labels: &S, rules: &Rules<S>, chunk_size: u32, label: usize) -> Graph<S> {
+    let mut raw_graph = create_raw_graph(all_labels, chunk_size, (3, 3));
+    let central_vertex = (raw_graph.vertices.len() - 1) / 2;
+    raw_graph.vertices.index_mut(central_vertex).determine(label);
+    collapse::collapse(rules, raw_graph, None, true)
 }
 
 fn index_to_coords(index: u32, width: u32) -> (u32, u32) { (index % width, index / width) }
@@ -393,6 +444,7 @@ mod tests {
     use nalgebra::{Vector4, Vector2, VectorN, U87, Vector1};
     use crate::utils::hash_map;
     use std::hash::Hash;
+    use std::ops::Index;
 
     #[test]
     fn test_alias_pixels() {
@@ -423,16 +475,19 @@ mod tests {
         let img = ImageBuffer::from_vec(2, 2, pixels).unwrap();
         let pixel_aliases = alias_pixels(&img);
 
-        let chunk_set = chunk_image(img, 2, &pixel_aliases);
+        let chunk_vec = chunk_image(img, 2, &pixel_aliases);
 
-        let chunk = chunk_set.iter().next().unwrap();
+        let chunk = chunk_vec.index(0).clone();
 
-        println!("{:?}", chunk);
+        let result: HashSet<DMatrix<u32>> = vec![
+            chunk.clone(),
+            chunk.rotate_90().rotate_90(),
+            chunk.rotate_90(),
+            chunk.rotate_90().rotate_90().rotate_90()
+        ].into_iter().collect();
 
-        assert_eq!(chunk_set.len(), 4);
-        assert!(chunk_set.contains(&chunk.rotate_90()));
-        assert!(chunk_set.contains(&chunk.rotate_90().rotate_90()));
-        assert!(chunk_set.contains(&chunk.rotate_90().rotate_90().rotate_90()));
+        assert_eq!(chunk_vec.len(), 4);
+        assert_eq!(chunk_vec.into_iter().collect::<HashSet<DMatrix<u32>>>(), result);
     }
 
     #[test]
@@ -493,7 +548,7 @@ mod tests {
         overlaps_n2.insert((2, 2), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
         overlaps_n2.insert((5, 1), Multiset::from_row_slice_u(&[0, 0, 1, 0]));
 
-        let result_n2 = overlaps(chunks_n2, 2);
+        let result_n2 = overlaps(&chunks_n2, 2);
         assert_eq!(result_n2, overlaps_n2);
 
         let chunks_n3 = vec![
@@ -509,7 +564,7 @@ mod tests {
         overlaps_n3.insert((0, 0), Multiset::from_row_slice_u(&[0, 1]));
         overlaps_n3.insert((23, 1), Multiset::from_row_slice_u(&[1, 0]));
 
-        let result_n3 = overlaps(chunks_n3, 3);
+        let result_n3 = overlaps(&chunks_n3, 3);
 
         assert_eq!(result_n3, overlaps_n3);
 
@@ -525,7 +580,7 @@ mod tests {
         overlaps_n4.insert((8, 0), Multiset::from_row_slice_u(&[1, 0]));
         overlaps_n4.insert((39, 0), Multiset::from_row_slice_u(&[1, 0]));
 
-        let results_n4 = overlaps(chunks_n4, 4);
+        let results_n4 = overlaps(&chunks_n4, 4);
 
         assert_eq!(results_n4, overlaps_n4);
     }
@@ -565,12 +620,22 @@ mod tests {
             // (5, vec![(4, 11), ()])
         ]);
 
-        let raw_graph = create_raw_graph::<Vector1<u32>>(chunks_n3, 3, (2, 2));
+        let mut all_labels = Vector1::<u32>::empty(chunks_n3.len());
+        for i in 0..chunks_n3.len() {
+            *all_labels.index_mut(i) = One::one()
+        }
+
+        let raw_graph = create_raw_graph::<Vector1<u32>>(&all_labels, 3, (2, 2));
 
         assert_eq!(raw_graph.edges.get(&0).unwrap(), edges_n3.get(&0).unwrap());
         assert_eq!(raw_graph.edges.get(&1).unwrap(), edges_n3.get(&1).unwrap());
         assert_eq!(raw_graph.edges.get(&2).unwrap(), edges_n3.get(&2).unwrap());
         assert_eq!(raw_graph.edges.get(&3).unwrap(), edges_n3.get(&3).unwrap());
         assert_eq!(raw_graph.edges.get(&4).unwrap(), edges_n3.get(&4).unwrap());
+    }
+
+    #[test]
+    fn test_propagate_overlaps() {
+
     }
 }

@@ -46,6 +46,10 @@ where
 
     fn determine(&mut self, choice: usize);
 
+    fn total(&self) -> Self::Item;
+
+    fn count_non_zero(&self) -> usize;
+
     fn add_assign_m(&mut self, other: &Self);
 }
 
@@ -158,6 +162,14 @@ where
                 *elem = N::zero()
             }
         });
+    }
+
+    fn total(&self) -> Self::Item {
+        self.sum()
+    }
+
+    fn count_non_zero(&self) -> usize {
+        self.fold(0, |acc, i| if i > N::zero() { acc + 1 } else { acc })
     }
 
     fn add_assign_m(&mut self, other: &Self) {
