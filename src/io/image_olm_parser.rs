@@ -1,6 +1,6 @@
 use bimap::BiMap;
 use hashbrown::HashMap;
-use image::{imageops, Rgb, RgbImage};
+use image::{imageops, Rgb, RgbImage, ImageBuffer};
 use itertools::{Itertools, all};
 use nalgebra::{DMatrix};
 use std::collections::HashSet;
@@ -23,8 +23,30 @@ use std::ops::{IndexMut, Index};
 
 // static RGB_CHANNELS: u8 = 3;
 
+pub fn render<S: Multiset>(
+    filename: &str,
+    graph: &Graph<S>,
+    key: &BiMap<u32, Rgb<u8>>,
+    chunks: Vec<DMatrix<u32>>,
+    (width, height): (usize, usize),
+) {
+    let output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
+
+    graph
+        .vertices
+        .iter()
+        // Does this actually work, just want the non zero index of the singleton set
+        .map(|vertex| chunks.index(vertex.get_non_zero()))
+        .map(|chunk| {
+            chunk
+                .iter()
+
+        });
+
+}
+
 // TODO: Implement parse function that will act like OLM Main
-pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) {//-> (Rules<S>, BiMap<u32, Rgb<u8>>, S, Vec<DMatrix<u32>>) {
+pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u32, Rgb<u8>>, S, Vec<DMatrix<u32>>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
     let chunks = chunk_image(img, chunk_size, &pixel_aliases);
@@ -50,7 +72,9 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) {//-> (Rules<S>, BiMa
                         pruned_rules.insert((direction as u16, label), set.clone());
                     }
                 });
-        })
+        });
+
+    (pruned_rules, pixel_aliases, all_labels, chunks)
 }
 
 // chunksize = 2, step = 1, dim = 5
@@ -637,5 +661,19 @@ mod tests {
     #[test]
     fn test_propagate_overlaps() {
 
+    }
+
+    #[test]
+    fn save_image() {
+        let mut img: RgbImage = image::ImageBuffer::new(100, 100);
+        let pixel = img.get_pixel_mut(50, 50);
+        *pixel = image::Rgb([255, 0, 0]);
+        img.save("image.png").unwrap();
+    }
+
+    #[test]
+    fn matrix_iteration() {
+        let x = DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+        x.iter().for_each(|x| println!("{}", x));
     }
 }
