@@ -12,7 +12,7 @@ fn run_collapse<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: 
     let output_vertices = vec![all_labels.clone(); width * depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
     let collapsed_graph = collapse(&rules, output_graph, Some(134522), false);
-    image_olm_parser::render(output, &collapsed_graph, &keys, &chunks, width);
+    image_olm_parser::render(output, &collapsed_graph, &keys, &chunks, (width, depth), chunk_size);
 
     if let Ok((input_graph, keys)) = image_olm_parser::parse::<S>(input, chunk_size) {
         let all_labels = input_graph.all_labels.clone();

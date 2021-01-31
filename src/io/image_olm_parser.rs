@@ -27,21 +27,43 @@ pub fn render<S: Multiset>(
     filename: &str,
     graph: &Graph<S>,
     key: &BiMap<u32, Rgb<u8>>,
-    chunks: Vec<DMatrix<u32>>,
+    chunks: &Vec<DMatrix<u32>>,
     (width, height): (usize, usize),
+    chunk_size: u32
 ) {
+    // jump by chunk and render the pixels inside each chunk
+    //    0    2    3    <- chunk_coords x component
+    //   ┏━━━┓┏━━━┓┏━━━┓     0 1 <- pixel_coords x compoent
+    // 0 ┃▆ ▆┃┃   ┃┃   ┃   0 ▆ ▆
+    //   ┃▆ ▆┃┃   ┃┃   ┃   1 ▆ ▆
+    //   ┗━━━┛┗━━━┛┗━━━┛   ^ pixel-coords y component
+    //   ┏━━━┓┏━━━┓┏━━━┓
+    // 1 ┃   ┃┃   ┃┃   ┃
+    //   ┃   ┃┃   ┃┃   ┃
+    //   ┗━━━┛┗━━━┛┗━━━┛
+    // ^ chunk_coords y component
+
     let output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
+    let chunk_coords = (0..(height / chunk_size as usize)).map(|y| y * chunk_size as usize)
+        .cartesian_product((0..(width / chunk_size as usize)).map(|x| x * chunk_size as usize));
+    let pixel_coords = (0..chunk_size as usize).cartesian_product(0..chunk_size as usize);
 
     graph
         .vertices
         .iter()
         // Does this actually work, just want the non zero index of the singleton set
-        .map(|vertex| chunks.index(vertex.get_non_zero()))
-        .map(|chunk| {
+        .map(|vertex| chunks.index(vertex.get_non_zero() as usize))
+        .zip(chunk_coords)
+        .for_each(|(chunk, (y, x))| { // TODO: check what order these are actually in
+            // get position in chunk relative to chunk starting position
             chunk
                 .iter()
-
-        });
+                .zip(pixel_coords) // may need to clone pixel_coords
+                .for_each(|(pixel_alias, (pixel_y, pixel_x))| {
+                    let pixel = image.get_pixel_mut(x + pixel_x, y + pixel_y);
+                    *pixel = key.get_by_left(pixel_alias)
+                })
+        })
 
 }
 
@@ -675,5 +697,17 @@ mod tests {
     fn matrix_iteration() {
         let x = DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
         x.iter().for_each(|x| println!("{}", x));
+    }
+
+    #[test]
+    fn zip_test() {
+        let v = vec![10, 20, 30, 40];
+        let coords = (0..3).cartesian_product((0..3));
+        v
+            .iter()
+            .zip(coords)
+            .for_each(|(v_value, (x, y))| {
+                println!("{} {} {}", *v_value, x, y);
+            })
     }
 }
