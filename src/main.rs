@@ -28,17 +28,17 @@ fn run_olm<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: usize
     let output_vertices = vec![all_labels.clone();graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
     let collapsed_graph = collapse(&rules, output_graph, Some(134522), false);
-    image_olm_parser::render(output, &collapsed_graph, &keys, &chunks, (width, depth), chunk_size);
+    image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size);
 }
 
 // BUG: out_width is divded by 2 when rendered
 fn main() {
-    let input = "resources/test/rules_test_example_1.png";
-    let output = "resources/test/test_result_1.png";
-    let out_width = 50;
-    let out_depth = 50;
+    let input = "resources/test/Qud.png";
+    let output = "resources/test/test_result_6.png";
+    let out_width = 70;
+    let out_depth = 70;
 
-    run_olm::<VectorN<u16, U25>>(input, 2, output, out_width, out_depth);
+    run_olm::<VectorN<u16, U100>>(input, 3, output, out_width, out_depth);
 }
 
 // fn main() {

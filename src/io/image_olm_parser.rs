@@ -25,7 +25,7 @@ use std::ops::{IndexMut, Index};
 
 pub fn render<S: Multiset>(
     filename: &str,
-    graph: &Graph<S>,
+    graph: Graph<S>,
     key: &BiMap<u32, Rgb<u8>>,
     chunks: &Vec<DMatrix<u32>>,
     (width, height): (usize, usize),
@@ -58,27 +58,30 @@ pub fn render<S: Multiset>(
 
     graph
         .vertices
-        .iter()
-        .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i)))
+        .into_iter()
+        .map(|vertex| vertex.get_non_zero().map(|i| {
+            println!("multiset index is {}", i);
+            chunks.index(i)
+        }))
         .enumerate()
         .for_each(|(index, opt_chunk)| {
             let (x, y) = index_to_coords(index as u32, graph_width as u32);
             let top_left_pix_x = x * chunk_size;
             let top_left_pix_y = y * chunk_size;
 
-            match opt_chunk {
-                None => panic!(),
-                Some(chunk) => {
-                    chunk
-                        .iter()
-                        .enumerate()
-                        .for_each(|(pixel_index, pixel_alias)| {
-                            let (pixel_x, pixel_y) = index_to_coords(pixel_index as u32, chunk_size);
-                            let pixel = output_image.get_pixel_mut((top_left_pix_x + pixel_x) as u32, (top_left_pix_y + pixel_y) as u32);
-                            *pixel = *key.get_by_left(pixel_alias).unwrap();
-                        })
-                }
-            }
+            let chunk = match opt_chunk {
+                None => DMatrix::from_element(chunk_size as usize, chunk_size as usize, key.len() as u32),
+                Some(chunk) => chunk.clone()
+            };
+
+            chunk
+                .iter()
+                .enumerate()
+                .for_each(|(pixel_index, pixel_alias)| {
+                    let (pixel_y, pixel_x) = index_to_coords(pixel_index as u32, chunk_size);
+                    let pixel = output_image.get_pixel_mut((top_left_pix_x + pixel_x) as u32, (top_left_pix_y + pixel_y) as u32);
+                    *pixel = *key.get_by_left(pixel_alias).unwrap_or(&image::Rgb([0, 255, 0]));
+                });
             //
             // opt_chunk
             //     .iter()
@@ -153,6 +156,8 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u
         *all_labels.index_mut(i) = One::one()
     }
 
+    println!("all labels is {:?}", all_labels);
+
     let mut pruned_rules: Rules<S> = HashMap::new();
 
     (0..all_labels.count_non_zero())
@@ -206,7 +211,7 @@ fn real_vertex_indexes(chunk_size: usize) -> Vec<usize> {
 // graph.vertices[coords_to_index(1, 1)].determine(vertex_label)
 
 fn sub_images(image: RgbImage, chunk_size: u32) -> impl Iterator<Item = RgbImage> {
-    let height_iter = 0..image.dimensions().0 - (chunk_size - 1);
+    let height_iter = 0..image.dimensions().0 - (chunk_size - 1); // MAYBE ADD - 1
     let width_iter = 0..image.dimensions().1 - (chunk_size - 1);
     height_iter
         .cartesian_product(width_iter)
@@ -257,8 +262,12 @@ fn chunk_image(
     pixel_aliases: &BiMap<u32, Rgb<u8>>,
 ) -> Vec<DMatrix<u32>> {
     sub_images(image, chunk_size)
-        .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
+        .map(|sub_image| {
+            println!("{:?}", sub_image.dimensions());
+            alias_sub_image(sub_image, pixel_aliases)
+        })
         .fold(HashSet::new(), |mut acc, pixels| {
+            println!("{:?}", pixels);
             let chunk = DMatrix::from_row_slice(chunk_size as usize, chunk_size as usize, &pixels);
 
             acc.insert(chunk.clone());
