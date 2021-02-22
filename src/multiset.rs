@@ -6,11 +6,12 @@ use rand::prelude::*;
 use std::ops::{AddAssign, IndexMut};
 use std::slice::Iter;
 use std::hash::Hash;
+use std::fmt::Debug;
 
 
 pub trait Multiset
 where
-    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item> + Eq + Hash
+    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item> + Eq + Hash + Debug
 {
     type Item: Zero + One + Copy + AddAssign + PartialOrd + Eq + Hash;
 

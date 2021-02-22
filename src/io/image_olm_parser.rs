@@ -43,7 +43,9 @@ pub fn render<S: Multiset>(
     //   ┗━━━┛┗━━━┛┗━━━┛
     // ^ chunk_coords y component
 
-    let output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
+    let mut output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
+    let graph_width = (width / chunk_size as usize); // in chunks
+    let graph_depth = (height / chunk_size as usize); // in chunks
     let chunk_coords = (0..(height / chunk_size as usize)).map(|y| y * chunk_size as usize)
         .cartesian_product((0..(width / chunk_size as usize)).map(|x| x * chunk_size as usize));
     let pixel_coords = (0..chunk_size as usize).cartesian_product(0..chunk_size as usize);
@@ -51,20 +53,77 @@ pub fn render<S: Multiset>(
     graph
         .vertices
         .iter()
-        // Does this actually work, just want the non zero index of the singleton set
-        .map(|vertex| chunks.index(vertex.get_non_zero() as usize))
-        .zip(chunk_coords)
-        .for_each(|(chunk, (y, x))| { // TODO: check what order these are actually in
-            // get position in chunk relative to chunk starting position
-            chunk
-                .iter()
-                .zip(pixel_coords) // may need to clone pixel_coords
-                .for_each(|(pixel_alias, (pixel_y, pixel_x))| {
-                    let pixel = image.get_pixel_mut(x + pixel_x, y + pixel_y);
-                    *pixel = key.get_by_left(pixel_alias)
-                })
-        })
+        .enumerate()
+        .for_each(|(i, v)| println!("{} {:?}", i, v));
 
+    graph
+        .vertices
+        .iter()
+        .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i)))
+        .enumerate()
+        .for_each(|(index, opt_chunk)| {
+            let (x, y) = index_to_coords(index as u32, graph_width as u32);
+            let top_left_pix_x = x * chunk_size;
+            let top_left_pix_y = y * chunk_size;
+
+            match opt_chunk {
+                None => panic!(),
+                Some(chunk) => {
+                    chunk
+                        .iter()
+                        .enumerate()
+                        .for_each(|(pixel_index, pixel_alias)| {
+                            let (pixel_x, pixel_y) = index_to_coords(pixel_index as u32, chunk_size);
+                            let pixel = output_image.get_pixel_mut((top_left_pix_x + pixel_x) as u32, (top_left_pix_y + pixel_y) as u32);
+                            *pixel = *key.get_by_left(pixel_alias).unwrap();
+                        })
+                }
+            }
+            //
+            // opt_chunk
+            //     .iter()
+            //     .enumerate()
+            //     .for_each(|(pixel_alias)|)
+            //
+            // for i in 0..chunk_size {
+            //     for j in 0..chunk_size {
+            //
+            //         let pixel = output_image.get_pixel_mut((top_left_pix_x + i) as u32, (top_left_pix_y + j) as u32);
+            //     }
+            // }
+        });
+
+
+    // graph
+    //     .vertices
+    //     .iter()
+    //     // Does this actually work, just want the non zero index of the singleton set
+    //     .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i)))
+    //     .zip(chunk_coords)
+    //     .for_each(|(opt_chunk, (y, x))| {
+    //         // get position in chunk relative to chunk starting position
+    //         match opt_chunk {
+    //             None => {
+    //                 pixel_coords
+    //                     .clone()
+    //                     .for_each(|(pixel_y, pixel_x)| {
+    //                         let pixel = output_image.get_pixel_mut((x + pixel_x) as u32, (y + pixel_y) as u32);
+    //                         *pixel = image::Rgb([0, 255, 0]);
+    //                     })
+    //             }
+    //             Some(chunk) => {
+    //                 chunk
+    //                     .iter()
+    //                     .zip(pixel_coords.clone()) // may need to clone pixel_coords
+    //                     .for_each(|(pixel_alias, (pixel_y, pixel_x))| {
+    //                         let pixel = output_image.get_pixel_mut((x + pixel_x) as u32, (y + pixel_y) as u32);
+    //                         *pixel = *key.get_by_left(pixel_alias).unwrap();
+    //                     })
+    //             }
+    //         }
+    //     });
+
+    output_image.save(filename).unwrap();
 }
 
 // TODO: Implement parse function that will act like OLM Main
@@ -72,7 +131,22 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
     let chunks = chunk_image(img, chunk_size, &pixel_aliases);
-    let rules = overlaps::<S>(&chunks, chunk_size);
+    let overlap_rules = overlaps::<S>(&chunks, chunk_size);
+
+    // Everything BEFORE rules has been checked and is correct
+    // pixel aliases and chunks are calculated correctly in the N = 2 case
+
+    println!("{:?}", pixel_aliases);
+    chunks
+        .iter()
+        .enumerate()
+        .for_each(|(i, x)| println!("{}\n{}", i, x));
+    // println!("{:?}", chunks);
+    println!("{:?}", overlap_rules.len());
+    overlap_rules
+        .iter()
+        .filter(|(x, y)| x.0 == 6 || x.0 == 1)
+        .for_each(|(x, y)| println!("{:?} {:?}", x, y));
 
     let mut all_labels = S::empty(chunks.len());
     for i in 0..chunks.len() {
@@ -83,7 +157,7 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u
 
     (0..all_labels.count_non_zero())
         .for_each(|label| {
-            let pruned_graph = propagate_overlaps_2(&all_labels, &rules, chunk_size, label);
+            let pruned_graph = propagate_overlaps_2(&all_labels, &overlap_rules, chunk_size, label);
 
             real_vertex_indexes(chunk_size as usize)
                 .into_iter()
@@ -95,6 +169,12 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u
                     }
                 });
         });
+
+    println!("I'm printing the pruned rules now 🤔.");
+    pruned_rules
+        .iter()
+        // .filter(|(x, y)| x.0 == 6 || x.0 == 1)
+        .for_each(|(x, y)| println!("{:?} {:?}", x, y));
 
     (pruned_rules, pixel_aliases, all_labels, chunks)
 }

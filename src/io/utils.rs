@@ -13,7 +13,8 @@ impl Directions {
     fn fns(&self) -> Vec<impl Fn(u32, u32, u32, u32) -> Option<(u32, u16)>> {
         let mask = format!("{:b}", self.code);
         let fns = &[
-            north, north_east, east, south_east, south, south_west, west, north_west,
+            // north, north_east, east, south_east, south, south_west, west, north_west,
+            north_west, north, north_east, west, east, south_west, south, south_east,
         ];
         fns.iter()
             .zip(mask.chars())
@@ -43,7 +44,7 @@ impl Directions {
 //NORTH = 0
 fn north(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di > 0 {
-        Some(((di - 1) * w + wi, 0))
+        Some(((di - 1) * w + wi, 1))
     } else {
         None
     }
@@ -53,7 +54,7 @@ fn north(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 //NORTH EAST = 1
 fn north_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di > 0 && wi < w - 1 {
-        Some(((di - 1) * w + wi + 1, 1))
+        Some(((di - 1) * w + wi + 1, 2))
     } else {
         None
     }
@@ -63,7 +64,7 @@ fn north_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 //EAST = 2
 fn east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if wi < w - 1 {
-        Some(((wi + 1) + di * w, 2))
+        Some(((wi + 1) + di * w, 4))
     } else {
         None
     }
@@ -72,7 +73,7 @@ fn east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 //SOUTH EAST = 3
 fn south_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di < d - 1 && wi < w - 1 {
-        Some(((di + 1) * w + wi + 1, 3))
+        Some(((di + 1) * w + wi + 1, 7))
     } else {
         None
     }
@@ -81,7 +82,7 @@ fn south_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 //SOUTH = 4
 fn south(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di < d - 1 {
-        Some(((di + 1) * w + wi, 4))
+        Some(((di + 1) * w + wi, 6))
     } else {
         None
     }
@@ -100,7 +101,7 @@ fn south_west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 //WEST = 6
 fn west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if wi > 0 {
-        Some(((wi - 1) + di * w, 6))
+        Some(((wi - 1) + di * w, 3))
     } else {
         None
     }
@@ -110,7 +111,7 @@ fn west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 //NORTH WEST = 7
 fn north_west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di > 0 && wi > 0 {
-        Some(((di - 1) * w + wi - 1, 7))
+        Some(((di - 1) * w + wi - 1, 0))
     } else {
         None
     }
