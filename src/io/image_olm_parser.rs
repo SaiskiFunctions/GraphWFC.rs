@@ -133,7 +133,7 @@ pub fn render<S: Multiset>(
 pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u32, Rgb<u8>>, S, Vec<DMatrix<u32>>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
-    let chunks = chunk_image(img, chunk_size, &pixel_aliases);
+    let chunks = chunk_image(img, chunk_size, &pixel_aliases, false);
     let overlap_rules = overlaps::<S>(&chunks, chunk_size);
 
     // Everything BEFORE rules has been checked and is correct
@@ -211,8 +211,9 @@ fn real_vertex_indexes(chunk_size: usize) -> Vec<usize> {
 // graph.vertices[coords_to_index(1, 1)].determine(vertex_label)
 
 fn sub_images(image: RgbImage, chunk_size: u32) -> impl Iterator<Item = RgbImage> {
-    let height_iter = 0..image.dimensions().0 - (chunk_size - 1); // MAYBE ADD - 1
-    let width_iter = 0..image.dimensions().1 - (chunk_size - 1);
+    // .. already offests by one so this is equivalent of for i < image.dimensions.1 - 1
+    let height_iter = 0..(image.dimensions().1) - (chunk_size - 1);
+    let width_iter = 0..(image.dimensions().0) - (chunk_size - 1);
     height_iter
         .cartesian_product(width_iter)
         .map(move |(y, x)| imageops::crop_imm(&image, x, y, chunk_size, chunk_size).to_image())
@@ -260,26 +261,25 @@ fn chunk_image(
     image: RgbImage,
     chunk_size: u32,
     pixel_aliases: &BiMap<u32, Rgb<u8>>,
+    rotate: bool
 ) -> Vec<DMatrix<u32>> {
     sub_images(image, chunk_size)
-        .map(|sub_image| {
-            println!("{:?}", sub_image.dimensions());
-            alias_sub_image(sub_image, pixel_aliases)
-        })
+        .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
         .fold(HashSet::new(), |mut acc, pixels| {
-            println!("{:?}", pixels);
             let chunk = DMatrix::from_row_slice(chunk_size as usize, chunk_size as usize, &pixels);
 
             acc.insert(chunk.clone());
 
-            let chunk_r90 = chunk.rotate_90();
-            acc.insert(chunk_r90.clone());
+            if rotate {
+                let chunk_r90 = chunk.rotate_90();
+                acc.insert(chunk_r90.clone());
 
-            let chunk_r180 = chunk_r90.rotate_90();
-            acc.insert(chunk_r180.clone());
+                let chunk_r180 = chunk_r90.rotate_90();
+                acc.insert(chunk_r180.clone());
 
-            let chunk_r270 = chunk_r180.rotate_90();
-            acc.insert(chunk_r270);
+                let chunk_r270 = chunk_r180.rotate_90();
+                acc.insert(chunk_r270);
+            }
             acc
         }).into_iter().collect()
 }

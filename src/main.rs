@@ -6,6 +6,10 @@ use wfc_rust::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use wfc_rust::multiset::Multiset;
 use wfc_rust::wfc::collapse::collapse;
 
+// TODO: Fix the sub image thingy
+// TODO: Save the results of parsing
+// TODO: Get a bigger USize
+
 fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usize) {
     if let Ok((input_graph, keys)) = parse::<S>(input) {
         let all_labels = input_graph.all_labels.clone();
@@ -33,8 +37,8 @@ fn run_olm<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: usize
 
 // BUG: out_width is divded by 2 when rendered
 fn main() {
-    let input = "resources/test/Qud.png";
-    let output = "resources/test/test_result_6.png";
+    let input = "resources/test/flowers.png";
+    let output = "resources/test/test_result_8.png";
     let out_width = 70;
     let out_depth = 70;
 
