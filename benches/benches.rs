@@ -63,9 +63,100 @@ mod graphs {
     }
 }
 
+mod multiset {
+    use bencher::{black_box, Bencher};
+    use nalgebra::{U4, VectorN};
+    use wfc_rust::multiset::Multiset as MS1;
+    use wfc_rust::multiset2::Multiset as MS2;
+
+    type MS1d4u8 = VectorN<u8, U4>;
+    type MS2d4u8 = MS2<u8, typenum::U4>;
+
+    pub fn ms1_union(bench: &mut Bencher) {
+        let sets: Vec<MS1d4u8> = vec![MS1::from_row_slice_u(&[1, 5, 6, 2]); 1000];
+        let mut out: MS1d4u8 = MS1::empty(4);
+
+        bench.iter(|| sets.iter().for_each(|set| {
+            out = black_box(out.union(set));
+        }));
+    }
+
+    pub fn ms2_union(bench: &mut Bencher) {
+        let sets: Vec<MS2d4u8> = vec![MS2::from_slice(&[1, 5, 6, 2]); 1000];
+        let mut out: MS2d4u8 = MS2::empty();
+
+        bench.iter(|| sets.iter().for_each(|set| {
+            out = black_box(out.union(set));
+        }));
+    }
+
+    pub fn ms1_is_subset(bench: &mut Bencher) {
+        let sets: Vec<MS1d4u8> = vec![MS1::from_row_slice_u(&[1, 5, 6, 2]); 1000];
+        let out: MS1d4u8 = MS1::empty(4);
+
+        bench.iter(|| sets.iter().for_each(|set| {
+            black_box(out.is_subset(set));
+        }));
+    }
+
+    pub fn ms2_is_subset(bench: &mut Bencher) {
+        let sets: Vec<MS2d4u8> = vec![MS2::from_slice(&[1, 5, 6, 2]); 1000];
+        let out: MS2d4u8 = MS2::empty();
+
+        bench.iter(|| sets.iter().for_each(|set| {
+            black_box(out.is_subset(set));
+        }));
+    }
+
+    pub fn ms1_contains(bench: &mut Bencher) {
+        let indices: Vec<usize> = vec![2; 1000];
+        let out: MS1d4u8 = MS1::from_row_slice_u(&[1, 5, 6, 2]);
+
+        bench.iter(|| indices.iter().for_each(|index| {
+            black_box(out.contains(*index));
+        }));
+    }
+
+    pub fn ms2_contains(bench: &mut Bencher) {
+        let indices: Vec<usize> = vec![2; 1000];
+        let out: MS2d4u8 = MS2::from_slice(&[1, 5, 6, 2]);
+
+        bench.iter(|| indices.iter().for_each(|index| {
+            // unsafe { black_box(out.contains_unchecked(*index)) };
+            black_box(out.contains(*index));
+        }));
+    }
+
+    pub fn ms2_shannon(bench: &mut Bencher) {
+        let sets: Vec<MS2d4u8> = vec![MS2::from_slice(&[1, 5, 6, 2]); 1000];
+        let mut out: f64 = 0.0;
+
+        bench.iter(|| sets.iter().for_each(|set| {
+            out = black_box(set.shannon_entropy());
+        }));
+    }
+
+    pub fn ms2_collision(bench: &mut Bencher) {
+        let sets: Vec<MS2d4u8> = vec![MS2::from_slice(&[1, 5, 6, 2]); 1000];
+        let mut out: f64 = 0.0;
+
+        bench.iter(|| sets.iter().for_each(|set| {
+            out = black_box(set.collision_entropy());
+        }));
+    }
+}
+
 benchmark_group!(
     benches,
-    collapse::bench_collapse,
+    // collapse::bench_collapse,
     // graphs::graph_rules,
+    // multiset::ms1_union,
+    // multiset::ms2_union,
+    // multiset::ms1_is_subset,
+    // multiset::ms2_is_subset,
+    // multiset::ms1_contains,
+    // multiset::ms2_contains,
+    multiset::ms2_shannon,
+    multiset::ms2_collision,
 );
 benchmark_main!(benches);

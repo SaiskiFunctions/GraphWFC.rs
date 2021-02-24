@@ -24,10 +24,10 @@ type InitCollapse = (
 );
 
 fn rules_stack<S, L, D>(rules: &Rules<S>) -> GenericArray<Option<S>, Prod<L, D>>
-where
-    S: Multiset,
-    L: std::ops::Mul<D> + Unsigned,
-    <L as std::ops::Mul<D>>::Output: ArrayLength<Option<S>>,
+    where
+        S: Multiset,
+        L: std::ops::Mul<D> + Unsigned,
+        <L as std::ops::Mul<D>>::Output: ArrayLength<Option<S>>,
 {
     let mut array = GenericArray::default();
     rules.into_iter().for_each(|((dir, label), set)| {
@@ -35,6 +35,33 @@ where
         *array.index_mut(index) = Some(set.clone());
     });
     array
+}
+
+fn direction_entropy<S, L, D>(rules: &GenericArray<Option<S>, Prod<L, D>>) -> GenericArray<Option<f64>, Prod<L, D>>
+    where
+        S: Multiset,
+        L: std::ops::Mul<D> + Unsigned,
+        <L as std::ops::Mul<D>>::Output: ArrayLength<Option<S>> + ArrayLength<Option<f64>>,
+{
+    let mut array = GenericArray::default();
+    rules.iter().enumerate().for_each(|(index, opt_set)| {
+        *array.index_mut(index) = opt_set.as_ref().map(|set| set.entropy())
+    });
+    array
+}
+
+fn max_prop_entropy<S, L, D>(from: S, dir: &u16, lookup: GenericArray<Option<f64>, Prod<L, D>>) -> Option<f64>
+    where
+        S: Multiset,
+        L: std::ops::Mul<D> + Unsigned,
+        <L as std::ops::Mul<D>>::Output: ArrayLength<Option<f64>>,
+{
+    from.iter_m().enumerate().filter_map(|(label, freq)| {
+        if freq > &Zero::zero() {
+            let index = *dir as usize * L::USIZE + label;
+            *lookup.index(index)
+        } else { None }
+    }).fold(Some(f64::NEG_INFINITY), |ret, ent| ret.map(|current| current.max(ent)))
 }
 
 fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCollapse {
@@ -101,6 +128,12 @@ fn exec_collapse<S: Multiset>(
         while !propagations.is_empty() {
             if METRICS { metrics.inc("loops") }
 
+            // todo:
+            //  Propagate strongest constraint first, for some multiset `M`
+            //  estimate its constraint strength in some direction `dir` by
+            //  calculating `max(rules(label, dir).entropy() for label in M)`.
+            //  Use this as ordering for heap of propagations, where a smaller
+            //  estimated value indicates a stronger constraint.
             for propagate in propagations.drain(..) {
                 if METRICS { metrics.inc("props") }
 

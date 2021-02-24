@@ -21,8 +21,8 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
 fn main() {
     let input = "resources/test/tosashimizu_model.txt";
     let output = "resources/test/tosashimizu_output3.txt";
-    let out_width = 1000;
-    let out_depth = 1000;
+    let out_width = 20;
+    let out_depth = 20;
 
-    run_collapse::<VectorN<u8, U4>>(input, output, out_width, out_depth);
+    run_collapse::<VectorN<u16, U4>>(input, output, out_width, out_depth);
 }
