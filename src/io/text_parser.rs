@@ -52,7 +52,7 @@ fn make_vertices<S: Multiset>(
     string: &str,
     char_frequency: &HashMap<char, S::Item>,
     char_keys: &CharKeyBimap,
-    directional: bool
+    directional: bool,
 ) -> Vec<S> {
     string
         .chars()

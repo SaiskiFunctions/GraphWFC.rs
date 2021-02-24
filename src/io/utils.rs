@@ -41,7 +41,7 @@ impl Directions {
 }
 
 #[allow(unused_variables)]
-//NORTH = 0
+//NORTH = 1
 fn north(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di > 0 {
         Some(((di - 1) * w + wi, 1))
@@ -51,7 +51,7 @@ fn north(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 }
 
 #[allow(unused_variables)]
-//NORTH EAST = 1
+//NORTH EAST = 2
 fn north_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di > 0 && wi < w - 1 {
         Some(((di - 1) * w + wi + 1, 2))
@@ -61,7 +61,7 @@ fn north_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 }
 
 #[allow(unused_variables)]
-//EAST = 2
+//EAST = 4
 fn east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if wi < w - 1 {
         Some(((wi + 1) + di * w, 4))
@@ -70,7 +70,7 @@ fn east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     }
 }
 
-//SOUTH EAST = 3
+//SOUTH EAST = 7
 fn south_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di < d - 1 && wi < w - 1 {
         Some(((di + 1) * w + wi + 1, 7))
@@ -79,7 +79,7 @@ fn south_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     }
 }
 
-//SOUTH = 4
+//SOUTH = 6
 fn south(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di < d - 1 {
         Some(((di + 1) * w + wi, 6))
@@ -98,7 +98,7 @@ fn south_west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 }
 
 #[allow(unused_variables)]
-//WEST = 6
+//WEST = 3
 fn west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if wi > 0 {
         Some(((wi - 1) + di * w, 3))
@@ -108,7 +108,7 @@ fn west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
 }
 
 #[allow(unused_variables)]
-//NORTH WEST = 7
+//NORTH WEST = 0
 fn north_west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
     if di > 0 && wi > 0 {
         Some(((di - 1) * w + wi - 1, 0))
@@ -123,6 +123,14 @@ pub fn make_edges_cardinal_grid(width: usize, depth: usize) -> Edges {
 
 pub fn make_edges_8_way_grid(width: usize, depth: usize) -> Edges {
     Directions::new(255).make_edges(width, depth)
+}
+
+pub fn index_to_coords(index: u32, width: u32) -> (u32, u32) { (index % width, index / width) }
+
+pub fn coords_to_index((x, y): (u32, u32), width: u32) -> u32 { x + y * width }
+
+pub fn is_inside((x, y): (i32, i32), (w, h): (u32, u32)) -> bool {
+    if x < 0 || y < 0 || x > (w as i32 - 1) || y > (h as i32 - 1) { false } else { true }
 }
 
 #[cfg(test)]

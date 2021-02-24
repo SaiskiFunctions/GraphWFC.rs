@@ -1,4 +1,4 @@
-use nalgebra::{DMatrix};
+use nalgebra::DMatrix;
 
 pub trait SubMatrix {
     fn crop_left(self, offset: usize) -> DMatrix<u32>;

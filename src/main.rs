@@ -6,9 +6,7 @@ use wfc_rust::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use wfc_rust::multiset::Multiset;
 use wfc_rust::wfc::collapse::collapse;
 
-// TODO: Fix the sub image thingy
 // TODO: Save the results of parsing
-// TODO: Get a bigger USize
 
 fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usize) {
     if let Ok((input_graph, keys)) = parse::<S>(input) {
@@ -29,20 +27,22 @@ fn run_olm<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: usize
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
     println!("{:?}", output_edges.get(&0).unwrap());
     // TODO: Validation check for chunk dividing into pixels
-    let output_vertices = vec![all_labels.clone();graph_width * graph_depth];
+    let output_vertices = vec![all_labels.clone(); graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
     let collapsed_graph = collapse(&rules, output_graph, Some(134522), false);
-    image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size);
+    image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize);
 }
+
+const CHUNK_SIZE: u32 = 3;
 
 // BUG: out_width is divded by 2 when rendered
 fn main() {
-    let input = "resources/test/flowers.png";
+    let input = "resources/test/Qud.png";
     let output = "resources/test/test_result_8.png";
-    let out_width = 70;
-    let out_depth = 70;
+    let out_width = 100;
+    let out_depth = 100;
 
-    run_olm::<VectorN<u16, U100>>(input, 3, output, out_width, out_depth);
+    run_olm::<VectorN<u16, U100>>(input, CHUNK_SIZE, output, out_width, out_depth);
 }
 
 // fn main() {

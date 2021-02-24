@@ -1,7 +1,13 @@
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Limit {
     curr: i32,
     base: i32
+}
+
+impl Limit {
+    pub fn new(base: u32) -> Limit {
+        Limit { base: (base as i32), curr: -1 }
+    }
 }
 
 impl Iterator for Limit {
@@ -13,17 +19,13 @@ impl Iterator for Limit {
     }
 }
 
-pub fn limit_iter(base: u32) -> Limit {
-    Limit { base: (base as i32), curr: -1 }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_limit_iter() {
-        let wave = limit_iter(3).take(10).collect::<Vec<u32>>();
+        let wave = Limit::new(3).take(10).collect::<Vec<u32>>();
         assert_eq!(wave, vec![0, 0, 0, 1, 2, 3, 4, 5, 6, 7]);
     }
 }

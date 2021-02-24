@@ -33,10 +33,10 @@ rpath = false
 
 [profile.release]
 opt-level = 3
-debug = true
+#debug = true
 debug-assertions = false
 overflow-checks = false
-lto = "fat"
+#lto = "fat"
 incremental = false
-codegen-units = 1
+#codegen-units = 1
 rpath = false
