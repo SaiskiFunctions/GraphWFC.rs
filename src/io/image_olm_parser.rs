@@ -88,11 +88,12 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: usize) -> (Rules<S>, Pixel
         *all_labels.index_mut(i) = One::one()
     }
 
+    let raw_graph = create_raw_graph(&all_labels, chunk_size, (3, 3));
     let mut pruned_rules: Rules<S> = HashMap::new();
 
     (0..all_labels.count_non_zero())
         .for_each(|label| {
-            let pruned_graph = propagate_overlaps(&all_labels, &overlap_rules, chunk_size, label);
+            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label);
 
             real_vertex_indexes(chunk_size)
                 .into_iter()
@@ -249,6 +250,7 @@ fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: usize, (height, wid
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
     let vertices: Vec<S> = vec![all_labels.clone(); v_dim_x * v_dim_y];
+
     // create negative indexed range to offset vertex centered directional field by N
     let signed_chunk_size: i32 = TryFrom::try_from(chunk_size)
         .expect("Cannot convert chunk_size to i32");
@@ -282,11 +284,10 @@ fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: usize, (height, wid
     Graph::new(vertices, edges, all_labels.clone())
 }
 
-fn propagate_overlaps<S: Multiset>(all_labels: &S, rules: &Rules<S>, chunk_size: usize, label: usize) -> Graph<S> {
-    let mut raw_graph = create_raw_graph(all_labels, chunk_size, (3, 3));
-    let central_vertex = (raw_graph.vertices.len() - 1) / 2;
-    raw_graph.vertices.index_mut(central_vertex).determine(label);
-    collapse::collapse(rules, raw_graph, None, true)
+fn propagate_overlaps<S: Multiset>(mut graph: Graph<S>, rules: &Rules<S>, label: usize) -> Graph<S> {
+    let central_vertex = (graph.vertices.len() - 1) / 2;
+    graph.vertices.index_mut(central_vertex).determine(label);
+    collapse::collapse(rules, graph, None, true)
 }
 
 #[cfg(test)]
