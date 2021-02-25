@@ -21,12 +21,13 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
 }
 
 fn run_olm<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: usize, depth: usize) {
+    if width % chunk_size as usize != 0 || depth % chunk_size as usize != 0 {
+        panic!("Output dimensions and N size NOT divisible.");
+    }
     let (rules, keys, all_labels, chunks) = image_olm_parser::parse::<S>(input, chunk_size);
     let graph_width = (width / chunk_size as usize); // in chunks
     let graph_depth = (depth / chunk_size as usize); // in chunks
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
-    println!("{:?}", output_edges.get(&0).unwrap());
-    // TODO: Validation check for chunk dividing into pixels
     let output_vertices = vec![all_labels.clone(); graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
     let collapsed_graph = collapse(&rules, output_graph, Some(134522), false);
@@ -37,10 +38,10 @@ const CHUNK_SIZE: u32 = 3;
 
 // BUG: out_width is divded by 2 when rendered
 fn main() {
-    let input = "resources/test/Qud.png";
-    let output = "resources/test/test_result_8.png";
-    let out_width = 100;
-    let out_depth = 100;
+    let input = "resources/test/flowers.png";
+    let output = "resources/test/test_result_9.png";
+    let out_width = 60;
+    let out_depth = 60;
 
     run_olm::<VectorN<u16, U100>>(input, CHUNK_SIZE, output, out_width, out_depth);
 }
