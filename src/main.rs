@@ -20,13 +20,13 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
     }
 }
 
-fn run_olm<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: usize, depth: usize) {
-    if width % chunk_size as usize != 0 || depth % chunk_size as usize != 0 {
+fn run_olm<S: Multiset>(input: &str, chunk_size: usize, output: &str, width: usize, depth: usize) {
+    if width % chunk_size != 0 || depth % chunk_size != 0 {
         panic!("Output dimensions and N size NOT divisible.");
     }
     let (rules, keys, all_labels, chunks) = image_olm_parser::parse::<S>(input, chunk_size);
-    let graph_width = (width / chunk_size as usize); // in chunks
-    let graph_depth = (depth / chunk_size as usize); // in chunks
+    let graph_width = width / chunk_size; // in chunks
+    let graph_depth = depth / chunk_size; // in chunks
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
     let output_vertices = vec![all_labels.clone(); graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
@@ -34,7 +34,7 @@ fn run_olm<S: Multiset>(input: &str, chunk_size: u32, output: &str, width: usize
     image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize);
 }
 
-const CHUNK_SIZE: u32 = 3;
+const CHUNK_SIZE: usize = 3;
 
 // BUG: out_width is divded by 2 when rendered
 fn main() {

@@ -201,7 +201,7 @@ pub fn collapse<S: Multiset>(
         rng,
         rules,
         &output_graph.edges,
-        init.clone(),
+        init,
         output_graph.vertices,
         partial // 🐯
     );

@@ -1,21 +1,28 @@
+use crate::graph::graph::{Rules, Edges, Graph};
+use crate::io::{
+    limit_iter::Limit,
+    sub_matrix::SubMatrix,
+    tri_wave::TriWave,
+    utils::Rotation,
+};
+use crate::multiset::Multiset;
+use crate::utils::{index_to_coords, is_inside, coords_to_index};
+use crate::wfc::collapse;
+
 use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
 use itertools::Itertools;
 use nalgebra::DMatrix;
-use std::collections::HashSet;
-// TODO: Change to absolute paths?
-use crate::wfc::collapse;
-use super::sub_matrix::SubMatrix;
-use crate::graph::graph::{Rules, Edges, Graph};
-use super::super::multiset::Multiset;
 use num_traits::One;
+use std::collections::HashSet;
 use std::ops::{IndexMut, Index};
-use crate::io::tri_wave::TriWave;
-use crate::io::limit_iter::Limit;
-use crate::io::utils::{index_to_coords, is_inside, coords_to_index};
+use std::convert::TryFrom;
 
 const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
+
+type Chunk = DMatrix<usize>;
+type PixelKeys = BiMap<usize, Rgb<u8>>;
 
 // jump by chunk and render the pixels inside each chunk
 //    0    2    3    <- chunk_coords x component
@@ -32,35 +39,36 @@ const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
 pub fn render<S: Multiset>(
     filename: &str,
     graph: Graph<S>,
-    key: &BiMap<u32, Rgb<u8>>,
-    chunks: &Vec<DMatrix<u32>>,
+    key: &PixelKeys,
+    chunks: &[Chunk],
     (width, height): (usize, usize),
     chunk_size: usize,
 ) {
     let mut output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
-    let graph_width = width as u32 / chunk_size as u32; // in chunks
+    let graph_width = width / chunk_size; // in chunks
+    let contradiction_key = key.len();
 
     graph
         .vertices
         .into_iter()
-        .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i)))
+        .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i).clone()))
         .enumerate()
         .for_each(|(index, opt_chunk)| {
-            let (x, y) = index_to_coords(index as u32, graph_width);
-            let top_left_pix_x = x * chunk_size as u32;
-            let top_left_pix_y = y * chunk_size as u32;
+            let (x, y) = index_to_coords(index, graph_width);
+            let top_left_pix_x = x * chunk_size;
+            let top_left_pix_y = y * chunk_size;
 
             let chunk = match opt_chunk {
-                None => DMatrix::from_element(chunk_size, chunk_size, key.len() as u32),
-                Some(chunk) => chunk.clone()
+                None => DMatrix::from_element(chunk_size, chunk_size, contradiction_key),
+                Some(chunk) => chunk
             };
 
             chunk
                 .iter()
                 .enumerate()
                 .for_each(|(pixel_index, pixel_alias)| {
-                    let (pixel_y, pixel_x) = index_to_coords(pixel_index as u32, chunk_size as u32);
-                    let pixel = output_image.get_pixel_mut(top_left_pix_x + pixel_x, top_left_pix_y + pixel_y);
+                    let (pixel_y, pixel_x) = index_to_coords(pixel_index, chunk_size);
+                    let pixel = output_image.get_pixel_mut((top_left_pix_x + pixel_x) as u32, (top_left_pix_y + pixel_y) as u32);
                     *pixel = *key.get_by_left(pixel_alias).unwrap_or(&GREEN);
                 });
         });
@@ -69,7 +77,7 @@ pub fn render<S: Multiset>(
 }
 
 // TODO: handle unwrap of image::open properly
-pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u32, Rgb<u8>>, S, Vec<DMatrix<u32>>) {
+pub fn parse<S: Multiset>(filename: &str, chunk_size: usize) -> (Rules<S>, PixelKeys, S, Vec<Chunk>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
     let chunks = chunk_image(img, chunk_size, &pixel_aliases, false);
@@ -86,7 +94,7 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: u32) -> (Rules<S>, BiMap<u
         .for_each(|label| {
             let pruned_graph = propagate_overlaps(&all_labels, &overlap_rules, chunk_size, label);
 
-            real_vertex_indexes(chunk_size as usize)
+            real_vertex_indexes(chunk_size)
                 .into_iter()
                 .enumerate()
                 .for_each(|(direction, index)| {
@@ -116,41 +124,28 @@ fn real_vertex_indexes(chunk_size: usize) -> Vec<usize> {
     ]
 }
 
-fn sub_images(image: RgbImage, chunk_size: u32) -> impl Iterator<Item=RgbImage> {
-    let height_iter = 0..(image.dimensions().1) - (chunk_size - 1);
-    let width_iter = 0..(image.dimensions().0) - (chunk_size - 1);
+fn sub_images(image: RgbImage, chunk_size: usize) -> impl Iterator<Item=RgbImage> {
+    let chunk_size_32: u32 = TryFrom::try_from(chunk_size)
+        .expect("chunk_size too large, cannot convert to u32");
+
+    let height_iter = 0..(image.dimensions().1) - (chunk_size_32 - 1);
+    let width_iter = 0..(image.dimensions().0) - (chunk_size_32 - 1);
+
     height_iter
         .cartesian_product(width_iter)
         .map(move |(y, x)| {
-            imageops::crop_imm(&image, x, y, chunk_size, chunk_size).to_image()
+            imageops::crop_imm(&image, x, y, chunk_size_32, chunk_size_32).to_image()
         })
 }
 
-pub trait Rotation {
-    fn rotate_90(&self) -> DMatrix<u32>;
-}
-
-impl Rotation for DMatrix<u32> {
-    fn rotate_90(&self) -> DMatrix<u32> {
-        assert_eq!(self.nrows(), self.ncols());
-        let side = self.nrows();
-        let mut target_matrix = DMatrix::<u32>::zeros(side, side);
-
-        (0..side).for_each(|i| {
-            (0..side).for_each(|j| target_matrix[(j, (side - 1) - i)] = self[(i, j)]);
-        });
-        target_matrix
-    }
-}
-
-fn alias_sub_image(image: RgbImage, pixel_aliases: &BiMap<u32, Rgb<u8>>) -> Vec<u32> {
+fn alias_sub_image(image: RgbImage, pixel_aliases: &PixelKeys) -> Vec<usize> {
     image
         .pixels()
         .map(|p| *pixel_aliases.get_by_right(&p).unwrap())
         .collect()
 }
 
-fn alias_pixels(image: &RgbImage) -> BiMap<u32, Rgb<u8>> {
+fn alias_pixels(image: &RgbImage) -> PixelKeys {
     image
         .pixels()
         .fold(HashSet::<Rgb<u8>>::new(), |mut acc, pixel| {
@@ -159,20 +154,19 @@ fn alias_pixels(image: &RgbImage) -> BiMap<u32, Rgb<u8>> {
         })
         .into_iter()
         .enumerate()
-        .map(|(i, p)| (i as u32, p))
         .collect()
 }
 
 fn chunk_image(
     image: RgbImage,
-    chunk_size: u32,
-    pixel_aliases: &BiMap<u32, Rgb<u8>>,
+    chunk_size: usize,
+    pixel_aliases: &PixelKeys,
     rotate: bool,
-) -> Vec<DMatrix<u32>> {
+) -> Vec<Chunk> {
     sub_images(image, chunk_size)
         .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
         .fold(HashSet::new(), |mut acc, pixels| {
-            let chunk = DMatrix::from_row_slice(chunk_size as usize, chunk_size as usize, &pixels);
+            let chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &pixels);
 
             acc.insert(chunk.clone());
 
@@ -190,12 +184,12 @@ fn chunk_image(
         }).into_iter().collect()
 }
 
-type Position = (u32, u32);
-type Size = (u32, u32);
+type Position = (usize, usize);
+type Size = (usize, usize);
 type Direction = u16;
 
-fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
-    let period = ((chunk_size * 2) - 1) as usize;
+fn sub_chunk_positions(chunk_size: usize) -> Vec<(Position, Size, Direction)> {
+    let period = chunk_size * 2 - 1;
     let positions = Limit::new(chunk_size).zip(TriWave::new(chunk_size)).take(period);
     let pos_cart_prod = positions.clone().cartesian_product(positions);
 
@@ -204,7 +198,7 @@ fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
             (x_position, y_position),
             (x_size + 1, y_size + 1)
         ))
-        .filter(|(_, (width, height))| width != &chunk_size || height != &chunk_size)
+        .filter(|(_, (width, height))| width != &(chunk_size) || height != &(chunk_size))
         .enumerate()
         .map(|(direction, (position, size))| (
             position,
@@ -214,30 +208,27 @@ fn sub_chunk_positions(chunk_size: u32) -> Vec<(Position, Size, Direction)> {
         .collect()
 }
 
-fn overlaps<S: Multiset>(chunks: &Vec<DMatrix<u32>>, chunk_size: u32) -> Rules<S> {
+fn overlaps<S: Multiset>(chunks: &[Chunk], chunk_size: usize) -> Rules<S> {
     chunks
         .iter()
         .enumerate()
         .fold(HashMap::new(), |mut acc, (index, chunk)| {
             let sub_positions = sub_chunk_positions(chunk_size);
-            let mut reverse_sub_positions = sub_positions.clone();
-            reverse_sub_positions.reverse();
-
             sub_positions
-                .into_iter() // equivalent to de-referencing
-                .for_each(|((x, y), (width, height), direction)| {
-                    let sub_chunk = chunk.sub_matrix((x, y), (width, height));
+                .iter()
+                .for_each(|(position, size, direction)| {
+                    let sub_chunk = chunk.sub_matrix(*position, *size);
+                    let reverse_index = sub_positions.len() - 1 - *direction as usize;
+                    let (rev_pos, rev_size, _) = sub_positions[reverse_index];
                     chunks
                         .iter()
                         .enumerate()
                         .for_each(|(other_index, other_chunk)| {
                             // find mirrored sub chunk
-                            assert!((direction as usize) < reverse_sub_positions.len());
-                            let ((o_x, o_y), (o_width, o_height), _) = reverse_sub_positions[direction as usize];
-                            let other_sub_chunk = other_chunk.sub_matrix((o_x, o_y), (o_width, o_height));
+                            let other_sub_chunk = other_chunk.sub_matrix(rev_pos, rev_size);
                             if sub_chunk == other_sub_chunk {
                                 acc
-                                    .entry((direction, index))
+                                    .entry((*direction, index))
                                     .and_modify(|labels| *labels.index_mut(other_index) = One::one())
                                     .or_insert({
                                         let mut set = S::empty(chunks.len());
@@ -252,35 +243,38 @@ fn overlaps<S: Multiset>(chunks: &Vec<DMatrix<u32>>, chunk_size: u32) -> Rules<S
 }
 
 // Create a raw graph for pruning
-fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: u32, (height, width): (u32, u32)) -> Graph<S> {
+fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: usize, (height, width): (usize, usize)) -> Graph<S> {
     // pixel based graph dimensions
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
-    let vertices: Vec<S> = vec![all_labels.clone(); (v_dim_x * v_dim_y) as usize];
+    let vertices: Vec<S> = vec![all_labels.clone(); v_dim_x * v_dim_y];
     // create negative indexed range to offset vertex centered directional field by N
-    let range = (0 - (chunk_size as i32 - 1))..(chunk_size as i32);
-    let range_cart_prod = range.clone().cartesian_product(range);
+    let signed_chunk_size: i32 = TryFrom::try_from(chunk_size)
+        .expect("Cannot convert chunk_size to i32");
+    let range = 1 - signed_chunk_size..signed_chunk_size;
+
+    // calculate real cartesian space offest coordinates
+    let range_cart_prod = range.clone()
+        .cartesian_product(range)
+        .filter(|i| i != &(0, 0)); // remove 0 offset for correct directional mapping
 
     let edges: Edges = vertices
         .iter()
         .enumerate()
         .fold(HashMap::new(), |mut acc, (index, _)| {
-            let (x, y) = index_to_coords(index as u32, v_dim_x);
+            let (x, y) = index_to_coords(index, v_dim_x);
             range_cart_prod.clone()
-                // remove 0 offset for correct directional mapping
-                .filter(|(y_offset, x_offset)| *y_offset != 0 || *x_offset != 0)
-                // calculate real cartesian space offest coordinates
                 .map(|(y_offset, x_offset)| (y as i32 + y_offset, x as i32 + x_offset))
                 .enumerate()
                 // remove coordinates outside of graph
-                .filter(|(_, (y_offset, x_offset))| is_inside((*x_offset, *y_offset), (v_dim_x, v_dim_y)))
+                .filter(|(_, offsets)| is_inside(*offsets, (v_dim_x, v_dim_y)))
                 .for_each(|(direction, (y_offset, x_offset))| {
-                    let other_index = coords_to_index((x_offset as u32, y_offset as u32), v_dim_x);
+                    let other_index = coords_to_index(x_offset as usize, y_offset as usize, v_dim_x);
                     acc
                         .entry(index as u32)
-                        .and_modify(|v| v.push((other_index, direction as u16)))
-                        .or_insert(vec![(other_index, direction as u16)]);
+                        .and_modify(|v| v.push((other_index as u32, direction as u16)))
+                        .or_insert(vec![(other_index as u32, direction as u16)]);
                 });
             acc
         });
@@ -288,7 +282,7 @@ fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: u32, (height, width
     Graph::new(vertices, edges, all_labels.clone())
 }
 
-fn propagate_overlaps<S: Multiset>(all_labels: &S, rules: &Rules<S>, chunk_size: u32, label: usize) -> Graph<S> {
+fn propagate_overlaps<S: Multiset>(all_labels: &S, rules: &Rules<S>, chunk_size: usize, label: usize) -> Graph<S> {
     let mut raw_graph = create_raw_graph(all_labels, chunk_size, (3, 3));
     let central_vertex = (raw_graph.vertices.len() - 1) / 2;
     raw_graph.vertices.index_mut(central_vertex).determine(label);
@@ -298,9 +292,9 @@ fn propagate_overlaps<S: Multiset>(all_labels: &S, rules: &Rules<S>, chunk_size:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::hash_map;
     use image::ImageBuffer;
     use nalgebra::{Vector4, Vector2, Vector1};
-    use crate::utils::hash_map;
     use std::ops::Index;
 
     #[test]
@@ -321,7 +315,7 @@ mod tests {
 
         let chunk = chunk_vec.index(0).clone();
 
-        let result: HashSet<DMatrix<u32>> = vec![
+        let result: HashSet<Chunk> = vec![
             chunk.clone(),
             chunk.rotate_90().rotate_90(),
             chunk.rotate_90(),
@@ -329,7 +323,7 @@ mod tests {
         ].into_iter().collect();
 
         assert_eq!(chunk_vec.len(), 4);
-        assert_eq!(chunk_vec.into_iter().collect::<HashSet<DMatrix<u32>>>(), result);
+        assert_eq!(chunk_vec.into_iter().collect::<HashSet<Chunk>>(), result);
     }
 
     #[test]
@@ -339,7 +333,7 @@ mod tests {
             ((0, 0), (2, 1), 1),
             ((1, 0), (1, 1), 2),
             ((0, 0), (1, 2), 3),
-            //         ((0, 0), (2, 2), 4) --> Implicit full overlap removed
+            // ((0, 0), (2, 2), 4) --> Implicit full overlap removed
             ((1, 0), (1, 2), 4),
             ((0, 1), (1, 1), 5),
             ((0, 1), (2, 1), 6),
@@ -397,25 +391,6 @@ mod tests {
         let results_n4 = overlaps(&chunks_n4, 4);
 
         assert_eq!(results_n4, overlaps_n4);
-    }
-
-    #[test]
-    fn test_index_to_coords() {
-        assert_eq!(index_to_coords(4, 3), (1, 1));
-        assert_eq!(index_to_coords(4, 4), (0, 1));
-        assert_eq!(index_to_coords(11, 3), (2, 3));
-    }
-
-    #[test]
-    fn test_coords_to_index() {
-        assert_eq!(coords_to_index((2, 1), 3), 5);
-        assert_eq!(coords_to_index((0, 1), 4), 4);
-    }
-
-    #[test]
-    fn test_is_inside() {
-        assert!(!is_inside((-1, 0), (3, 3)));
-        assert!(!is_inside((0, 4), (4, 4)));
     }
 
     #[test]

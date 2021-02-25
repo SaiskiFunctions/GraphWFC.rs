@@ -1,6 +1,5 @@
 use hashbrown::{HashMap, HashSet};
 use std::hash::Hash;
-use std::iter::FromIterator;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use std::collections::BTreeMap;
@@ -9,7 +8,7 @@ pub fn hash_set<T>(data: &[T]) -> HashSet<T>
     where
         T: Hash + Eq + Clone,
 {
-    HashSet::from_iter(data.iter().cloned())
+    data.iter().cloned().collect()
 }
 
 pub fn hash_map<K, V>(data: &[(K, V)]) -> HashMap<K, V>
@@ -17,13 +16,19 @@ pub fn hash_map<K, V>(data: &[(K, V)]) -> HashMap<K, V>
         K: Hash + Eq + Clone,
         V: Clone,
 {
-    HashMap::from_iter(data.iter().cloned())
+    data.iter().cloned().collect()
 }
 
 pub struct Metrics<'a> {
     counters: BTreeMap<&'a str, i32>,
     accumulators: BTreeMap<&'a str, Vec<i32>>,
-    averages: BTreeMap<&'a str, (&'a str, &'a str)>
+    averages: BTreeMap<&'a str, (&'a str, &'a str)>,
+}
+
+impl<'a> Default for Metrics<'a> {
+    fn default() -> Self {
+        Metrics::new()
+    }
 }
 
 impl<'a> Metrics<'a> {
@@ -31,7 +36,7 @@ impl<'a> Metrics<'a> {
         Metrics {
             counters: BTreeMap::new(),
             accumulators: BTreeMap::new(),
-            averages: BTreeMap::new()
+            averages: BTreeMap::new(),
         }
     }
 
@@ -52,7 +57,10 @@ impl<'a> Metrics<'a> {
     }
 
     pub fn acc(&mut self, key: &'a str, value: i32) {
-        self.accumulators.entry(key).and_modify(|a| a.push(value)).or_insert(vec![value]);
+        self.accumulators
+            .entry(key)
+            .and_modify(|a| a.push(value))
+            .or_insert_with(|| vec![value]);
     }
 
     pub fn init_acc(&mut self, key: &'a str, value: Vec<i32>) {
@@ -83,7 +91,7 @@ impl Display for Metrics<'_> {
             self.counters.iter().for_each(|(&k, v)| {
                 output = format!("{}{}: {}\n", output, k, v);
             });
-            output.push_str("\n")
+            output.push('\n')
         }
 
         if !self.accumulators.is_empty() {
@@ -91,7 +99,7 @@ impl Display for Metrics<'_> {
             self.accumulators.iter().for_each(|(&k, v)| {
                 output = format!("{}{}: {:?}\n", output, k, v);
             });
-            output.push_str("\n")
+            output.push('\n')
         }
 
         let avg_results: Vec<(String, f64)> = self.averages.iter().filter_map(|(k, &v)| {
@@ -105,9 +113,45 @@ impl Display for Metrics<'_> {
             avg_results.iter().for_each(|(k, result)| {
                 output = format!("{}{}: {}\n", output, k, result)
             });
-            output.push_str("\n")
+            output.push('\n')
         }
 
         write!(f, "{}", output)
+    }
+}
+
+pub fn index_to_coords(index: usize, width: usize) -> (usize, usize) {
+    (index % width, index / width)
+}
+
+pub fn coords_to_index(x: usize, y: usize, width: usize) -> usize {
+    x + y * width
+}
+
+pub fn is_inside((x, y): (i32, i32), (w, h): (usize, usize)) -> bool {
+    !(x < 0 || y < 0 || x > (w as i32 - 1) || y > (h as i32 - 1))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_index_to_coords() {
+        assert_eq!(index_to_coords(4, 3), (1, 1));
+        assert_eq!(index_to_coords(4, 4), (0, 1));
+        assert_eq!(index_to_coords(11, 3), (2, 3));
+    }
+
+    #[test]
+    fn test_coords_to_index() {
+        assert_eq!(coords_to_index(2, 1, 3), 5);
+        assert_eq!(coords_to_index(0, 1, 4), 4);
+    }
+
+    #[test]
+    fn test_is_inside() {
+        assert!(!is_inside((-1, 0), (3, 3)));
+        assert!(!is_inside((0, 4), (4, 4)));
     }
 }

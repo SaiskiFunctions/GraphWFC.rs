@@ -1,41 +1,45 @@
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, DefaultAllocator, Dynamic, Scalar};
+use nalgebra::allocator::Allocator;
 
 pub trait SubMatrix {
-    fn crop_left(self, offset: usize) -> DMatrix<u32>;
-    fn crop_right(self, offset: usize) -> DMatrix<u32>;
-    fn crop_top(self, offset: usize) -> DMatrix<u32>;
-    fn crop_bottom(self, offset: usize) -> DMatrix<u32>;
-    fn sub_matrix(&self, position: (u32, u32), size: (u32, u32)) -> DMatrix<u32>;
+    fn crop_left(self, offset: usize) -> Self;
+    fn crop_right(self, offset: usize) -> Self;
+    fn crop_top(self, offset: usize) -> Self;
+    fn crop_bottom(self, offset: usize) -> Self;
+    fn sub_matrix(&self, position: (usize, usize), size: (usize, usize)) -> Self;
 }
 
-impl SubMatrix for DMatrix<u32> {
-    fn crop_left(self, offset: usize) -> DMatrix<u32> {
+impl<T: Scalar> SubMatrix for DMatrix<T>
+    where
+        DefaultAllocator: Allocator<T, Dynamic, Dynamic>,
+{
+    fn crop_left(self, offset: usize) -> DMatrix<T> {
         self.remove_columns(0, offset)
     }
 
-    fn crop_right(self, offset: usize) -> DMatrix<u32> {
+    fn crop_right(self, offset: usize) -> DMatrix<T> {
         let cols = self.ncols();
         if offset >= cols { return self }
         self.remove_columns(offset, cols - offset)
     }
 
-    fn crop_top(self, offset: usize) -> DMatrix<u32> {
+    fn crop_top(self, offset: usize) -> DMatrix<T> {
         self.remove_rows(0, offset)
     }
 
-    fn crop_bottom(self, offset: usize) -> DMatrix<u32> {
+    fn crop_bottom(self, offset: usize) -> DMatrix<T> {
         let rows = self.nrows();
         if offset >= rows { return self }
         self.remove_rows(offset, rows - offset)
     }
 
-    fn sub_matrix(&self, position: (u32, u32), size: (u32, u32)) -> DMatrix<u32> {
+    fn sub_matrix(&self, position: (usize, usize), size: (usize, usize)) -> DMatrix<T> {
         self
             .clone()
-            .crop_left(position.0 as usize)
-            .crop_right(size.0 as usize)
-            .crop_top(position.1 as usize)
-            .crop_bottom(size.1 as usize)
+            .crop_left(position.0)
+            .crop_right(size.0)
+            .crop_top(position.1)
+            .crop_bottom(size.1)
     }
 }
 
