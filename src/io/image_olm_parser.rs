@@ -96,10 +96,10 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: usize) -> (Rules<S>, Pixel
             let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label);
 
             real_vertex_indexes(chunk_size)
-                .into_iter()
+                .iter()
                 .enumerate()
                 .for_each(|(direction, index)| {
-                    let set = pruned_graph.vertices.index(index);
+                    let set = pruned_graph.vertices.index(*index);
                     if !set.is_empty_m() {
                         pruned_rules.insert((direction as u16, label), set.clone());
                     }
@@ -109,10 +109,10 @@ pub fn parse<S: Multiset>(filename: &str, chunk_size: usize) -> (Rules<S>, Pixel
     (pruned_rules, pixel_aliases, all_labels, chunks)
 }
 
-fn real_vertex_indexes(chunk_size: usize) -> Vec<usize> {
+const fn real_vertex_indexes(chunk_size: usize) -> [usize; 8] {
     let dim = (3 * chunk_size) - (chunk_size - 1);
     let step = chunk_size - 1;
-    vec![
+    [
         0,                                      // NW
         step + 1,                               // N
         (step + 1) * 2,                         // NE

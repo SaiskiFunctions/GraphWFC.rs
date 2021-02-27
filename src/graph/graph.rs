@@ -37,6 +37,7 @@ impl<S: Multiset> Graph<S> {
             .iter()
             .fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
                 edges.iter().for_each(|(to_vertex_index, direction)| {
+                    let union_labels = self.vertices.index(*to_vertex_index as usize);
                     self.vertices
                         .index(*from_vertex_index as usize)
                         .iter_m()
@@ -44,7 +45,6 @@ impl<S: Multiset> Graph<S> {
                         .filter(|(_, &label)| label > Zero::zero())
                         .for_each(|(from_vertex_label, _)| {
                             let rules_key = (*direction, from_vertex_label);
-                            let union_labels = self.vertices.index(*to_vertex_index as usize);
                             rules
                                 .entry(rules_key)
                                 .and_modify(|to_labels| to_labels.add_assign_m(union_labels))
