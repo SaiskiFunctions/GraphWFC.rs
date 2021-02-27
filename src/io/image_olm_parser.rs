@@ -53,10 +53,11 @@ pub fn render<S: Multiset>(
         .into_iter()
         .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i).clone()))
         .enumerate()
-        .for_each(|(index, opt_chunk)| {
-            let (x, y) = index_to_coords(index, graph_width);
-            let top_left_pix_x = x * chunk_size;
-            let top_left_pix_y = y * chunk_size;
+        .for_each(|(chunk_index, opt_chunk)| {
+            let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
+            // project to pixel coordinates
+            let top_left_pix_x = chunk_x * chunk_size;
+            let top_left_pix_y = chunk_y * chunk_size;
 
             let chunk = match opt_chunk {
                 None => DMatrix::from_element(chunk_size, chunk_size, contradiction_key),
@@ -67,9 +68,11 @@ pub fn render<S: Multiset>(
                 .iter()
                 .enumerate()
                 .for_each(|(pixel_index, pixel_alias)| {
-                    let (pixel_y, pixel_x) = index_to_coords(pixel_index, chunk_size);
-                    let pixel = output_image.get_pixel_mut((top_left_pix_x + pixel_x) as u32, (top_left_pix_y + pixel_y) as u32);
-                    *pixel = *key.get_by_left(pixel_alias).unwrap_or(&GREEN);
+                    let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
+                    let pixel_y = (top_left_pix_y + p_y) as u32;
+                    let pixel_x = (top_left_pix_x + p_x) as u32;
+                    let pixel = *key.get_by_left(pixel_alias).unwrap_or(&GREEN);
+                    output_image.put_pixel(pixel_x, pixel_y, pixel);
                 });
         });
 
@@ -199,7 +202,7 @@ fn sub_chunk_positions(chunk_size: usize) -> Vec<(Position, Size, Direction)> {
             (x_position, y_position),
             (x_size + 1, y_size + 1)
         ))
-        .filter(|(_, (width, height))| width != &(chunk_size) || height != &(chunk_size))
+        .filter(|(_, (width, height))| width != &chunk_size || height != &chunk_size)
         .enumerate()
         .map(|(direction, (position, size))| (
             position,
