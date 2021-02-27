@@ -24,18 +24,6 @@ const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
 
-// jump by chunk and render the pixels inside each chunk
-//    0    2    3    <- chunk_coords x component
-//   ┏━━━┓┏━━━┓┏━━━┓     0 1 <- pixel_coords x compoent
-// 0 ┃▆ ▆┃┃   ┃┃   ┃   0 ▆ ▆
-//   ┃▆ ▆┃┃   ┃┃   ┃   1 ▆ ▆
-//   ┗━━━┛┗━━━┛┗━━━┛   ^ pixel-coords y component
-//   ┏━━━┓┏━━━┓┏━━━┓
-// 1 ┃   ┃┃   ┃┃   ┃
-//   ┃   ┃┃   ┃┃   ┃
-//   ┗━━━┛┗━━━┛┗━━━┛
-// ^ chunk_coords y component
-
 pub fn render<S: Multiset>(
     filename: &str,
     graph: Graph<S>,
@@ -184,6 +172,7 @@ fn chunk_image(
                 let chunk_r270 = chunk_r180.rotate_90();
                 acc.insert(chunk_r270);
             }
+
             acc
         }).into_iter().collect()
 }

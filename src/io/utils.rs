@@ -20,7 +20,6 @@ impl Directions {
     fn fns(&self) -> Vec<impl Fn(u32, u32, u32, u32) -> Option<IdxDir>> {
         let mask = format!("{:08b}", self.code);
         let fns = &[
-            // north, north_east, east, south_east, south, south_west, west, north_west,
             north_west, north, north_east, west, east, south_west, south, south_east,
         ];
         fns.iter()
