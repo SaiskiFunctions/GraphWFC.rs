@@ -1,5 +1,12 @@
 use crate::graph::graph::{Edges, VertexIndex};
 use hashbrown::HashMap;
+use nalgebra::DMatrix;
+
+//              +--- index of neighbor
+//              |    +-- direction of neighbor
+//              |    |
+//              v    v
+type IdxDir = (u32, u16);
 
 pub struct Directions {
     code: u8,
@@ -10,14 +17,14 @@ impl Directions {
         Directions { code }
     }
 
-    fn fns(&self) -> Vec<impl Fn(u32, u32, u32, u32) -> Option<(u32, u16)>> {
-        let mask = format!("{:b}", self.code);
+    fn fns(&self) -> Vec<impl Fn(u32, u32, u32, u32) -> Option<IdxDir>> {
+        let mask = format!("{:08b}", self.code);
         let fns = &[
-            north, north_east, east, south_east, south, south_west, west, north_west,
+            north_west, north, north_east, west, east, south_west, south, south_east,
         ];
         fns.iter()
             .zip(mask.chars())
-            .filter_map(|(f, m)| if m == '1' { Some(f) } else { None })
+            .filter_map(|(f, m)| (m == '1').then(|| f))
             .collect()
     }
 
@@ -40,88 +47,73 @@ impl Directions {
 }
 
 #[allow(unused_variables)]
-//NORTH = 0
-fn north(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if di > 0 {
-        Some(((di - 1) * w + wi, 0))
-    } else {
-        None
-    }
+//NORTH = 1
+fn north(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (di > 0).then(|| ((di - 1) * w + wi, 1))
 }
 
 #[allow(unused_variables)]
-//NORTH EAST = 1
-fn north_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if di > 0 && wi < w - 1 {
-        Some(((di - 1) * w + wi + 1, 1))
-    } else {
-        None
-    }
+//NORTH EAST = 2
+fn north_east(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (di > 0 && wi < w - 1).then(|| ((di - 1) * w + wi + 1, 2))
 }
 
 #[allow(unused_variables)]
-//EAST = 2
-fn east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if wi < w - 1 {
-        Some(((wi + 1) + di * w, 2))
-    } else {
-        None
-    }
+//EAST = 4
+fn east(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (wi < w - 1).then(|| ((wi + 1) + di * w, 4))
 }
 
-//SOUTH EAST = 3
-fn south_east(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if di < d - 1 && wi < w - 1 {
-        Some(((di + 1) * w + wi + 1, 3))
-    } else {
-        None
-    }
+//SOUTH EAST = 7
+fn south_east(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (di < d - 1 && wi < w - 1).then(|| ((di + 1) * w + wi + 1, 7))
 }
 
-//SOUTH = 4
-fn south(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if di < d - 1 {
-        Some(((di + 1) * w + wi, 4))
-    } else {
-        None
-    }
+//SOUTH = 6
+fn south(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (di < d - 1).then(|| ((di + 1) * w + wi, 6))
 }
 
 //SOUTH WEST = 5
-fn south_west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if di < d - 1 && wi > 0 {
-        Some(((di + 1) * w + wi - 1, 5))
-    } else {
-        None
-    }
+fn south_west(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (di < d - 1 && wi > 0).then(|| ((di + 1) * w + wi - 1, 5))
 }
 
 #[allow(unused_variables)]
-//WEST = 6
-fn west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if wi > 0 {
-        Some(((wi - 1) + di * w, 6))
-    } else {
-        None
-    }
+//WEST = 3
+fn west(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (wi > 0).then(|| ((wi - 1) + di * w, 3))
 }
 
 #[allow(unused_variables)]
-//NORTH WEST = 7
-fn north_west(d: u32, di: u32, w: u32, wi: u32) -> Option<(u32, u16)> {
-    if di > 0 && wi > 0 {
-        Some(((di - 1) * w + wi - 1, 7))
-    } else {
-        None
-    }
+//NORTH WEST = 0
+fn north_west(d: u32, di: u32, w: u32, wi: u32) -> Option<IdxDir> {
+    (di > 0 && wi > 0).then(|| ((di - 1) * w + wi - 1, 0))
 }
 
 pub fn make_edges_cardinal_grid(width: usize, depth: usize) -> Edges {
-    Directions::new(170).make_edges(width, depth)
+    Directions::new(90).make_edges(width, depth)
 }
 
 pub fn make_edges_8_way_grid(width: usize, depth: usize) -> Edges {
     Directions::new(255).make_edges(width, depth)
+}
+
+pub trait Rotation {
+    fn rotate_90(&self) -> Self;
+}
+
+impl Rotation for DMatrix<usize> {
+    fn rotate_90(&self) -> DMatrix<usize> {
+        assert_eq!(self.nrows(), self.ncols());
+        let side = self.nrows();
+        let mut target_matrix = DMatrix::<usize>::zeros(side, side);
+
+        (0..side).for_each(|i| {
+            (0..side).for_each(|j| target_matrix[(j, (side - 1) - i)] = self[(i, j)]);
+        });
+        target_matrix
+    }
 }
 
 #[cfg(test)]
@@ -133,10 +125,10 @@ mod tests {
     fn test_make_edges_cardinal_grid() {
         let result = make_edges_cardinal_grid(2, 2);
         let expected = hash_map(&[
-            (1, vec![(3, 4), (0, 6)]),
-            (0, vec![(1, 2), (2, 4)]),
-            (3, vec![(1, 0), (2, 6)]),
-            (2, vec![(0, 0), (3, 2)]),
+            (1, vec![(0, 3), (3, 6)]),
+            (0, vec![(1, 4), (2, 6)]),
+            (3, vec![(1, 1), (2, 3)]),
+            (2, vec![(0, 1), (3, 4)]),
         ]);
         assert_eq!(result, expected);
     }
@@ -145,10 +137,10 @@ mod tests {
     fn test_make_edges_8_way_grid() {
         let result = make_edges_8_way_grid(2, 2);
         let expected = hash_map(&[
-            (1, vec![(3, 4), (2, 5), (0, 6)]),
-            (0, vec![(1, 2), (3, 3), (2, 4)]),
-            (3, vec![(1, 0), (2, 6), (0, 7)]),
-            (2, vec![(0, 0), (1, 1), (3, 2)]),
+            (1, vec![(0, 3), (2, 5), (3, 6)]),
+            (0, vec![(1, 4), (2, 6), (3, 7)]),
+            (3, vec![(0, 0), (1, 1), (2, 3)]),
+            (2, vec![(0, 1), (1, 2), (3, 4)]),
         ]);
         assert_eq!(result, expected);
     }

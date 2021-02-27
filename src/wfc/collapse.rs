@@ -65,6 +65,7 @@ fn exec_collapse<S: Multiset>(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<S>,
+    partial: bool
 ) -> Vec<S> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
@@ -111,6 +112,8 @@ fn exec_collapse<S: Multiset>(
             }
             to_propagate = replace(&mut propagations, to_propagate);
         }
+
+        if partial { return vertices }
 
         // check if all vertices observed, if so we have finished
         if observed_counter == vertices_len {
@@ -186,20 +189,21 @@ fn generate_propagations(
 }
 
 pub fn collapse<S: Multiset>(
-    input_graph: &Graph<S>,
+    rules: &Rules<S>,
     mut output_graph: Graph<S>,
     seed: Option<u64>,
+    partial: bool
 ) -> Graph<S> {
     let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
-    let rules = &input_graph.rules();
     let init = init_collapse(rng, &output_graph);
 
     let collapsed_vertices = exec_collapse(
         rng,
         rules,
         &output_graph.edges,
-        init.clone(),
+        init,
         output_graph.vertices,
+        partial // 🐯
     );
     output_graph.vertices = collapsed_vertices;
     output_graph
@@ -276,11 +280,11 @@ mod tests {
         let edges = simple_edges();
         let all_labels = MS6::from_row_slice_u(&[1, 2, 1]);
         let out_graph = Graph::<MS6>::new(simple_vertices(), edges, all_labels);
-        let rules: &Rules<MS6> = &simple_rules();
+        let rules: Rules<MS6> = simple_rules();
 
         let init = init_collapse::<MS6>(&mut rng, &out_graph);
 
-        let result = exec_collapse::<MS6>(&mut rng, rules, &out_graph.edges, init, simple_vertices());
+        let result = exec_collapse::<MS6>(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
         let expected: Vec<MS6> = vec![
             MS6::from_row_slice_u(&[1, 0, 0]),
             MS6::from_row_slice_u(&[0, 2, 0]),
@@ -343,6 +347,7 @@ mod tests {
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
+            false
         );
 
         let expected: Vec<MS2> = vec![
@@ -446,6 +451,7 @@ mod tests {
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),
+            false
         );
 
         let expected: Vec<MS2> = vec![

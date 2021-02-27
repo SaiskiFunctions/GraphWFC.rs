@@ -27,12 +27,15 @@ fn char_keys<S: Multiset>(char_frequency: &HashMap<char, S::Item>) -> CharKeyBim
 }
 
 fn char_frequency<S: Multiset>(string: &str) -> HashMap<char, S::Item> {
-    string.chars().filter(|c| c != &'\n').fold(HashMap::new(), |mut map, char| {
-        map.entry(char)
-            .and_modify(|freq| *freq += One::one())
-            .or_insert(One::one());
-        map
-    })
+    string.chars()
+        .filter(|c| c != &'\n')
+        .fold(HashMap::new(), |mut map, char| {
+            map
+                .entry(char)
+                .and_modify(|freq| *freq += One::one())
+                .or_insert(One::one());
+            map
+        })
 }
 
 fn make_all_labels<S: Multiset>(
@@ -49,7 +52,7 @@ fn make_vertices<S: Multiset>(
     string: &str,
     char_frequency: &HashMap<char, S::Item>,
     char_keys: &CharKeyBimap,
-    directional: bool
+    directional: bool,
 ) -> Vec<S> {
     string
         .chars()

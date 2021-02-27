@@ -6,11 +6,12 @@ use rand::prelude::*;
 use std::ops::{AddAssign, IndexMut};
 use std::slice::Iter;
 use std::hash::Hash;
+use std::fmt::Debug;
 
 
 pub trait Multiset
 where
-    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item> + Eq + Hash
+    Self: Clone + PartialEq + IndexMut<usize, Output=<Self as Multiset>::Item> + Eq + Hash + Debug
 {
     type Item: Zero + One + Copy + AddAssign + PartialOrd + Eq + Hash;
 
@@ -43,6 +44,12 @@ where
     fn entropy(&self) -> f64;
 
     fn choose(&mut self, rng: &mut StdRng);
+
+    fn determine(&mut self, choice: usize);
+
+    fn total(&self) -> Self::Item;
+
+    fn count_non_zero(&self) -> usize;
 
     fn add_assign_m(&mut self, other: &Self);
 }
@@ -131,7 +138,6 @@ where
         })
     }
 
-    //noinspection DuplicatedCode
     fn choose(&mut self, rng: &mut StdRng) {
         let total = self.sum();
         let choice = rng.gen_range::<_, N, N>(One::one(), total + One::one());
@@ -149,6 +155,22 @@ where
                 }
             }
         });
+    }
+
+    fn determine(&mut self, choice: usize) {
+        self.iter_mut().enumerate().for_each(|(index, elem)| {
+            if choice != index {
+                *elem = N::zero()
+            }
+        });
+    }
+
+    fn total(&self) -> Self::Item {
+        self.sum()
+    }
+
+    fn count_non_zero(&self) -> usize {
+        self.fold(0, |acc, i| if i > N::zero() { acc + 1 } else { acc })
     }
 
     fn add_assign_m(&mut self, other: &Self) {
@@ -287,5 +309,13 @@ mod tests {
         let result2: MultisetVector = MultisetVector::from_row_slice_u(&[2, 0, 0, 0, 0, 0]);
         b.choose(test_rng2);
         assert_eq!(*b, result2)
+    }
+
+    #[test]
+    fn test_determine() {
+        let a: &mut MultisetVector = &mut MultisetVector::from_row_slice_u(&[2, 1, 3, 4, 0, 0]);
+        let result1: MultisetVector = MultisetVector::from_row_slice_u(&[0, 0, 3, 0, 0, 0]);
+        a.determine(2);
+        assert_eq!(*a, result1);
     }
 }
