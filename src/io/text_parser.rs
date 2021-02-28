@@ -1,21 +1,21 @@
 use crate::graph::graph::{Edges, Graph};
 use crate::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
-use crate::multiset::Multiset;
 use hashbrown::HashMap;
 use num_traits::One;
 use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
 use bimap::BiHashMap;
+use crate::MSu16xNU;
 use itertools::Itertools;
 
 pub type CharKeyBimap = BiHashMap<usize, char>;
 
-pub fn parse<S: Multiset>(filename: &str) -> Result<(Graph<S>, CharKeyBimap), Error> {
+pub fn parse(filename: &str) -> Result<(Graph, CharKeyBimap), Error> {
     read_to_string(filename).map(|string| {
         let edges = make_edges(&string);
-        let char_frequency = char_frequency::<S>(&string);
-        let char_keys: CharKeyBimap = char_keys::<S>(&char_frequency);
+        let char_frequency = char_frequency(&string);
+        let char_keys: CharKeyBimap = char_keys(&char_frequency);
         let all_labels = make_all_labels(&char_frequency, &char_keys);
         let vertices = make_vertices(&string, &char_frequency, &char_keys, true);
 
@@ -28,7 +28,7 @@ pub fn parse<S: Multiset>(filename: &str) -> Result<(Graph<S>, CharKeyBimap), Er
 // Tori sea
 // Hashmap lame
 // Vecs have game
-fn char_keys<S: Multiset>(char_frequency: &HashMap<char, S::Item>) -> CharKeyBimap {
+fn char_keys(char_frequency: &HashMap<char, u16>) -> CharKeyBimap {
     char_frequency
         .keys()
         .copied()
@@ -37,45 +37,45 @@ fn char_keys<S: Multiset>(char_frequency: &HashMap<char, S::Item>) -> CharKeyBim
         .collect()
 }
 
-fn char_frequency<S: Multiset>(string: &str) -> HashMap<char, S::Item> {
+fn char_frequency(string: &str) -> HashMap<char, u16> {
     string
         .chars()
         .filter(|char| char != &'\n')
         .fold(HashMap::new(), |mut map, char| {
             map
                 .entry(char)
-                .and_modify(|freq| *freq += One::one())
-                .or_insert(One::one());
+                .and_modify(|freq| *freq += 1)
+                .or_insert(1);
             map
         })
 }
 
-fn make_all_labels<S: Multiset>(
-    char_frequency: &HashMap<char, S::Item>,
+fn make_all_labels(
+    char_frequency: &HashMap<char, u16>,
     char_keys: &CharKeyBimap,
-) -> S {
-    S::from_iter_u((0..char_keys.len()).map(|index| {
+) -> MSu16xNU {
+    (0..char_keys.len()).map(|index| {
         let character = char_keys.get_by_left(&index).unwrap();
         *char_frequency.index(character)
-    }))
+    }).collect()
 }
 
-fn make_vertices<S: Multiset>(
+fn make_vertices(
     string: &str,
-    char_frequency: &HashMap<char, S::Item>,
+    char_frequency: &HashMap<char, u16>,
     char_keys: &CharKeyBimap,
     directional: bool,
-) -> Vec<S> {
+) -> Vec<MSu16xNU> {
     string
         .chars()
         .filter(|c| c != &'\n')
         .map(|c| {
-            let index = char_keys.get_by_right(&c).unwrap();
-            let mut set = S::empty(char_keys.len());
+            let index = *char_keys.get_by_right(&c).unwrap();
+            let mut set = MSu16xNU::empty();
             if directional {
-                *set.index_mut(*index) = One::one()
+                set.insert(index, 1);
             } else {
-                *set.index_mut(*index) = *char_frequency.index(&c)
+                set.insert(index, *char_frequency.index(&c));
             }
             set
         })
@@ -93,9 +93,11 @@ fn make_edges(string: &str) -> Edges {
     make_edges_8_way_grid(width, height)
 }
 
-pub fn render<S: Multiset>(
+const CROSS: char = '❌';
+
+pub fn render(
     filename: &str,
-    graph: &Graph<S>,
+    graph: &Graph,
     key: &CharKeyBimap,
     width: usize,
 ) {
@@ -103,11 +105,11 @@ pub fn render<S: Multiset>(
         .vertices
         .iter()
         .map(|labels| {
-            if let Some(k) = labels.get_non_zero() {
-                *key.get_by_left(&k).unwrap()
-            } else {
-                '❌'
-            }
+            labels
+                .is_singleton()
+                .then(|| key.get_by_left(&labels.imax()).copied())
+                .flatten()
+                .unwrap_or(CROSS)
         })
         .collect();
     let lines: String = rendered_vertices
@@ -124,9 +126,7 @@ mod tests {
 
     #[test]
     fn test_parse_easy() {
-        if let Ok((graph, keys)) = parse::<VectorN<u16, U6>>("resources/test/easy_emoji.txt") {
-            println!("{:?}", keys);
-            println!("{:?}", graph);
+        if let Ok((graph, keys)) = parse("resources/test/easy_emoji.txt") {
             assert_eq!(keys.len(), 3);
             assert_eq!(graph.vertices.len(), 4);
         }
@@ -134,9 +134,7 @@ mod tests {
 
     #[test]
     fn test_parse_medium() {
-        if let Ok((graph, keys)) = parse::<VectorN<u16, U7>>("resources/test/medium_emoji.txt") {
-            println!("{:?}", keys);
-            println!("{:?}", graph);
+        if let Ok((graph, keys)) = parse("resources/test/medium_emoji.txt") {
             assert_eq!(keys.len(), 7);
             assert_eq!(graph.vertices.len(), 108);
         }

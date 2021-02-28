@@ -2,7 +2,7 @@ use crate::graph::graph::VertexIndex;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Observe {
     entropy: f64,
     pub index: VertexIndex,
