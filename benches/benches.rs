@@ -31,10 +31,8 @@ mod graphs {
     use bencher::Bencher;
     use nalgebra::{U6, VectorN};
     use wfc_rust::graph::graph::*;
-    use wfc_rust::multiset::Multiset;
     use wfc_rust::utils::hash_map;
-
-    type MS6 = VectorN<u16, U6>;
+    use wfc_rust::MSu16xNU;
 
     fn graph_edges() -> Edges {
         hash_map(&[
@@ -46,17 +44,17 @@ mod graphs {
     }
 
     pub fn graph_rules(bench: &mut Bencher) {
-        let graph_vertices: Vec<MS6> = vec![
-            Multiset::from_row_slice_u(&[1, 0, 0]),
-            Multiset::from_row_slice_u(&[0, 2, 0]),
-            Multiset::from_row_slice_u(&[0, 0, 1]),
-            Multiset::from_row_slice_u(&[0, 2, 0]),
+        let graph_vertices: Vec<MSu16xNU> = vec![
+            MSu16xNU::from_slice(&[1, 0, 0]),
+            MSu16xNU::from_slice(&[0, 2, 0]),
+            MSu16xNU::from_slice(&[0, 0, 1]),
+            MSu16xNU::from_slice(&[0, 2, 0]),
         ];
 
         let graph = Graph::new(
             graph_vertices,
             graph_edges(),
-            Multiset::from_row_slice_u(&[1, 2, 1]),
+            MSu16xNU::from_slice(&[1, 2, 1]),
         );
 
         bench.iter(|| graph.rules())
