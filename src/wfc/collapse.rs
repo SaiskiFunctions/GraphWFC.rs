@@ -217,51 +217,44 @@ mod tests {
     use std::iter::FromIterator;
 
     //noinspection DuplicatedCode
-    fn simple_edges() -> Edges {
-        hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)]),
-        ])
-    }
-
-    //noinspection DuplicatedCode
     fn simple_vertices() -> Vec<MSu16xNU> {
         vec![
-            MSu16xNU::from_iter([1, 0, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 0, 1].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
+            [1, 0, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [0, 2, 0].iter().collect(),
         ]
-    }
-
-    //noinspection DuplicatedCode
-    fn simple_rules() -> Rules {
-        hash_map(&[
-            ((0, 0), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((0, 1), MSu16xNU::from_iter([0, 0, 1].iter().cloned())),
-            ((1, 1), MSu16xNU::from_iter([1, 0, 0].iter().cloned())),
-            ((1, 2), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((2, 0), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((2, 1), MSu16xNU::from_iter([0, 0, 1].iter().cloned())),
-            ((3, 1), MSu16xNU::from_iter([1, 0, 0].iter().cloned())),
-            ((3, 2), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-        ])
     }
 
     #[test]
     fn test_constraint() {
-        let a: MSu16xNU = MSu16xNU::from_iter([1, 0, 0, 0, 0, 0].iter().cloned());
-        let b: MSu16xNU = MSu16xNU::from_iter([0, 0, 1, 0, 0, 0].iter().cloned());
-        let c: MSu16xNU = MSu16xNU::from_iter([1, 1, 1, 0, 0, 0].iter().cloned());
-        let rules: Rules = hash_map(&[((0, 0), a), ((0, 1), b), ((0, 2), c)]);
+        let rules: Rules = hash_map(&[
+            ((0, 0), [1, 0, 0, 0, 0, 0].iter().collect()),
+            ((0, 1), [0, 0, 1, 0, 0, 0].iter().collect()),
+            ((0, 2), [1, 1, 1, 0, 0, 0].iter().collect())
+        ]);
 
-        let labels: &MSu16xNU = &MSu16xNU::from_iter([2, 4, 0, 0, 0, 0].iter().cloned());
+        let labels = [2, 4, 0, 0, 0, 0].iter().collect();
         let direction: EdgeDirection = 0;
 
-        let result = build_constraint(labels, direction, &rules);
-        let expected: MSu16xNU = MSu16xNU::from_iter([1, 0, 1, 0, 0, 0].iter().cloned());
+        let result = build_constraint(&labels, direction, &rules);
+        let expected: MSu16xNU = [1, 0, 1, 0, 0, 0].iter().collect();
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn test_constraint2() {
+        let rules: Rules = hash_map(&[
+            ((0, 0), [2, 0, 0, 0, 0, 0].iter().collect()),
+            ((0, 1), [0, 0, 5, 0, 0, 0].iter().collect()),
+            ((0, 2), [1, 1, 1, 0, 0, 0].iter().collect())
+        ]);
+
+        let labels = [3, 4, 1, 0, 2, 0].iter().collect();
+        let direction: EdgeDirection = 0;
+
+        let result = build_constraint(&labels, direction, &rules);
+        let expected: MSu16xNU = [2, 1, 5, 0, 0, 0].iter().collect();
         assert_eq!(result, expected)
     }
 
@@ -270,19 +263,33 @@ mod tests {
     fn test_exec_simple() {
         let mut rng = SmallRng::seed_from_u64(3);
 
-        let edges = simple_edges();
+        let edges = hash_map(&[
+            (0, vec![(1, 0), (3, 2)]),
+            (1, vec![(0, 1), (2, 2)]),
+            (2, vec![(3, 1), (1, 3)]),
+            (3, vec![(0, 3), (2, 0)]),
+        ]);
         let all_labels = MSu16xNU::from_iter([1, 2, 1].iter().cloned());
         let out_graph = Graph::new(simple_vertices(), edges, all_labels);
-        let rules: Rules = simple_rules();
+        let rules: Rules = hash_map(&[
+            ((0, 0), [0, 2, 0].iter().collect()),
+            ((0, 1), [0, 0, 1].iter().collect()),
+            ((1, 1), [1, 0, 0].iter().collect()),
+            ((1, 2), [0, 2, 0].iter().collect()),
+            ((2, 0), [0, 2, 0].iter().collect()),
+            ((2, 1), [0, 0, 1].iter().collect()),
+            ((3, 1), [1, 0, 0].iter().collect()),
+            ((3, 2), [0, 2, 0].iter().collect()),
+        ]);
 
         let init = init_collapse(&mut rng, &out_graph);
 
         let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
         let expected: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([1, 0, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 0, 1].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
+            [1, 0, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [0, 2, 0].iter().collect(),
         ];
 
         assert_eq!(result, expected);
@@ -340,12 +347,12 @@ mod tests {
         );
 
         let expected: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
         assert_eq!(result, expected);
@@ -375,12 +382,12 @@ mod tests {
         ]);
 
         let input_vertices: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
         let input_graph = Graph::new(input_vertices, input_edges, all_labels);
@@ -426,18 +433,18 @@ mod tests {
         );
 
         let expected: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([3, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
-            MSu16xNU::from_iter([0, 3].iter().cloned()),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
         assert_eq!(result, expected);
