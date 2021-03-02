@@ -1,5 +1,4 @@
 use hashbrown::HashMap;
-use num_traits::Zero;
 use std::ops::{Index, AddAssign};
 use std::fmt::{Debug, Formatter, Result};
 use crate::MSu16xNU;
@@ -21,10 +20,7 @@ pub struct Graph {
     pub all_labels: MSu16xNU,
 }
 
-impl Debug for Graph
-    where
-        MSu16xNU: Debug
-{
+impl Debug for Graph {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         f
             .debug_struct("Graph")
@@ -35,10 +31,7 @@ impl Debug for Graph
     }
 }
 
-impl Clone for Graph
-    where
-        MSu16xNU: Clone,
-{
+impl Clone for Graph {
     fn clone(&self) -> Self {
         Graph {
             vertices: self.vertices.clone(),
@@ -59,10 +52,7 @@ impl Graph {
 
     /// Construct HashMap of rules for this graph.
     /// Rules connect a tuple of direction and vertex label to a set of labels.
-    pub fn rules(&self) -> Rules
-        where
-            MSu16xNU: IntoIterator<Item=u16> + AddAssign<MSu16xNU>,
-    {
+    pub fn rules(&self) -> Rules {
         self.edges
             .iter()
             .fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
@@ -72,7 +62,7 @@ impl Graph {
                         .index(*from_vertex_index as usize)
                         .into_iter()
                         .enumerate()
-                        .filter(|(_, label)| label > &Zero::zero())
+                        .filter(|(_, label)| label > &0)
                         .for_each(|(from_vertex_label, _)| {
                             let rules_key = (*direction, from_vertex_label);
                             rules
@@ -93,6 +83,7 @@ mod graph_tests {
     use crate::utils::hash_map;
     use std::iter::FromIterator;
 
+    //noinspection DuplicatedCode
     fn graph_edges() -> Edges {
         hash_map(&[
             (0, vec![(1, 0), (3, 2)]),
@@ -102,6 +93,7 @@ mod graph_tests {
         ])
     }
 
+    //noinspection DuplicatedCode
     #[test]
     fn test_rules() {
         /*
@@ -113,10 +105,10 @@ mod graph_tests {
         */
 
         let graph_vertices: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([1, 0, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 0, 1].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
+            [1, 0, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [0, 2, 0].iter().collect(),
         ];
 
         let test_graph = Graph {
@@ -135,15 +127,15 @@ mod graph_tests {
         // (3: W, 2: c) -> (1: b)
 
         let result: Rules = hash_map(&[
-            //                            a  b  c  <-- the labels
-            ((0, 0), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((0, 1), MSu16xNU::from_iter([0, 0, 1].iter().cloned())),
-            ((1, 1), MSu16xNU::from_iter([1, 0, 0].iter().cloned())),
-            ((1, 2), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((2, 0), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((2, 1), MSu16xNU::from_iter([0, 0, 1].iter().cloned())),
-            ((3, 1), MSu16xNU::from_iter([1, 0, 0].iter().cloned())),
-            ((3, 2), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
+            //        a  b  c  <-- the labels
+            ((0, 0), [0, 2, 0].iter().collect()),
+            ((0, 1), [0, 0, 1].iter().collect()),
+            ((1, 1), [1, 0, 0].iter().collect()),
+            ((1, 2), [0, 2, 0].iter().collect()),
+            ((2, 0), [0, 2, 0].iter().collect()),
+            ((2, 1), [0, 0, 1].iter().collect()),
+            ((3, 1), [1, 0, 0].iter().collect()),
+            ((3, 2), [0, 2, 0].iter().collect()),
         ]);
         
         assert_eq!(test_graph.rules(), result);
@@ -160,16 +152,16 @@ mod graph_tests {
         */
 
         let graph_vertices: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([2, 0, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 1, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 0, 1].iter().cloned()),
-            MSu16xNU::from_iter([2, 0, 0].iter().cloned()),
+            [2, 0, 0].iter().collect(),
+            [0, 1, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [2, 0, 0].iter().collect(),
         ];
 
         let test_graph = Graph {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: MSu16xNU::from_iter([2, 1, 1].iter().cloned()),
+            all_labels: [2, 1, 1].iter().collect(),
         };
 
         /*
@@ -183,13 +175,13 @@ mod graph_tests {
         */
 
         let result: Rules = hash_map(&[
-            ((0, 0), MSu16xNU::from_iter([0, 1, 1].iter().cloned())),
-            ((1, 1), MSu16xNU::from_iter([2, 0, 0].iter().cloned())),
-            ((1, 2), MSu16xNU::from_iter([2, 0, 0].iter().cloned())),
-            ((2, 0), MSu16xNU::from_iter([2, 0, 0].iter().cloned())),
-            ((2, 1), MSu16xNU::from_iter([0, 0, 1].iter().cloned())),
-            ((3, 0), MSu16xNU::from_iter([2, 0, 0].iter().cloned())),
-            ((3, 2), MSu16xNU::from_iter([0, 1, 0].iter().cloned())),
+            ((0, 0), [0, 1, 1].iter().collect()),
+            ((1, 1), [2, 0, 0].iter().collect()),
+            ((1, 2), [2, 0, 0].iter().collect()),
+            ((2, 0), [2, 0, 0].iter().collect()),
+            ((2, 1), [0, 0, 1].iter().collect()),
+            ((3, 0), [2, 0, 0].iter().collect()),
+            ((3, 2), [0, 1, 0].iter().collect()),
         ]);
 
         assert_eq!(test_graph.rules(), result);
@@ -206,16 +198,16 @@ mod graph_tests {
         */
 
         let graph_vertices: Vec<MSu16xNU> = vec![
-            MSu16xNU::from_iter([2, 2, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 2, 0].iter().cloned()),
-            MSu16xNU::from_iter([0, 0, 1].iter().cloned()),
-            MSu16xNU::from_iter([2, 0, 0].iter().cloned()),
+            [2, 2, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [2, 0, 0].iter().collect(),
         ];
 
         let test_graph = Graph {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: MSu16xNU::from_iter([2, 2, 1].iter().cloned()),
+            all_labels: [2, 2, 1].iter().collect(),
         };
 
         /*
@@ -230,14 +222,14 @@ mod graph_tests {
         */
 
         let result: Rules = hash_map(&[
-            ((0, 0), MSu16xNU::from_iter([0, 2, 1].iter().cloned())),
-            ((0, 1), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
-            ((1, 1), MSu16xNU::from_iter([2, 2, 0].iter().cloned())),
-            ((1, 2), MSu16xNU::from_iter([2, 0, 0].iter().cloned())),
-            ((2, 0), MSu16xNU::from_iter([2, 0, 0].iter().cloned())),
-            ((2, 1), MSu16xNU::from_iter([2, 0, 1].iter().cloned())),
-            ((3, 0), MSu16xNU::from_iter([2, 2, 0].iter().cloned())),
-            ((3, 2), MSu16xNU::from_iter([0, 2, 0].iter().cloned())),
+            ((0, 0), [0, 2, 1].iter().collect()),
+            ((0, 1), [0, 2, 0].iter().collect()),
+            ((1, 1), [2, 2, 0].iter().collect()),
+            ((1, 2), [2, 0, 0].iter().collect()),
+            ((2, 0), [2, 0, 0].iter().collect()),
+            ((2, 1), [2, 0, 1].iter().collect()),
+            ((3, 0), [2, 2, 0].iter().collect()),
+            ((3, 2), [0, 2, 0].iter().collect()),
         ]);
 
         assert_eq!(test_graph.rules(), result);

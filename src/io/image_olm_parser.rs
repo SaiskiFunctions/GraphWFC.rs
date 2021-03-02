@@ -12,7 +12,7 @@ use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
 use itertools::Itertools;
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, U4};
 use std::collections::HashSet;
 use std::ops::{IndexMut, Index};
 use std::convert::TryFrom;
@@ -353,14 +353,14 @@ mod tests {
         ];
 
         let mut overlaps_n2: Rules = HashMap::new();
-        overlaps_n2.insert((5, 0), MSu16xNU::from_iter([0, 1, 0, 0].iter().cloned()));
-        overlaps_n2.insert((0, 1), MSu16xNU::from_iter([1, 0, 0, 0].iter().cloned()));
-        overlaps_n2.insert((6, 1), MSu16xNU::from_iter([1, 0, 0, 0].iter().cloned()));
-        overlaps_n2.insert((1, 0), MSu16xNU::from_iter([0, 1, 0, 0].iter().cloned()));
-        overlaps_n2.insert((2, 1), MSu16xNU::from_iter([1, 0, 0, 0].iter().cloned()));
-        overlaps_n2.insert((7, 0), MSu16xNU::from_iter([0, 1, 0, 0].iter().cloned()));
-        overlaps_n2.insert((2, 2), MSu16xNU::from_iter([0, 1, 0, 0].iter().cloned()));
-        overlaps_n2.insert((5, 1), MSu16xNU::from_iter([0, 0, 1, 0].iter().cloned()));
+        overlaps_n2.insert((5, 0), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((0, 1), [1, 0, 0, 0].iter().collect());
+        overlaps_n2.insert((6, 1), [1, 0, 0, 0].iter().collect());
+        overlaps_n2.insert((1, 0), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((2, 1), [1, 0, 0, 0].iter().collect());
+        overlaps_n2.insert((7, 0), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((2, 2), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((5, 1), [0, 0, 1, 0].iter().collect());
 
         let result_n2 = overlaps(&chunks_n2, 2);
         assert_eq!(result_n2, overlaps_n2);
@@ -371,8 +371,8 @@ mod tests {
         ];
 
         let mut overlaps_n3: Rules = HashMap::new();
-        overlaps_n3.insert((0, 0), MSu16xNU::from_iter([0, 1].iter().cloned()));
-        overlaps_n3.insert((23, 1), MSu16xNU::from_iter([1, 0].iter().cloned()));
+        overlaps_n3.insert((0, 0), [0, 1].iter().collect());
+        overlaps_n3.insert((23, 1), [1, 0].iter().collect());
 
         let result_n3 = overlaps(&chunks_n3, 3);
 
@@ -387,8 +387,8 @@ mod tests {
 
         // test overlapping with self only
         let mut overlaps_n4: Rules = HashMap::new();
-        overlaps_n4.insert((8, 0), MSu16xNU::from_iter([1, 0].iter().cloned()));
-        overlaps_n4.insert((39, 0), MSu16xNU::from_iter([1, 0].iter().cloned()));
+        overlaps_n4.insert((8, 0), [1, 0].iter().collect());
+        overlaps_n4.insert((39, 0), [1, 0].iter().collect());
 
         let results_n4 = overlaps(&chunks_n4, 4);
 

@@ -640,9 +640,9 @@ checksum = "373c8a200f9e67a0c95e62a4f52fbf80c23b4381c05a17845531982fa99e6b33"
 
 [[package]]
 name = "utote"
-version = "0.3.2"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae824c7a928a0c75cb1f8c6fd76eaec7c75122d5985d4883a0a986e9e9c9e00f"
+checksum = "0c72601802dc091a9adb0d50e1cf274e363dfee10db695dbe245f663858d2f33"
 dependencies = [
  "generic-array",
  "packed_simd_2",
@@ -687,7 +687,6 @@ dependencies = [
  "itertools",
  "nalgebra",
  "num-traits",
- "packed_simd_2",
  "rand 0.8.3",
  "typenum",
  "utote",
