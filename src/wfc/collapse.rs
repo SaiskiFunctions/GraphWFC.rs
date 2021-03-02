@@ -305,9 +305,6 @@ mod tests {
 
             Output structure same as input structure.
             North = 0, South = 1, East = 2, West = 3
-
-            001
-            010
         */
         let mut rng = SmallRng::seed_from_u64(246547);
         let all_labels = MSu16xNU::from_iter([3, 3].iter().cloned());
@@ -348,11 +345,11 @@ mod tests {
 
         let expected: Vec<MSu16xNU> = vec![
             [0, 3].iter().collect(),
-            [0, 3].iter().collect(),
             [3, 0].iter().collect(),
             [0, 3].iter().collect(),
-            [0, 3].iter().collect(),
-            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
         ];
 
         assert_eq!(result, expected);
