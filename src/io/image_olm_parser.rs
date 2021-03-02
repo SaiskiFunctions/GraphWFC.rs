@@ -266,7 +266,8 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
         .enumerate()
         .fold(HashMap::new(), |mut acc, (index, _)| {
             let (x, y) = index_to_coords(index, v_dim_x);
-            range_cart_prod.clone()
+            range_cart_prod
+                .clone()
                 .map(|(y_offset, x_offset)| (y as i32 + y_offset, x as i32 + x_offset))
                 .enumerate()
                 // remove coordinates outside of graph
