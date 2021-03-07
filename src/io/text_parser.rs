@@ -7,6 +7,7 @@ use std::fs::{read_to_string, write};
 use std::io::Error;
 use std::ops::Index;
 use bimap::BiHashMap;
+use itertools::Itertools;
 
 pub type CharKeyBimap = BiHashMap<usize, char>;
 
@@ -22,13 +23,24 @@ pub fn parse<S: Multiset>(filename: &str) -> Result<(Graph<S>, CharKeyBimap), Er
     })
 }
 
+// 3 syllabale rhyming couplet poem to remind us why we should use sorted data structures
+// Mountain tree
+// Tori sea
+// Hashmap lame
+// Vecs have game
 fn char_keys<S: Multiset>(char_frequency: &HashMap<char, S::Item>) -> CharKeyBimap {
-    char_frequency.keys().copied().enumerate().collect()
+    char_frequency
+        .keys()
+        .copied()
+        .sorted_by(|x, y| x.cmp(y))
+        .enumerate()
+        .collect()
 }
 
 fn char_frequency<S: Multiset>(string: &str) -> HashMap<char, S::Item> {
-    string.chars()
-        .filter(|c| c != &'\n')
+    string
+        .chars()
+        .filter(|char| char != &'\n')
         .fold(HashMap::new(), |mut map, char| {
             map
                 .entry(char)
@@ -71,8 +83,10 @@ fn make_vertices<S: Multiset>(
 }
 
 fn make_edges(string: &str) -> Edges {
-    let width = string.chars().enumerate()
-        .find_map(|t| if t.1 == '\n' { Some(t.0) } else { None })
+    let width = string
+        .chars()
+        .enumerate()
+        .find_map(|(index, char)| if char == '\n' { Some(index) } else { None })
         .unwrap_or_else(|| string.chars().count());
     let height = string.split('\n').filter(|l| !l.is_empty()).count();
     // make_edges_cardinal_grid(width, height)

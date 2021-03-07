@@ -51,7 +51,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
     let mut to_observe: Vec<VertexIndex> = (0..to_observe_len)
         .filter(|i| !observed.contains(*i as usize))
         .collect();
-    to_observe.shuffle(rng);
+    to_observe.shuffle(rng); // Deterministic shuffle with seed
 
     (observed, propagations, to_observe, heap)
 }
@@ -89,7 +89,7 @@ fn exec_collapse<S: Multiset>(
 
                 assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
-                if prop_labels.is_empty_m() {
+                if prop_labels.is_empty_m() { // is this the same as a contradiction?
                     continue
                 }
 
@@ -141,6 +141,7 @@ fn exec_collapse<S: Multiset>(
                 }
             }
         }
+
         match observe_index {
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
@@ -181,6 +182,7 @@ fn generate_propagations(
     from_index: VertexIndex,
 ) {
     assert!(edges.contains_key(&from_index));
+    // Map is not ordered but contained vecs are
     for (to_index, direction) in edges.index(&from_index) {
         if !observed.contains(*to_index as usize) {
             propagations.push(Propagate::new(from_index, *to_index, *direction))
