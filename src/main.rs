@@ -37,20 +37,20 @@ fn run_olm<S: Multiset>(input: &str, chunk_size: usize, output: &str, width: usi
 const CHUNK_SIZE: usize = 3;
 
 // BUG: out_width is divded by 2 when rendered
-fn main() {
-    let input = "resources/test/flowers.png";
-    let output = "resources/test/test_result_9.png";
-    let out_width = 60;
-    let out_depth = 60;
-
-    run_olm::<VectorN<u16, U100>>(input, CHUNK_SIZE, output, out_width, out_depth);
-}
-
 // fn main() {
-//     let input = "resources/test/tosashimizu_model.txt";
-//     let output = "resources/test/tosashimizu_output3.txt";
-//     let out_width = 20;
-//     let out_depth = 20;
+//     let input = "resources/test/flowers.png";
+//     let output = "resources/test/test_result_9.png";
+//     let out_width = 60;
+//     let out_depth = 60;
 //
-//     run_collapse::<VectorN<u16, U6>>(input, output, out_width, out_depth);
+//     run_olm::<VectorN<u16, U100>>(input, CHUNK_SIZE, output, out_width, out_depth);
 // }
+
+fn main() {
+    let input = "resources/test/tosashimizu_model.txt";
+    let output = "resources/test/tosashimizu_output3.txt";
+    let out_width = 20;
+    let out_depth = 20;
+
+    run_collapse::<VectorN<u16, U6>>(input, output, out_width, out_depth);
+}
