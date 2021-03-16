@@ -15,7 +15,7 @@ fn run_collapse<S: Multiset>(input: &str, output: &str, width: usize, depth: usi
         // let output_edges = make_edges_cardinal_grid(width, depth);
         let output_edges = make_edges_8_way_grid(width, depth);
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(134522), false);
+        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(0), false);
         render(output, &collapsed_graph, &keys, width);
     }
 }
@@ -49,8 +49,8 @@ const CHUNK_SIZE: usize = 3;
 fn main() {
     let input = "resources/test/tosashimizu_model.txt";
     let output = "resources/test/tosashimizu_output3.txt";
-    let out_width = 20;
-    let out_depth = 20;
+    let out_width = 10;
+    let out_depth = 10;
 
     run_collapse::<VectorN<u16, U6>>(input, output, out_width, out_depth);
 }
