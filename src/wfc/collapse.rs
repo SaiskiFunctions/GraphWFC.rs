@@ -454,4 +454,11 @@ mod tests {
         let x: MSu16xNU = [3, 0, 1, 5, 2, 6, 1].iter().collect();
         println!("{}", x.shannon_entropy())
     }
+
+    #[test]
+    fn test_rng() {
+        let mut rng = StdRng::seed_from_u64(0);
+        (0..25)
+            .for_each(|_| println!("{}", rng.next_u64()))
+    }
 }
