@@ -104,8 +104,9 @@ fn exec_collapse(
                         observed.insert(propagate.to as usize);
                         observed_counter += 1
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
-                        println!("{}", constrained.shannon_entropy());
-                        heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
+                        let entropy = constrained.shannon_entropy();
+                        println!("{}", entropy);
+                        heap.push(Observe::new(propagate.to, entropy))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
