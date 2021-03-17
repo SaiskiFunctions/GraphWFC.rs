@@ -2,7 +2,7 @@ use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
 use rand::prelude::*;
-use rand::rngs::StdRng;
+use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::BinaryHeap;
@@ -19,7 +19,7 @@ type InitCollapse = (
     BinaryHeap<Observe>,  // heap
 );
 
-fn init_collapse(rng: &mut StdRng, out_graph: &Graph) -> InitCollapse {
+fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
     let mut observed: BitSet = BitSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
     let mut init_propagations: Vec<VertexIndex> = Vec::new();
@@ -60,7 +60,7 @@ const METRICS: bool = false;
 const OBSERVE_CHANCE: usize = 33;
 
 fn exec_collapse(
-    rng: &mut StdRng,
+    rng: &mut SmallRng,
     rules: &Rules,
     edges: &Edges,
     init: InitCollapse,
@@ -196,7 +196,7 @@ pub fn collapse(
     seed: Option<u64>,
     partial: bool
 ) -> Graph {
-    let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
+    let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
 
     let collapsed_vertices = exec_collapse(
@@ -263,7 +263,7 @@ mod tests {
     //noinspection DuplicatedCode
     #[test]
     fn test_exec_simple() {
-        let mut rng = StdRng::seed_from_u64(3);
+        let mut rng = SmallRng::seed_from_u64(3);
 
         let edges = hash_map(&[
             (0, vec![(1, 0), (3, 2)]),
@@ -308,7 +308,7 @@ mod tests {
             Output structure same as input structure.
             North = 0, South = 1, East = 2, West = 3
         */
-        let mut rng = StdRng::seed_from_u64(246547);
+        let mut rng = SmallRng::seed_from_u64(246547);
         let all_labels = MSu16xNU::from_iter([3, 3].iter().cloned());
 
         let edges = hash_map(&[
@@ -368,7 +368,7 @@ mod tests {
             Directions: North = 0, South = 1, East = 2, West = 3
         */
 
-        let mut rng = StdRng::seed_from_u64(2);
+        let mut rng = SmallRng::seed_from_u64(2);
         let all_labels = MSu16xNU::from_iter([3, 3].iter().cloned());
 
         let input_edges = hash_map(&[
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn test_rng() {
-        let mut rng = StdRng::seed_from_u64(0);
+        let mut rng = SmallRng::seed_from_u64(0);
         (0..25)
             .for_each(|_| println!("{}", rng.next_u64()))
     }

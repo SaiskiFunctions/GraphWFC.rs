@@ -13,7 +13,7 @@ fn run_tile(input: &str, output: &str, width: usize, depth: usize) {
         // let output_edges = make_edges_cardinal_grid(width, depth);
         let output_edges = make_edges_8_way_grid(width, depth);
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(0), false);
+        let collapsed_graph = collapse(&input_graph.rules(), output_graph, None, false);
         render(output, &collapsed_graph, &keys, width);
     }
 }
@@ -53,8 +53,8 @@ fn main() {
         RunMode::Tile => {
             let input = "resources/test/tosashimizu_model.txt";
             let output = "resources/test/tosashimizu_output3.txt";
-            let out_width = 10;
-            let out_depth = 10;
+            let out_width = 20;
+            let out_depth = 20;
 
             run_tile(input, output, out_width, out_depth);
         }
