@@ -103,10 +103,8 @@ fn exec_collapse(
                     if constrained.is_singleton() || constrained.is_empty() {
                         observed.insert(propagate.to as usize);
                         observed_counter += 1
-                    } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
-                        let entropy = constrained.shannon_entropy();
-                        println!("{}", entropy);
-                        heap.push(Observe::new(propagate.to, entropy))
+                    } else if rng.gen_range(0, 100) < OBSERVE_CHANCE {
+                        heap.push(Observe::new(propagate.to, constrained.shannon_entropy()))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained

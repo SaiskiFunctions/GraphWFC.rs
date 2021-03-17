@@ -13,7 +13,7 @@ fn run_tile(input: &str, output: &str, width: usize, depth: usize) {
         // let output_edges = make_edges_cardinal_grid(width, depth);
         let output_edges = make_edges_8_way_grid(width, depth);
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(&input_graph.rules(), output_graph, None, false);
+        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(0), false);
         render(output, &collapsed_graph, &keys, width);
     }
 }
@@ -47,7 +47,7 @@ fn main() {
             let output = "resources/test/test_result_9.png";
             let out_width = 60;
             let out_depth = 60;
-
+          
             run_olm(input, CHUNK_SIZE, output, out_width, out_depth);
         },
         RunMode::Tile => {
