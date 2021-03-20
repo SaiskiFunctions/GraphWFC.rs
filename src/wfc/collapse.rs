@@ -38,7 +38,7 @@ fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
                 observed.insert(from_index as usize);
             } else if labels != &out_graph.all_labels {
                 init_propagations.push(from_index);
-                heap.push(Observe::new(from_index, labels.shannon_entropy()))
+                heap.push(Observe::new(from_index, labels.collision_entropy()))
             }
         });
 
@@ -104,7 +104,7 @@ fn exec_collapse(
                         observed.insert(propagate.to as usize);
                         observed_counter += 1
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
-                        heap.push(Observe::new(propagate.to, constrained.shannon_entropy()))
+                        heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
@@ -450,7 +450,7 @@ mod tests {
     #[test]
     fn test_entropy() {
         let x: MSu16xNU = [3, 0, 1, 5, 2, 6, 1].iter().collect();
-        println!("{}", x.shannon_entropy())
+        println!("{}", x.collision_entropy())
     }
 
     #[test]
