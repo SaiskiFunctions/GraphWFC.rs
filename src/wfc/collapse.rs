@@ -1,9 +1,8 @@
 use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
-use crate::multiset::Multiset;
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
-use num_traits::Zero;
 use rand::prelude::*;
+use rand::rngs::SmallRng;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::collections::BinaryHeap;
@@ -11,6 +10,7 @@ use std::mem::replace;
 use std::ops::{Index, IndexMut};
 use crate::utils::Metrics;
 use bit_set::BitSet;
+use crate::MSu16xNU;
 
 type InitCollapse = (
     BitSet,               // observed
@@ -19,7 +19,7 @@ type InitCollapse = (
     BinaryHeap<Observe>,  // heap
 );
 
-fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCollapse {
+fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
     let mut observed: BitSet = BitSet::new();
     let mut propagations: Vec<Propagate> = Vec::new();
     let mut init_propagations: Vec<VertexIndex> = Vec::new();
@@ -38,7 +38,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
                 observed.insert(from_index as usize);
             } else if labels != &out_graph.all_labels {
                 init_propagations.push(from_index);
-                heap.push(Observe::new(from_index, labels.entropy()))
+                heap.push(Observe::new(from_index, labels.collision_entropy()))
             }
         });
 
@@ -51,7 +51,7 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
     let mut to_observe: Vec<VertexIndex> = (0..to_observe_len)
         .filter(|i| !observed.contains(*i as usize))
         .collect();
-    to_observe.shuffle(rng); // Deterministic shuffle with seed
+    to_observe.shuffle(rng);
 
     (observed, propagations, to_observe, heap)
 }
@@ -59,14 +59,14 @@ fn init_collapse<S: Multiset>(rng: &mut StdRng, out_graph: &Graph<S>) -> InitCol
 const METRICS: bool = false;
 const OBSERVE_CHANCE: usize = 33;
 
-fn exec_collapse<S: Multiset>(
-    rng: &mut StdRng,
-    rules: &Rules<S>,
+fn exec_collapse(
+    rng: &mut SmallRng,
+    rules: &Rules,
     edges: &Edges,
     init: InitCollapse,
-    mut vertices: Vec<S>,
+    mut vertices: Vec<MSu16xNU>,
     partial: bool
-) -> Vec<S> {
+) -> Vec<MSu16xNU> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
     let vertices_len = vertices.len();
@@ -89,7 +89,7 @@ fn exec_collapse<S: Multiset>(
 
                 assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
-                if prop_labels.is_empty_m() { // is this the same as a contradiction?
+                if prop_labels.is_empty() {
                     continue
                 }
 
@@ -100,13 +100,11 @@ fn exec_collapse<S: Multiset>(
 
                 let constrained = labels.intersection(&constraint);
                 if labels != &constrained {
-                    if constrained.is_singleton() || constrained.is_empty_m() {
+                    if constrained.is_singleton() || constrained.is_empty() {
                         observed.insert(propagate.to as usize);
                         observed_counter += 1
-                    } else if rng.gen_range(0, 100) < OBSERVE_CHANCE {
-                        let entropy = constrained.entropy();
-                        println!("{}", entropy);
-                        heap.push(Observe::new(propagate.to, entropy))
+                    } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
+                        heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
@@ -143,7 +141,6 @@ fn exec_collapse<S: Multiset>(
                 }
             }
         }
-
         match observe_index {
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
@@ -155,7 +152,7 @@ fn exec_collapse<S: Multiset>(
 
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
-                labels_multiset.choose(rng);
+                labels_multiset.choose_random(rng);
                 observed.insert(index as usize);
                 generate_propagations(&mut propagations, &observed, edges, index);
             }
@@ -163,12 +160,12 @@ fn exec_collapse<S: Multiset>(
     }
 }
 
-pub fn build_constraint<S: Multiset>(labels: &S, direction: EdgeDirection, rules: &Rules<S>) -> S {
+pub fn build_constraint(labels: &MSu16xNU, direction: EdgeDirection, rules: &Rules) -> MSu16xNU {
     labels
-        .iter_m()
+        .into_iter()
         .enumerate()
-        .fold(S::empty(labels.num_elems()), |mut acc, (index, frequency)| {
-            if frequency > &Zero::zero() {
+        .fold(MSu16xNU::empty(), |mut acc, (index, frequency)| {
+            if frequency > 0 {
                 if let Some(a) = rules.get(&(direction, index)) {
                     acc = acc.union(a)
                 }
@@ -184,7 +181,6 @@ fn generate_propagations(
     from_index: VertexIndex,
 ) {
     assert!(edges.contains_key(&from_index));
-    // Map is not ordered but contained vecs are
     for (to_index, direction) in edges.index(&from_index) {
         if !observed.contains(*to_index as usize) {
             propagations.push(Propagate::new(from_index, *to_index, *direction))
@@ -192,13 +188,13 @@ fn generate_propagations(
     }
 }
 
-pub fn collapse<S: Multiset>(
-    rules: &Rules<S>,
-    mut output_graph: Graph<S>,
+pub fn collapse(
+    rules: &Rules,
+    mut output_graph: Graph,
     seed: Option<u64>,
     partial: bool
-) -> Graph<S> {
-    let rng = &mut StdRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
+) -> Graph {
+    let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
 
     let collapsed_vertices = exec_collapse(
@@ -218,82 +214,82 @@ mod tests {
     use super::*;
     use crate::graph::graph::Edges;
     use crate::utils::hash_map;
-    use nalgebra::{VectorN, U2, U6};
-
-    type MS6 = VectorN<u16, U6>;
-    type MS2 = VectorN<u16, U2>;
+    use std::iter::FromIterator;
 
     //noinspection DuplicatedCode
-    fn simple_edges() -> Edges {
-        hash_map(&[
-            (0, vec![(1, 0), (3, 2)]),
-            (1, vec![(0, 1), (2, 2)]),
-            (2, vec![(3, 1), (1, 3)]),
-            (3, vec![(0, 3), (2, 0)]),
-        ])
-    }
-
-    //noinspection DuplicatedCode
-    fn simple_vertices() -> Vec<MS6> {
+    fn simple_vertices() -> Vec<MSu16xNU> {
         vec![
-            MS6::from_row_slice_u(&[1, 0, 0]),
-            MS6::from_row_slice_u(&[0, 2, 0]),
-            MS6::from_row_slice_u(&[0, 0, 1]),
-            MS6::from_row_slice_u(&[0, 2, 0]),
+            [1, 0, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [0, 2, 0].iter().collect(),
         ]
-    }
-
-    //noinspection DuplicatedCode
-    fn simple_rules() -> Rules<MS6> {
-        hash_map(&[
-            ((0, 0), MS6::from_row_slice_u(&[0, 2, 0])),
-            ((0, 1), MS6::from_row_slice_u(&[0, 0, 1])),
-            ((1, 1), MS6::from_row_slice_u(&[1, 0, 0])),
-            ((1, 2), MS6::from_row_slice_u(&[0, 2, 0])),
-            ((2, 0), MS6::from_row_slice_u(&[0, 2, 0])),
-            ((2, 1), MS6::from_row_slice_u(&[0, 0, 1])),
-            ((3, 1), MS6::from_row_slice_u(&[1, 0, 0])),
-            ((3, 2), MS6::from_row_slice_u(&[0, 2, 0])),
-        ])
     }
 
     #[test]
     fn test_constraint() {
-        let a: MS6 = MS6::from_row_slice_u(&[1, 0, 0, 0, 0, 0]);
-        let b: MS6 = MS6::from_row_slice_u(&[0, 0, 1, 0, 0, 0]);
-        let c: MS6 = MS6::from_row_slice_u(&[1, 1, 1, 0, 0, 0]);
-        let rules: Rules<MS6> = hash_map(&[((0, 0), a), ((0, 1), b), ((0, 2), c)]);
+        let rules: Rules = hash_map(&[
+            ((0, 0), [1, 0, 0, 0, 0, 0].iter().collect()),
+            ((0, 1), [0, 0, 1, 0, 0, 0].iter().collect()),
+            ((0, 2), [1, 1, 1, 0, 0, 0].iter().collect())
+        ]);
 
-        let labels: &MS6 = &MS6::from_row_slice_u(&[2, 4, 0, 0, 0, 0]);
+        let labels = [2, 4, 0, 0, 0, 0].iter().collect();
         let direction: EdgeDirection = 0;
 
-        let result = build_constraint(labels, direction, &rules);
-        let expected: MS6 = MS6::from_row_slice_u(&[1, 0, 1, 0, 0, 0]);
+        let result = build_constraint(&labels, direction, &rules);
+        let expected: MSu16xNU = [1, 0, 1, 0, 0, 0].iter().collect();
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn test_constraint2() {
+        let rules: Rules = hash_map(&[
+            ((0, 0), [2, 0, 0, 0, 0, 0].iter().collect()),
+            ((0, 1), [0, 0, 5, 0, 0, 0].iter().collect()),
+            ((0, 2), [1, 1, 1, 0, 0, 0].iter().collect())
+        ]);
+
+        let labels = [3, 4, 1, 0, 2, 0].iter().collect();
+        let direction: EdgeDirection = 0;
+
+        let result = build_constraint(&labels, direction, &rules);
+        let expected: MSu16xNU = [2, 1, 5, 0, 0, 0].iter().collect();
         assert_eq!(result, expected)
     }
 
     //noinspection DuplicatedCode
     #[test]
     fn test_exec_simple() {
-        /* Seed Values:
-            3 -> Some([{0}, {1}, {2}, {1}])
-            1 -> None
-        */
-        let mut rng = StdRng::seed_from_u64(3);
+        let mut rng = SmallRng::seed_from_u64(3);
 
-        let edges = simple_edges();
-        let all_labels = MS6::from_row_slice_u(&[1, 2, 1]);
-        let out_graph = Graph::<MS6>::new(simple_vertices(), edges, all_labels);
-        let rules: Rules<MS6> = simple_rules();
+        let edges = hash_map(&[
+            (0, vec![(1, 0), (3, 2)]),
+            (1, vec![(0, 1), (2, 2)]),
+            (2, vec![(3, 1), (1, 3)]),
+            (3, vec![(0, 3), (2, 0)]),
+        ]);
+        let all_labels = MSu16xNU::from_iter([1, 2, 1].iter().cloned());
+        let out_graph = Graph::new(simple_vertices(), edges, all_labels);
+        let rules: Rules = hash_map(&[
+            ((0, 0), [0, 2, 0].iter().collect()),
+            ((0, 1), [0, 0, 1].iter().collect()),
+            ((1, 1), [1, 0, 0].iter().collect()),
+            ((1, 2), [0, 2, 0].iter().collect()),
+            ((2, 0), [0, 2, 0].iter().collect()),
+            ((2, 1), [0, 0, 1].iter().collect()),
+            ((3, 1), [1, 0, 0].iter().collect()),
+            ((3, 2), [0, 2, 0].iter().collect()),
+        ]);
 
-        let init = init_collapse::<MS6>(&mut rng, &out_graph);
+        let init = init_collapse(&mut rng, &out_graph);
 
-        let result = exec_collapse::<MS6>(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
-        let expected: Vec<MS6> = vec![
-            MS6::from_row_slice_u(&[1, 0, 0]),
-            MS6::from_row_slice_u(&[0, 2, 0]),
-            MS6::from_row_slice_u(&[0, 0, 1]),
-            MS6::from_row_slice_u(&[0, 2, 0]),
+        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
+        let expected: Vec<MSu16xNU> = vec![
+            [1, 0, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [0, 2, 0].iter().collect(),
         ];
 
         assert_eq!(result, expected);
@@ -301,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_exec_med() {
-        /* Seed Values:
+        /*
             INPUT:
             0b --- 1b --- 2a
             |      |      |
@@ -310,7 +306,8 @@ mod tests {
             Output structure same as input structure.
             North = 0, South = 1, East = 2, West = 3
         */
-        let mut rng = StdRng::seed_from_u64(23456);
+        let mut rng = SmallRng::seed_from_u64(246547);
+        let all_labels = MSu16xNU::from_iter([3, 3].iter().cloned());
 
         let edges = hash_map(&[
             (0, vec![(3, 1), (1, 2)]),
@@ -321,31 +318,23 @@ mod tests {
             (5, vec![(4, 3), (2, 0)]),
         ]);
 
-        let vertices: Vec<MS2> = vec![
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-        ];
+        let vertices: Vec<MSu16xNU> = vec![all_labels; 6];
 
-        let rules: Rules<MS2> = hash_map(&[
-            ((0, 0), MS2::from_row_slice_u(&[3, 3])),
-            ((0, 1), MS2::from_row_slice_u(&[3, 3])),
-            ((1, 0), MS2::from_row_slice_u(&[3, 3])),
-            ((1, 1), MS2::from_row_slice_u(&[3, 3])),
-            ((2, 0), MS2::from_row_slice_u(&[3, 3])),
-            ((2, 1), MS2::from_row_slice_u(&[3, 3])),
-            ((3, 0), MS2::from_row_slice_u(&[3, 3])),
-            ((3, 1), MS2::from_row_slice_u(&[3, 3])),
+        let rules: Rules = hash_map(&[
+            ((0, 0), all_labels),
+            ((0, 1), all_labels),
+            ((1, 0), all_labels),
+            ((1, 1), all_labels),
+            ((2, 0), all_labels),
+            ((2, 1), all_labels),
+            ((3, 0), all_labels),
+            ((3, 1), all_labels),
         ]);
 
-        let all_labels = MS2::from_row_slice_u(&[3, 3]);
-        let out_graph = Graph::<MS2>::new(vertices, edges, all_labels);
-        let init = init_collapse::<MS2>(&mut rng, &out_graph);
+        let out_graph = Graph::new(vertices, edges, all_labels);
+        let init = init_collapse(&mut rng, &out_graph);
 
-        let result = exec_collapse::<MS2>(
+        let result = exec_collapse(
             &mut rng,
             &rules,
             &out_graph.edges,
@@ -354,13 +343,13 @@ mod tests {
             false
         );
 
-        let expected: Vec<MS2> = vec![
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
+        let expected: Vec<MSu16xNU> = vec![
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
         ];
 
         assert_eq!(result, expected);
@@ -377,7 +366,8 @@ mod tests {
             Directions: North = 0, South = 1, East = 2, West = 3
         */
 
-        let mut rng = StdRng::seed_from_u64(4);
+        let mut rng = SmallRng::seed_from_u64(2);
+        let all_labels = MSu16xNU::from_iter([3, 3].iter().cloned());
 
         let input_edges = hash_map(&[
             (0, vec![(1, 2), (4, 1)]),
@@ -388,18 +378,16 @@ mod tests {
             (5, vec![(4, 3), (1, 0)]),
         ]);
 
-        let input_vertices: Vec<MS2> = vec![
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[0, 3]),
+        let input_vertices: Vec<MSu16xNU> = vec![
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
-        let all_labels: MS2 = MS2::from_row_slice_u(&[3, 3]);
-
-        let input_graph = Graph::<MS2>::new(input_vertices, input_edges, all_labels);
+        let input_graph = Graph::new(input_vertices, input_edges, all_labels);
 
         let rules = input_graph.rules();
 
@@ -427,29 +415,12 @@ mod tests {
             (11, vec![(10, 3), (7, 0)]),
         ]);
 
-        let output_vertices: Vec<MS2> = vec![
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-            MS2::from_row_slice_u(&[3, 3]),
-        ];
+        let output_vertices: Vec<MSu16xNU> = vec![all_labels; 12];
 
-        // should be same as all labels but Multiset.clone() is outputs false
-        // positive errors, so recreating here to avoid.
-        let out_all_labels: MS2 = MS2::from_row_slice_u(&[3, 3]);
+        let output_graph = Graph::new(output_vertices, output_edges, all_labels);
+        let init = init_collapse(&mut rng, &output_graph);
 
-        let output_graph = Graph::<MS2>::new(output_vertices, output_edges, out_all_labels);
-        let init = init_collapse::<MS2>(&mut rng, &output_graph);
-
-        let result = exec_collapse::<MS2>(
+        let result = exec_collapse(
             &mut rng,
             &rules,
             &output_graph.edges,
@@ -458,21 +429,34 @@ mod tests {
             false
         );
 
-        let expected: Vec<MS2> = vec![
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[3, 0]),
-            MS2::from_row_slice_u(&[0, 3]),
-            MS2::from_row_slice_u(&[0, 3]),
+        let expected: Vec<MSu16xNU> = vec![
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
+            [3, 0].iter().collect(),
+            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_entropy() {
+        let x: MSu16xNU = [3, 0, 1, 5, 2, 6, 1].iter().collect();
+        println!("{}", x.collision_entropy())
+    }
+
+    #[test]
+    fn test_rng() {
+        let mut rng = SmallRng::seed_from_u64(0);
+        (0..25)
+            .for_each(|_| println!("{}", rng.next_u64()))
     }
 }

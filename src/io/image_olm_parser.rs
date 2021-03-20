@@ -5,7 +5,6 @@ use crate::io::{
     tri_wave::TriWave,
     utils::Rotation,
 };
-use crate::multiset::Multiset;
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::wfc::collapse;
 
@@ -13,20 +12,21 @@ use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
 use itertools::Itertools;
-use nalgebra::DMatrix;
-use num_traits::One;
+use nalgebra::{DMatrix, U4};
 use std::collections::HashSet;
 use std::ops::{IndexMut, Index};
 use std::convert::TryFrom;
+
+use crate::MSu16xNU;
 
 const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
 
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
 
-pub fn render<S: Multiset>(
+pub fn render(
     filename: &str,
-    graph: Graph<S>,
+    graph: Graph,
     key: &PixelKeys,
     chunks: &[Chunk],
     (width, height): (usize, usize),
@@ -39,7 +39,9 @@ pub fn render<S: Multiset>(
     graph
         .vertices
         .into_iter()
-        .map(|vertex| vertex.get_non_zero().map(|i| chunks.index(i).clone()))
+        .map(|vertex| {
+            vertex.is_singleton().then(|| chunks.index(vertex.imax()).clone())
+        })
         .enumerate()
         .for_each(|(chunk_index, opt_chunk)| {
             let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
@@ -59,7 +61,7 @@ pub fn render<S: Multiset>(
                     let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
                     let pixel_y = (top_left_pix_y + p_y) as u32;
                     let pixel_x = (top_left_pix_x + p_x) as u32;
-                    let pixel = *key.get_by_left(pixel_alias).unwrap_or(&GREEN);
+                    let pixel = key.get_by_left(pixel_alias).copied().unwrap_or(GREEN);
                     output_image.put_pixel(pixel_x, pixel_y, pixel);
                 });
         });
@@ -68,31 +70,37 @@ pub fn render<S: Multiset>(
 }
 
 // TODO: handle unwrap of image::open properly
-pub fn parse<S: Multiset>(filename: &str, chunk_size: usize) -> (Rules<S>, PixelKeys, S, Vec<Chunk>) {
+pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, Vec<Chunk>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
     let chunks = chunk_image(img, chunk_size, &pixel_aliases, false);
-    let overlap_rules = overlaps::<S>(&chunks, chunk_size);
+    let overlap_rules = overlaps(&chunks, chunk_size);
 
-    let mut all_labels = S::empty(chunks.len());
+    if chunks.len() > MSu16xNU::len() {
+        println!("Chunks LEN: {}", chunks.len());
+        panic!("labels multiset not large enough to store all unique chunks")
+    }
+
+    // todo: all_labels must properly inherit frequencies
+    let mut all_labels = MSu16xNU::empty();
     for i in 0..chunks.len() {
-        *all_labels.index_mut(i) = One::one()
+        all_labels.insert(i, 1)
     }
 
     let raw_graph = create_raw_graph(&all_labels, chunk_size, (3, 3));
-    let mut pruned_rules: Rules<S> = HashMap::new();
+    let mut pruned_rules: Rules = HashMap::new();
 
     (0..all_labels.count_non_zero())
         .for_each(|label| {
-            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label);
+            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label as usize);
 
             real_vertex_indexes(chunk_size)
                 .iter()
                 .enumerate()
                 .for_each(|(direction, index)| {
                     let set = pruned_graph.vertices.index(*index);
-                    if !set.is_empty_m() {
-                        pruned_rules.insert((direction as u16, label), set.clone());
+                    if !set.is_empty() {
+                        pruned_rules.insert((direction as u16, label as usize), *set);
                     }
                 });
         });
@@ -201,7 +209,7 @@ fn sub_chunk_positions(chunk_size: usize) -> Vec<(Position, Size, Direction)> {
         .collect()
 }
 
-fn overlaps<S: Multiset>(chunks: &[Chunk], chunk_size: usize) -> Rules<S> {
+fn overlaps(chunks: &[Chunk], chunk_size: usize) -> Rules {
     chunks
         .iter()
         .enumerate()
@@ -222,10 +230,10 @@ fn overlaps<S: Multiset>(chunks: &[Chunk], chunk_size: usize) -> Rules<S> {
                             if sub_chunk == other_sub_chunk {
                                 acc
                                     .entry((*direction, index))
-                                    .and_modify(|labels| *labels.index_mut(other_index) = One::one())
+                                    .and_modify(|labels| labels.insert(other_index, 1))
                                     .or_insert({
-                                        let mut set = S::empty(chunks.len());
-                                        *set.index_mut(other_index) = One::one();
+                                        let mut set = MSu16xNU::empty();
+                                        set.insert(other_index, 1);
                                         set
                                     });
                             }
@@ -236,12 +244,12 @@ fn overlaps<S: Multiset>(chunks: &[Chunk], chunk_size: usize) -> Rules<S> {
 }
 
 // Create a raw graph for pruning
-fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: usize, (height, width): (usize, usize)) -> Graph<S> {
+fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (usize, usize)) -> Graph {
     // pixel based graph dimensions
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
 
-    let vertices: Vec<S> = vec![all_labels.clone(); v_dim_x * v_dim_y];
+    let vertices: Vec<MSu16xNU> = vec![*all_labels; v_dim_x * v_dim_y];
 
     // create negative indexed range to offset vertex centered directional field by N
     let signed_chunk_size: i32 = TryFrom::try_from(chunk_size)
@@ -258,7 +266,8 @@ fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: usize, (height, wid
         .enumerate()
         .fold(HashMap::new(), |mut acc, (index, _)| {
             let (x, y) = index_to_coords(index, v_dim_x);
-            range_cart_prod.clone()
+            range_cart_prod
+                .clone()
                 .map(|(y_offset, x_offset)| (y as i32 + y_offset, x as i32 + x_offset))
                 .enumerate()
                 // remove coordinates outside of graph
@@ -273,12 +282,12 @@ fn create_raw_graph<S: Multiset>(all_labels: &S, chunk_size: usize, (height, wid
             acc
         });
 
-    Graph::new(vertices, edges, all_labels.clone())
+    Graph::new(vertices, edges, *all_labels)
 }
 
-fn propagate_overlaps<S: Multiset>(mut graph: Graph<S>, rules: &Rules<S>, label: usize) -> Graph<S> {
+fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
     let central_vertex = (graph.vertices.len() - 1) / 2;
-    graph.vertices.index_mut(central_vertex).determine(label);
+    graph.vertices.index_mut(central_vertex).choose(label);
     collapse::collapse(rules, graph, None, true)
 }
 
@@ -287,8 +296,8 @@ mod tests {
     use super::*;
     use crate::utils::hash_map;
     use image::ImageBuffer;
-    use nalgebra::{Vector4, Vector2, Vector1};
     use std::ops::Index;
+    use std::iter::FromIterator;
 
     #[test]
     fn test_alias_pixels() {
@@ -343,15 +352,15 @@ mod tests {
             DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1])
         ];
 
-        let mut overlaps_n2: Rules<Vector4<u32>> = HashMap::new();
-        overlaps_n2.insert((5, 0), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
-        overlaps_n2.insert((0, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0]));
-        overlaps_n2.insert((6, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0]));
-        overlaps_n2.insert((1, 0), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
-        overlaps_n2.insert((2, 1), Multiset::from_row_slice_u(&[1, 0, 0, 0]));
-        overlaps_n2.insert((7, 0), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
-        overlaps_n2.insert((2, 2), Multiset::from_row_slice_u(&[0, 1, 0, 0]));
-        overlaps_n2.insert((5, 1), Multiset::from_row_slice_u(&[0, 0, 1, 0]));
+        let mut overlaps_n2: Rules = HashMap::new();
+        overlaps_n2.insert((5, 0), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((0, 1), [1, 0, 0, 0].iter().collect());
+        overlaps_n2.insert((6, 1), [1, 0, 0, 0].iter().collect());
+        overlaps_n2.insert((1, 0), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((2, 1), [1, 0, 0, 0].iter().collect());
+        overlaps_n2.insert((7, 0), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((2, 2), [0, 1, 0, 0].iter().collect());
+        overlaps_n2.insert((5, 1), [0, 0, 1, 0].iter().collect());
 
         let result_n2 = overlaps(&chunks_n2, 2);
         assert_eq!(result_n2, overlaps_n2);
@@ -361,9 +370,9 @@ mod tests {
             DMatrix::from_row_slice(3, 3, &vec![9, 10, 11, 12, 13, 14, 15, 16, 0])
         ];
 
-        let mut overlaps_n3: Rules<Vector2<u32>> = HashMap::new();
-        overlaps_n3.insert((0, 0), Multiset::from_row_slice_u(&[0, 1]));
-        overlaps_n3.insert((23, 1), Multiset::from_row_slice_u(&[1, 0]));
+        let mut overlaps_n3: Rules = HashMap::new();
+        overlaps_n3.insert((0, 0), [0, 1].iter().collect());
+        overlaps_n3.insert((23, 1), [1, 0].iter().collect());
 
         let result_n3 = overlaps(&chunks_n3, 3);
 
@@ -377,9 +386,9 @@ mod tests {
         ];
 
         // test overlapping with self only
-        let mut overlaps_n4: Rules<Vector2<u32>> = HashMap::new();
-        overlaps_n4.insert((8, 0), Multiset::from_row_slice_u(&[1, 0]));
-        overlaps_n4.insert((39, 0), Multiset::from_row_slice_u(&[1, 0]));
+        let mut overlaps_n4: Rules = HashMap::new();
+        overlaps_n4.insert((8, 0), [1, 0].iter().collect());
+        overlaps_n4.insert((39, 0), [1, 0].iter().collect());
 
         let results_n4 = overlaps(&chunks_n4, 4);
 
@@ -400,12 +409,12 @@ mod tests {
             (4, vec![(0, 7), (1, 8), (2, 9), (5, 12), (6, 13), (8, 16), (9, 17), (10, 18), (12, 21), (13, 22), (14, 23)]),
         ]);
 
-        let mut all_labels = Vector1::<u32>::empty(chunks_n3.len());
+        let mut all_labels = MSu16xNU::empty();
         for i in 0..chunks_n3.len() {
-            *all_labels.index_mut(i) = One::one()
+            all_labels.insert(i, 1)
         }
 
-        let raw_graph = create_raw_graph::<Vector1<u32>>(&all_labels, 3, (2, 2));
+        let raw_graph = create_raw_graph(&all_labels, 3, (2, 2));
 
         assert_eq!(raw_graph.edges.get(&0).unwrap(), edges_n3.get(&0).unwrap());
         assert_eq!(raw_graph.edges.get(&1).unwrap(), edges_n3.get(&1).unwrap());

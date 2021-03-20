@@ -1,28 +1,48 @@
-use crate::multiset::Multiset;
 use hashbrown::HashMap;
-use num_traits::Zero;
-use std::ops::Index;
+use std::ops::{Index, AddAssign};
+use std::fmt::{Debug, Formatter, Result};
+use crate::MSu16xNU;
 
 pub type VertexIndex = u32; // each unique vertex in a graph
 pub type EdgeDirection = u16; // the directional relationship between two vertices
 pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
 
-//                           vertex label (index of LabelFrequencies vector)
-//                                            |
-//                                            v
-pub type Rules<S> = HashMap<(EdgeDirection, usize), S>;
+//                        vertex label (index of LabelFrequencies vector)
+//                                         |
+//                                         v
+pub type Rules = HashMap<(EdgeDirection, usize), MSu16xNU>;
 
 // It will always be true that: |rules| <= |directions| x |labels|
 
-#[derive(Debug, Clone)]
-pub struct Graph<S: Multiset> {
-    pub vertices: Vec<S>, // index of vec == vertex index
+pub struct Graph {
+    pub vertices: Vec<MSu16xNU>, // index of vec == vertex index
     pub edges: Edges,
-    pub all_labels: S,
+    pub all_labels: MSu16xNU,
 }
 
-impl<S: Multiset> Graph<S> {
-    pub fn new(vertices: Vec<S>, edges: Edges, all_labels: S) -> Graph<S> {
+impl Debug for Graph {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        f
+            .debug_struct("Graph")
+            .field("vertices", &self.vertices)
+            .field("edges", &self.edges)
+            .field("all_labels", &self.all_labels)
+            .finish()
+    }
+}
+
+impl Clone for Graph {
+    fn clone(&self) -> Self {
+        Graph {
+            vertices: self.vertices.clone(),
+            edges: self.edges.clone(),
+            all_labels: self.all_labels
+        }
+    }
+}
+
+impl Graph {
+    pub fn new(vertices: Vec<MSu16xNU>, edges: Edges, all_labels: MSu16xNU) -> Graph {
         Graph {
             vertices,
             edges,
@@ -32,7 +52,7 @@ impl<S: Multiset> Graph<S> {
 
     /// Construct HashMap of rules for this graph.
     /// Rules connect a tuple of direction and vertex label to a set of labels.
-    pub fn rules(&self) -> Rules<S> {
+    pub fn rules(&self) -> Rules {
         self.edges
             .iter()
             .fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
@@ -40,16 +60,16 @@ impl<S: Multiset> Graph<S> {
                     let union_labels = self.vertices.index(*to_vertex_index as usize);
                     self.vertices
                         .index(*from_vertex_index as usize)
-                        .iter_m()
+                        .into_iter()
                         .enumerate()
-                        .filter(|(_, &label)| label > Zero::zero())
+                        .filter(|(_, label)| label > &0)
                         .for_each(|(from_vertex_label, _)| {
                             let rules_key = (*direction, from_vertex_label);
                             rules
                                 .entry(rules_key)
-                                .and_modify(|to_labels| to_labels.add_assign_m(union_labels))
+                                .and_modify(|to_labels| to_labels.add_assign(*union_labels))
                                 // .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
-                                .or_insert(union_labels.clone());
+                                .or_insert(*union_labels);
                         })
                 });
                 rules
@@ -61,10 +81,9 @@ impl<S: Multiset> Graph<S> {
 mod graph_tests {
     use super::*;
     use crate::utils::hash_map;
-    use nalgebra::{VectorN, U6};
+    use std::iter::FromIterator;
 
-    type MS = VectorN<u16, U6>;
-
+    //noinspection DuplicatedCode
     fn graph_edges() -> Edges {
         hash_map(&[
             (0, vec![(1, 0), (3, 2)]),
@@ -74,6 +93,7 @@ mod graph_tests {
         ])
     }
 
+    //noinspection DuplicatedCode
     #[test]
     fn test_rules() {
         /*
@@ -84,17 +104,17 @@ mod graph_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<MS> = vec![
-            MS::from_row_slice_u(&[1, 0, 0]),
-            MS::from_row_slice_u(&[0, 2, 0]),
-            MS::from_row_slice_u(&[0, 0, 1]),
-            MS::from_row_slice_u(&[0, 2, 0]),
+        let graph_vertices: Vec<MSu16xNU> = vec![
+            [1, 0, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [0, 2, 0].iter().collect(),
         ];
 
-        let test_graph = Graph::<MS> {
+        let test_graph = Graph {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: MS::from_row_slice_u(&[1, 2, 1]),
+            all_labels: MSu16xNU::from_iter([1, 2, 1].iter().cloned()),
         };
 
         // (0: N, 0: a) -> (1: b)
@@ -106,18 +126,18 @@ mod graph_tests {
         // (3: W, 1: b) -> (0: a)
         // (3: W, 2: c) -> (1: b)
 
-        let result: Rules<MS> = hash_map(&[
-            //                              a  b  c  <-- the labels
-            ((0, 0), MS::from_row_slice_u(&[0, 2, 0])),
-            ((0, 1), MS::from_row_slice_u(&[0, 0, 1])),
-            ((1, 1), MS::from_row_slice_u(&[1, 0, 0])),
-            ((1, 2), MS::from_row_slice_u(&[0, 2, 0])),
-            ((2, 0), MS::from_row_slice_u(&[0, 2, 0])),
-            ((2, 1), MS::from_row_slice_u(&[0, 0, 1])),
-            ((3, 1), MS::from_row_slice_u(&[1, 0, 0])),
-            ((3, 2), MS::from_row_slice_u(&[0, 2, 0])),
+        let result: Rules = hash_map(&[
+            //        a  b  c  <-- the labels
+            ((0, 0), [0, 2, 0].iter().collect()),
+            ((0, 1), [0, 0, 1].iter().collect()),
+            ((1, 1), [1, 0, 0].iter().collect()),
+            ((1, 2), [0, 2, 0].iter().collect()),
+            ((2, 0), [0, 2, 0].iter().collect()),
+            ((2, 1), [0, 0, 1].iter().collect()),
+            ((3, 1), [1, 0, 0].iter().collect()),
+            ((3, 2), [0, 2, 0].iter().collect()),
         ]);
-
+        
         assert_eq!(test_graph.rules(), result);
     }
 
@@ -131,17 +151,17 @@ mod graph_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<MS> = vec![
-            MS::from_row_slice_u(&[2, 0, 0]),
-            MS::from_row_slice_u(&[0, 1, 0]),
-            MS::from_row_slice_u(&[0, 0, 1]),
-            MS::from_row_slice_u(&[2, 0, 0]),
+        let graph_vertices: Vec<MSu16xNU> = vec![
+            [2, 0, 0].iter().collect(),
+            [0, 1, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [2, 0, 0].iter().collect(),
         ];
 
-        let test_graph = Graph::<MS> {
+        let test_graph = Graph {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: MS::from_row_slice_u(&[2, 1, 1]),
+            all_labels: [2, 1, 1].iter().collect(),
         };
 
         /*
@@ -154,14 +174,14 @@ mod graph_tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: Rules<MS> = hash_map(&[
-            ((0, 0), MS::from_row_slice_u(&[0, 1, 1])),
-            ((1, 1), MS::from_row_slice_u(&[2, 0, 0])),
-            ((1, 2), MS::from_row_slice_u(&[2, 0, 0])),
-            ((2, 0), MS::from_row_slice_u(&[2, 0, 0])),
-            ((2, 1), MS::from_row_slice_u(&[0, 0, 1])),
-            ((3, 0), MS::from_row_slice_u(&[2, 0, 0])),
-            ((3, 2), MS::from_row_slice_u(&[0, 1, 0])),
+        let result: Rules = hash_map(&[
+            ((0, 0), [0, 1, 1].iter().collect()),
+            ((1, 1), [2, 0, 0].iter().collect()),
+            ((1, 2), [2, 0, 0].iter().collect()),
+            ((2, 0), [2, 0, 0].iter().collect()),
+            ((2, 1), [0, 0, 1].iter().collect()),
+            ((3, 0), [2, 0, 0].iter().collect()),
+            ((3, 2), [0, 1, 0].iter().collect()),
         ]);
 
         assert_eq!(test_graph.rules(), result);
@@ -177,17 +197,17 @@ mod graph_tests {
         North = 0, South = 1, East = 2, West = 3
         */
 
-        let graph_vertices: Vec<MS> = vec![
-            MS::from_row_slice_u(&[2, 2, 0]),
-            MS::from_row_slice_u(&[0, 2, 0]),
-            MS::from_row_slice_u(&[0, 0, 1]),
-            MS::from_row_slice_u(&[2, 0, 0]),
+        let graph_vertices: Vec<MSu16xNU> = vec![
+            [2, 2, 0].iter().collect(),
+            [0, 2, 0].iter().collect(),
+            [0, 0, 1].iter().collect(),
+            [2, 0, 0].iter().collect(),
         ];
 
-        let test_graph = Graph::<MS> {
+        let test_graph = Graph {
             vertices: graph_vertices,
             edges: graph_edges(),
-            all_labels: MS::from_row_slice_u(&[2, 2, 1]),
+            all_labels: [2, 2, 1].iter().collect(),
         };
 
         /*
@@ -201,15 +221,15 @@ mod graph_tests {
         (3: W, 2: c) -> (1: b)
         */
 
-        let result: Rules<MS> = hash_map(&[
-            ((0, 0), MS::from_row_slice_u(&[0, 2, 1])),
-            ((0, 1), MS::from_row_slice_u(&[0, 2, 0])),
-            ((1, 1), MS::from_row_slice_u(&[2, 2, 0])),
-            ((1, 2), MS::from_row_slice_u(&[2, 0, 0])),
-            ((2, 0), MS::from_row_slice_u(&[2, 0, 0])),
-            ((2, 1), MS::from_row_slice_u(&[2, 0, 1])),
-            ((3, 0), MS::from_row_slice_u(&[2, 2, 0])),
-            ((3, 2), MS::from_row_slice_u(&[0, 2, 0])),
+        let result: Rules = hash_map(&[
+            ((0, 0), [0, 2, 1].iter().collect()),
+            ((0, 1), [0, 2, 0].iter().collect()),
+            ((1, 1), [2, 2, 0].iter().collect()),
+            ((1, 2), [2, 0, 0].iter().collect()),
+            ((2, 0), [2, 0, 0].iter().collect()),
+            ((2, 1), [2, 0, 1].iter().collect()),
+            ((3, 0), [2, 2, 0].iter().collect()),
+            ((3, 2), [0, 2, 0].iter().collect()),
         ]);
 
         assert_eq!(test_graph.rules(), result);
