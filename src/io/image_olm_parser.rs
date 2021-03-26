@@ -19,7 +19,6 @@ use std::convert::TryFrom;
 use linked_hash_map::LinkedHashMap;
 
 use crate::MSu16xNU;
-use alga::linear::Similarity;
 
 const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
 
