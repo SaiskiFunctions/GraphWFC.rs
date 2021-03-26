@@ -19,6 +19,7 @@ bit-set = "0.5.2"
 utote = { version = "0.3.5", features = ["packed_simd", "rand"] }
 #utote = { features = ["packed_simd", "rand"], path = "../utote" }
 typenum = "1.12.0"
+linked-hash-map = "0.5.4"
 
 [[bench]]
 name = "benches"

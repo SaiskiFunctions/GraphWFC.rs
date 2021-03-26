@@ -16,6 +16,7 @@ use nalgebra::{DMatrix, U4};
 use std::collections::HashSet;
 use std::ops::{IndexMut, Index};
 use std::convert::TryFrom;
+use linked_hash_map::LinkedHashMap;
 
 use crate::MSu16xNU;
 
@@ -73,7 +74,15 @@ pub fn render(
 pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, Vec<Chunk>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
-    let chunks = chunk_image(img, chunk_size, &pixel_aliases, false);
+    let chunk_frequencies = chunk_image(img, chunk_size, &pixel_aliases, false);
+    // convert frequencies into a list of unique chunks
+    // TODO: could use chunk keys directly in future
+    let mut chunks: Vec<Chunk> = chunk_frequencies
+        .keys()
+        .fold(Vec::new(), |mut acc, chunk| {
+            acc.push(chunk.clone());
+            acc
+        });
     let overlap_rules = overlaps(&chunks, chunk_size);
 
     if chunks.len() > MSu16xNU::len() {
@@ -81,11 +90,16 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
         panic!("labels multiset not large enough to store all unique chunks")
     }
 
-    // todo: all_labels must properly inherit frequencies
-    let mut all_labels = MSu16xNU::empty();
-    for i in 0..chunks.len() {
-        all_labels.insert(i, 1)
-    }
+    // put frequencies into multi set
+    let mut all_labels = chunks
+        .iter()
+        .enumerate()
+        .fold(MSu16xNU::empty(), |mut acc, (index, chunk)| {
+            let frequency = chunk_frequencies.get(chunk).unwrap();
+            acc.insert(index, *frequency as u16);
+            // acc.insert(index, 1); // previous implementation
+            acc
+        });
 
     let raw_graph = create_raw_graph(&all_labels, chunk_size, (3, 3));
     let mut pruned_rules: Rules = HashMap::new();
@@ -157,32 +171,38 @@ fn alias_pixels(image: &RgbImage) -> PixelKeys {
         .collect()
 }
 
+// returns the input image in unique chunks and frequencies of those chunks
 fn chunk_image(
     image: RgbImage,
     chunk_size: usize,
     pixel_aliases: &PixelKeys,
     rotate: bool,
-) -> Vec<Chunk> {
+) -> LinkedHashMap<Chunk, usize> {
     sub_images(image, chunk_size)
         .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
-        .fold(HashSet::new(), |mut acc, pixels| {
-            let chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &pixels);
-
-            acc.insert(chunk.clone());
+        .fold(LinkedHashMap::new(), |mut acc, pixels| {
+            let mut chunks: Vec<Chunk> = Vec::new();
+            let mut chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &pixels);
+            chunks.push(chunk.clone());
 
             if rotate {
-                let chunk_r90 = chunk.rotate_90();
-                acc.insert(chunk_r90.clone());
-
-                let chunk_r180 = chunk_r90.rotate_90();
-                acc.insert(chunk_r180.clone());
-
-                let chunk_r270 = chunk_r180.rotate_90();
-                acc.insert(chunk_r270);
+                // rotate through 90° three times using the previous chunk as a starting point
+                (0..3)
+                    .for_each(|i| {
+                        chunk = chunk.rotate_90();
+                        chunks.push(chunk.clone());
+                    });
             }
 
+            // add each of the new chunks into the frequency>chunk map
+            chunks
+                .into_iter()
+                .for_each(|chunk| {
+                    let frequency = acc.entry(chunk).or_insert(0);
+                    *frequency += 1;
+                });
             acc
-        }).into_iter().collect()
+        })
 }
 
 type Position = (usize, usize);
@@ -309,23 +329,29 @@ mod tests {
 
     #[test]
     fn test_chunk_image() {
-        let pixels = vec![255, 255, 255, 0, 0, 0, 122, 122, 122, 96, 96, 96];
-        let img = ImageBuffer::from_vec(2, 2, pixels).unwrap();
-        let pixel_aliases = alias_pixels(&img);
+        let img = image::open("resources/test/chunk_image_test.png").unwrap().to_rgb8();
+        let mut pixel_aliases: PixelKeys = BiMap::new();
+        pixel_aliases.insert(0, Rgb::from([255, 255, 255]));
+        pixel_aliases.insert(1, Rgb::from([0, 0, 0]));
 
-        let chunk_vec = chunk_image(img, 2, &pixel_aliases, true);
+        let chunk_map = chunk_image(img, 2, &pixel_aliases, true);
 
-        let chunk = chunk_vec.index(0).clone();
+        let mut expected_map: LinkedHashMap<Chunk, usize> = LinkedHashMap::new();
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![1, 0, 0, 0]), 1);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![0, 1, 0, 0]), 1);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![0, 0, 1, 0]), 1);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![0, 0, 0, 1]), 1);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![0, 1, 1, 1]), 2);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![1, 0, 1, 1]), 2);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![1, 1, 0, 1]), 2);
+        expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![1, 1, 1, 0]), 2);
 
-        let result: HashSet<Chunk> = vec![
-            chunk.clone(),
-            chunk.rotate_90().rotate_90(),
-            chunk.rotate_90(),
-            chunk.rotate_90().rotate_90().rotate_90()
-        ].into_iter().collect();
-
-        assert_eq!(chunk_vec.len(), 4);
-        assert_eq!(chunk_vec.into_iter().collect::<HashSet<Chunk>>(), result);
+        assert_eq!(chunk_map.len(), 8);
+        expected_map
+            .iter()
+            .for_each(|(chunk, frequency)| {
+                assert_eq!(chunk_map.get(chunk).unwrap(), frequency);
+            });
     }
 
     #[test]
