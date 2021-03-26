@@ -198,8 +198,7 @@ fn chunk_image(
             chunks
                 .into_iter()
                 .for_each(|chunk| {
-                    let frequency = acc.entry(chunk).or_insert(0);
-                    *frequency += 1;
+                    *acc.entry(chunk).or_insert(0) += 1
                 });
             acc
         })
