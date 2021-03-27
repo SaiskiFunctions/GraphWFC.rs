@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use std::collections::BTreeMap;
+use crate::MSu16xNU;
 
 pub fn hash_set<T>(data: &[T]) -> HashSet<T>
     where
@@ -53,7 +54,7 @@ impl<'a> Metrics<'a> {
     }
 
     pub fn get_counter(&self, key: &'a str) -> Option<i32> {
-        self.counters.get(key).cloned()
+        self.counters.get(key).copied()
     }
 
     pub fn acc(&mut self, key: &'a str, value: i32) {

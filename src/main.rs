@@ -13,7 +13,7 @@ fn run_tile(input: &str, output: &str, width: usize, depth: usize) {
         // let output_edges = make_edges_cardinal_grid(width, depth);
         let output_edges = make_edges_8_way_grid(width, depth);
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(0), false);
+        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(22), false);
         render(output, &collapsed_graph, &keys, width);
     }
 }

@@ -104,15 +104,24 @@ pub trait Rotation {
 }
 
 impl Rotation for DMatrix<usize> {
-    fn rotate_90(&self) -> DMatrix<usize> {
-        assert_eq!(self.nrows(), self.ncols());
-        let side = self.nrows();
-        let mut target_matrix = DMatrix::<usize>::zeros(side, side);
-
-        (0..side).for_each(|i| {
-            (0..side).for_each(|j| target_matrix[(j, (side - 1) - i)] = self[(i, j)]);
+    fn rotate_90(&self) -> Self {
+        let iter = (0..self.nrows()).rev().flat_map(|i| {
+            (0..self.ncols()).map(move |j| self[(i, j)])
         });
-        target_matrix
+        DMatrix::<usize>::from_iterator(self.ncols(), self.nrows(), iter)
+    }
+}
+
+pub trait Reflection {
+    fn reflect_vertical(&self) -> Self;
+}
+
+impl Reflection for DMatrix<usize> {
+    fn reflect_vertical(&self) -> Self {
+        let iter = (0..self.ncols()).flat_map(|j| {
+            (0..self.nrows()).rev().map(move |i| self[(i, j)])
+        });
+        DMatrix::<usize>::from_iterator(self.nrows(), self.ncols(), iter)
     }
 }
 
@@ -143,5 +152,80 @@ mod tests {
             (2, vec![(0, 1), (1, 2), (3, 4)]),
         ]);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_rotation_2x2() {
+        /*
+        0 1  -->  2 0
+        2 3       3 1
+         */
+
+        let matrix = DMatrix::from_row_slice(2, 2, &vec![0, 1, 2, 3]);
+        let result = DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1]);
+        assert_eq!(matrix.rotate_90(), result)
+    }
+
+    #[test]
+    fn test_rotation_3x3() {
+        /*
+        0  1  2  -->  9  4  0
+        4  5  6       10 5  1
+        9 10 11       11 6  2
+         */
+
+        let matrix = DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 4, 5, 6, 9, 10, 11]);
+        let result = DMatrix::from_row_slice(3, 3, &vec![9, 4, 0, 10, 5, 1, 11, 6, 2]);
+        assert_eq!(matrix.rotate_90(), result)
+    }
+
+    #[test]
+    fn test_rotation_2x3() {
+        /*
+        0  1  2  -->  4  0
+        4  5  6       5  1
+                      6  2
+         */
+
+        let matrix = DMatrix::from_row_slice(2, 3, &vec![0, 1, 2, 4, 5, 6,]);
+        let result = DMatrix::from_row_slice(3, 2, &vec![4, 0, 5, 1, 6, 2]);
+        assert_eq!(matrix.rotate_90(), result)
+    }
+
+    #[test]
+    fn test_reflect_vertical_2x2() {
+        /*
+        0 1  -->  2 3
+        2 3       0 1
+         */
+
+        let matrix = DMatrix::from_row_slice(2, 2, &vec![0, 1, 2, 3]);
+        let result = DMatrix::from_row_slice(2, 2, &vec![2, 3, 0, 1]);
+        assert_eq!(matrix.reflect_vertical(), result)
+    }
+
+    #[test]
+    fn test_reflect_vertical_3x3() {
+        /*
+        0  1  2  -->  9 10 11
+        4  5  6       4  5  6
+        9 10 11       0  1  2
+         */
+
+        let matrix = DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 4, 5, 6, 9, 10, 11]);
+        let result = DMatrix::from_row_slice(3, 3, &vec![9, 10, 11, 4, 5, 6, 0, 1, 2]);
+        assert_eq!(matrix.reflect_vertical(), result)
+    }
+
+    #[test]
+    fn test_reflect_vertical_2x3() {
+        /*
+        0  1  2  -->  4  5  6
+        4  5  6       0  1  2
+         */
+
+        let matrix = DMatrix::from_row_slice(2, 3, &vec![0, 1, 2, 4, 5, 6,]);
+        let result = DMatrix::from_row_slice(2, 3, &vec![4, 5, 6, 0, 1, 2]);
+        assert_eq!(matrix.reflect_vertical(), result)
     }
 }

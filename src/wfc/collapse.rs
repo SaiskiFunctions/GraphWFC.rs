@@ -8,7 +8,7 @@ use rand::thread_rng;
 use std::collections::BinaryHeap;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
-use crate::utils::Metrics;
+use crate::utils::{Metrics, StackLRU};
 use bit_set::BitSet;
 use crate::MSu16xNU;
 
@@ -89,6 +89,7 @@ fn exec_collapse(
 
                 assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
+                // skip vertices with contradiction
                 if prop_labels.is_empty() {
                     continue
                 }
@@ -99,8 +100,8 @@ fn exec_collapse(
                 let labels = vertices.index_mut(propagate.to as usize);
 
                 let constrained = labels.intersection(&constraint);
-                if labels != &constrained {
-                    if constrained.is_singleton() || constrained.is_empty() {
+                if constrained.is_any_lesser(labels) {
+                    if constrained.count_non_zero() <= 1 {
                         observed.insert(propagate.to as usize);
                         observed_counter += 1
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
@@ -164,9 +165,9 @@ pub fn build_constraint(labels: &MSu16xNU, direction: EdgeDirection, rules: &Rul
     labels
         .into_iter()
         .enumerate()
-        .fold(MSu16xNU::empty(), |mut acc, (index, frequency)| {
+        .fold(MSu16xNU::empty(), |mut acc, (label, frequency)| {
             if frequency > 0 {
-                if let Some(a) = rules.get(&(direction, index)) {
+                if let Some(a) = rules.get(&(direction, label)) {
                     acc = acc.union(a)
                 }
             }
@@ -349,7 +350,7 @@ mod tests {
             [0, 3].iter().collect(),
             [3, 0].iter().collect(),
             [3, 0].iter().collect(),
-            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
         assert_eq!(result, expected);
@@ -445,18 +446,5 @@ mod tests {
         ];
 
         assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_entropy() {
-        let x: MSu16xNU = [3, 0, 1, 5, 2, 6, 1].iter().collect();
-        println!("{}", x.collision_entropy())
-    }
-
-    #[test]
-    fn test_rng() {
-        let mut rng = SmallRng::seed_from_u64(0);
-        (0..25)
-            .for_each(|_| println!("{}", rng.next_u64()))
     }
 }

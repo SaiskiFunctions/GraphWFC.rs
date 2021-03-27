@@ -12,7 +12,7 @@ use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
 use itertools::Itertools;
-use nalgebra::{DMatrix, U4};
+use nalgebra::DMatrix;
 use std::collections::HashSet;
 use std::ops::{IndexMut, Index};
 use std::convert::TryFrom;
@@ -75,11 +75,6 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
     let pixel_aliases = alias_pixels(&img);
     let chunks = chunk_image(img, chunk_size, &pixel_aliases, false);
     let overlap_rules = overlaps(&chunks, chunk_size);
-
-    if chunks.len() > MSu16xNU::len() {
-        println!("Chunks LEN: {}", chunks.len());
-        panic!("labels multiset not large enough to store all unique chunks")
-    }
 
     // todo: all_labels must properly inherit frequencies
     let mut all_labels = MSu16xNU::empty();
@@ -297,7 +292,6 @@ mod tests {
     use crate::utils::hash_map;
     use image::ImageBuffer;
     use std::ops::Index;
-    use std::iter::FromIterator;
 
     #[test]
     fn test_alias_pixels() {
