@@ -28,7 +28,7 @@ fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: us
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
     let output_vertices = vec![all_labels; graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-    let collapsed_graph = collapse(&rules, output_graph, Some(134522), false);
+    let collapsed_graph = collapse(&rules, output_graph, Some(123), false);
     image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize);
 }
 
@@ -37,13 +37,13 @@ enum RunMode {
     Tile
 }
 
-const CHUNK_SIZE: usize = 3;
-const MODE: RunMode = RunMode::Tile;
+const CHUNK_SIZE: usize = 2;
+const MODE: RunMode = RunMode::OLM;
 
 fn main() {
     match MODE {
         RunMode::OLM => {
-            let input = "resources/test/3Bricks.png";
+            let input = "resources/test/City.png";
             let output = "resources/test/test_result_9.png";
             let out_width = 60;
             let out_depth = 60;
