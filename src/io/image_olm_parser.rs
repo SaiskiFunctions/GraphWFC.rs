@@ -17,6 +17,7 @@ use std::collections::HashSet;
 use std::ops::{IndexMut, Index};
 use std::convert::TryFrom;
 use linked_hash_map::LinkedHashMap;
+use std::ops::{Not};
 
 use crate::MSu16xNU;
 
@@ -40,9 +41,21 @@ pub fn render(
     graph
         .vertices
         .into_iter()
+        // map into a list of labels that are non-zero on each vertex
         .map(|vertex| {
-            vertex.is_singleton().then(|| chunks.index(vertex.imax()).clone())
+            // vertex.is_singleton().then(|| chunks.index(vertex.imax()).clone())
+            vertex
+                .into_iter()
+                .enumerate()
+                .fold(Vec::new(), |mut acc, (label, frequency)| {
+                    if frequency > 0 {
+                        acc.push(chunks.index(label).clone())
+                    }
+                    acc
+                })
         })
+        // map vertices into options for 0 and >1 labels
+        .map(|label_list| label_list.is_empty().not().then(|| label_list))
         .enumerate()
         .for_each(|(chunk_index, opt_chunk)| {
             let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
@@ -50,12 +63,14 @@ pub fn render(
             let top_left_pix_x = chunk_x * chunk_size;
             let top_left_pix_y = chunk_y * chunk_size;
 
-            let chunk = match opt_chunk {
-                None => DMatrix::from_element(chunk_size, chunk_size, contradiction_key),
-                Some(chunk) => chunk
+            let chunks = match opt_chunk {
+                None => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
+                Some(chunks) => chunks //temporary return of first element
             };
 
-            chunk
+            chunks
+                .first()
+                .unwrap()
                 .iter()
                 .enumerate()
                 .for_each(|(pixel_index, pixel_alias)| {
@@ -315,7 +330,7 @@ mod tests {
     use super::*;
     use crate::utils::hash_map;
     use image::ImageBuffer;
-    use std::ops::Index;
+    use std::ops::{Index, Not};
     use std::iter::FromIterator;
 
     #[test]
@@ -446,5 +461,31 @@ mod tests {
         assert_eq!(raw_graph.edges.get(&2).unwrap(), edges_n3.get(&2).unwrap());
         assert_eq!(raw_graph.edges.get(&3).unwrap(), edges_n3.get(&3).unwrap());
         assert_eq!(raw_graph.edges.get(&4).unwrap(), edges_n3.get(&4).unwrap());
+    }
+
+    #[test]
+    fn test_multiset() {
+        let mut x: MSu16xNU = MSu16xNU::empty();
+        x.insert(0, 10);
+        x.insert(2, 3);
+
+        x.into_iter().enumerate().for_each(|(i, v)| {
+            if v != 0 {
+                println!("{} {}", i, v);
+            }
+        })
+    }
+
+    #[test]
+    fn match_vec() {
+        let x = vec![0, 1, 2, 3];
+        let y: Vec<usize> = Vec::new();
+
+        let x_prime = x.is_empty().not().then(|| x);
+        match x_prime {
+            Some(list) => list.iter().for_each(|z| println!("{}", z)),
+            None => println!("Empty")
+        }
+        // let y_prime =
     }
 }
