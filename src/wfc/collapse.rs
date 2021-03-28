@@ -8,7 +8,7 @@ use rand::thread_rng;
 use std::collections::BinaryHeap;
 use std::mem::replace;
 use std::ops::{Index, IndexMut};
-use crate::utils::{Metrics, StackLRU};
+use crate::utils::Metrics;
 use bit_set::BitSet;
 use crate::MSu16xNU;
 

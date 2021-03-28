@@ -3,7 +3,6 @@ use std::hash::Hash;
 use std::fmt::{Display, Formatter};
 use std::fmt;
 use std::collections::BTreeMap;
-use crate::MSu16xNU;
 
 pub fn hash_set<T>(data: &[T]) -> HashSet<T>
     where

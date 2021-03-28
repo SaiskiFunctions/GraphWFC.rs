@@ -19,7 +19,7 @@ mod collapse {
             let output_edges = make_edges_8_way_grid(out_width, out_depth);
             let output_graph = Graph::new(output_vertices, output_edges, all_labels);
 
-            bench.iter(|| collapse(&input_graph.rules(), output_graph.clone(), None, false))
+            bench.iter(|| collapse(&input_graph.rules(), output_graph.clone(), Some(1), false))
         }
     }
 }

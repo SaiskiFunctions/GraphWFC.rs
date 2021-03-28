@@ -68,7 +68,6 @@ impl Graph {
                             rules
                                 .entry(rules_key)
                                 .and_modify(|to_labels| to_labels.add_assign(*union_labels))
-                                // .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
                                 .or_insert(*union_labels);
                         })
                 });
