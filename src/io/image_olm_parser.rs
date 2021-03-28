@@ -13,14 +13,13 @@ use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
 use itertools::Itertools;
 use nalgebra::DMatrix;
-use std::ops::{IndexMut, Index};
+use std::ops::{IndexMut, Index, AddAssign};
 use std::convert::TryFrom;
-use std::iter;
 use indexmap::IndexMap;
 
 use crate::MSu16xNU;
 
-const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
+const GREEN: Rgb<u8> = Rgb([0, 255, 0]);
 
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
@@ -106,19 +105,20 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
     (pruned_rules, pixel_aliases, all_labels, chunk_frequencies)
 }
 
+// todo: work out if step will be needed, currently useless
 const fn real_vertex_indexes(chunk_size: usize) -> [usize; 8] {
     let dim = (3 * chunk_size) - (chunk_size - 1);
     let step = chunk_size - 1;
     [
-        0,                                      // NW
-        step + 1,                               // N
-        (step + 1) * 2,                         // NE
-        dim * chunk_size,                       // W
-        // dim * chunk_size + step + 1          // Center
-        dim * chunk_size + (step + 1) * 2,      // E
-        dim * chunk_size * 2,                   // SW
-        dim * chunk_size * 2 + step + 1,        // S
-        dim * chunk_size * 2 + (step + 1) * 2,  // SE
+        dim * chunk_size * 0 + (step + 1) * 0,      // NW
+        dim * chunk_size * 0 + (step + 1) * 1,      // N
+        dim * chunk_size * 0 + (step + 1) * 2,      // NE
+        dim * chunk_size * 1 + (step + 1) * 0,      // W
+        // dim * chunk_size * 1 + (step + 1) * 1    // Center (unused)
+        dim * chunk_size * 1 + (step + 1) * 2,      // E
+        dim * chunk_size * 2 + (step + 1) * 0,      // SW
+        dim * chunk_size * 2 + (step + 1) * 1,      // S
+        dim * chunk_size * 2 + (step + 1) * 2,      // SE
     ]
 }
 
@@ -213,7 +213,7 @@ fn overlaps(chunks: &IndexMap<Chunk, u16>, chunk_size: usize) -> Rules {
     chunks
         .keys()
         .enumerate()
-        .fold(HashMap::new(), |mut acc, (index, chunk)| {
+        .fold(HashMap::new(), |mut rules, (label, chunk)| {
             let sub_positions = sub_chunk_positions(chunk_size);
             sub_positions
                 .iter()
@@ -224,22 +224,20 @@ fn overlaps(chunks: &IndexMap<Chunk, u16>, chunk_size: usize) -> Rules {
                     chunks
                         .keys()
                         .enumerate()
-                        .for_each(|(other_index, other_chunk)| {
+                        .for_each(|(other_label, other_chunk)| {
                             // find mirrored sub chunk
                             let other_sub_chunk = other_chunk.sub_matrix(rev_pos, rev_size);
                             if sub_chunk == other_sub_chunk {
-                                acc
-                                    .entry((*direction, index))
-                                    .and_modify(|labels| labels.insert(other_index, 1))
-                                    .or_insert({
-                                        let mut set = MSu16xNU::empty();
-                                        set.insert(other_index, 1);
-                                        set
-                                    });
+                                let mut set = MSu16xNU::empty();
+                                set.insert(other_label, 1);
+                                rules
+                                    .entry((*direction, label))
+                                    .and_modify(|l| l.add_assign(set))
+                                    .or_insert(set);
                             }
                         })
                 });
-            acc
+            rules
         })
 }
 
