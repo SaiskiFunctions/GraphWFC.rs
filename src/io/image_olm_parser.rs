@@ -10,7 +10,7 @@ use crate::wfc::collapse;
 
 use bimap::BiMap;
 use hashbrown::HashMap;
-use image::{imageops, Rgb, RgbImage};
+use image::{imageops, Rgb, RgbImage, Pixel};
 use itertools::Itertools;
 use nalgebra::{DMatrix, U4};
 use std::collections::HashSet;
@@ -57,27 +57,60 @@ pub fn render(
         // map vertices into options for 0 and >1 labels
         .map(|label_list| label_list.is_empty().not().then(|| label_list))
         .enumerate()
-        .for_each(|(chunk_index, opt_chunk)| {
+        .for_each(|(chunk_index, opt_chunks)| {
             let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
             // project to pixel coordinates
             let top_left_pix_x = chunk_x * chunk_size;
             let top_left_pix_y = chunk_y * chunk_size;
 
-            let chunks = match opt_chunk {
+            let chunks = match opt_chunks {
                 None => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
-                Some(chunks) => chunks //temporary return of first element
+                Some(chunks) => chunks
             };
 
+            let blend_coefficient = 1.0 / chunks.len() as f64;
+            // more right
             chunks
-                .first()
-                .unwrap()
                 .iter()
+                // map each chunk to an array of rgb channels by pixel alias
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .map(|pixel_alias| {
+                            let channels = key
+                                .get_by_left(pixel_alias)
+                                .copied()
+                                .unwrap_or(GREEN)
+                                .channels();
+
+                            [channels[0].clone(), channels[1].clone(), channels[2].clone()]
+                        })
+                        .collect::<Vec<[u8; 3]>>()
+                })
+                .fold(vec![[0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
+                    acc
+                        .iter()
+                        .zip(chunk.iter()) // pair each pixel representation in the chunk
+                        .map(|(acc_pixel, pixel)| {
+                            acc_pixel // iterate of channels
+                                .iter()
+                                .zip(pixel
+                                    .into_iter()
+                                    .map(|channel| channel * blend_coefficient as u8)
+                                )
+                                .map(|(acc_channel, channel)| acc_channel + channel)
+                        })
+                        .collect()
+                })
+                // map pixel channels back to rgb
+                .map(|pixel_channels| {
+                    Rgb::from_channels(pixel_channels[0], pixel_channels[1], pixel_channels[2], 1)
+                })
                 .enumerate()
-                .for_each(|(pixel_index, pixel_alias)| {
+                .for_each(|(pixel_index, pixel)| {
                     let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
                     let pixel_y = (top_left_pix_y + p_y) as u32;
                     let pixel_x = (top_left_pix_x + p_x) as u32;
-                    let pixel = key.get_by_left(pixel_alias).copied().unwrap_or(GREEN);
                     output_image.put_pixel(pixel_x, pixel_y, pixel);
                 });
         });
@@ -332,6 +365,7 @@ mod tests {
     use image::ImageBuffer;
     use std::ops::{Index, Not};
     use std::iter::FromIterator;
+    use std::convert::TryInto;
 
     #[test]
     fn test_alias_pixels() {
@@ -487,5 +521,57 @@ mod tests {
             None => println!("Empty")
         }
         // let y_prime =
+    }
+
+    #[test]
+    fn pixels_test() {
+        let mut x: Rgb<u8> = Rgb::from([125, 125, 125]);
+        // Rgb::
+        // Rgb::from_channels(x.channels().iter().map(|q| q+10).collect());
+        // let r = (x.channels()[0]);
+        // Rgb::fr
+        // let y = Rbg::from_channels(r + 10, g + 10, b + 10);
+        // let v = x
+        //     .channels()
+        //     .into_iter()
+        //     .map(|q| q+10)
+        //     .collect::<Vec<u8>>().as_slice();
+        let c: [u8; 3] = x
+            .channels()
+            .into_iter()
+            .map(|q| q+10)
+            .collect::<Vec<u8>>()
+            .try_into()
+            .unwrap();
+
+        let y = Rgb::from(c);
+        // let y: Rgb<u8> = Rgb::from(x
+            // .channels()
+            // .into_iter()
+            // .map(|q| q+10)
+            // .collect::<Vec<u8>>().try_into::<[u8; 3]>().unwrap());
+        // x.channels()[0] = [150, 150, 150];
+        // let mut p = [0, 0, 0];
+        // x.channels().iter().for_each(|q| q+10).collect::<[u32; 3]>()
+        // let y = Rgb::from();
+        println!("{:?}", y.channels());
+        // println!("{:?}", v);
+
+    }
+
+    #[test]
+    fn test_vec_slice() {
+        let mut x: Rgb<u8> = Rgb::from([125, 125, 125]);
+        let y = Rgb::from_slice(&(*x
+                              .channels()
+                              .into_iter()
+                              .map(|q| q+10)
+                              .collect::<Vec<u8>>()
+            .into_boxed_slice()));
+    }
+
+    #[test]
+    fn blend_vec() {
+        let x = vec![vec![0, 1, 2], vec![3, 4, 5], vec![6, 7, 8]];
     }
 }
