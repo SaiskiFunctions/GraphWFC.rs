@@ -13,7 +13,7 @@ mod collapse {
         let out_width = 100;
         let out_depth = 100;
 
-        if let Ok((input_graph, _)) = parse("resources/test/tosashimizu_model.txt") {
+        if let Ok((input_graph, _)) = parse("resources/test/tosashimizu_model.txt", true) {
             let all_labels = input_graph.all_labels;
             let output_vertices = vec![all_labels; out_width * out_depth];
             let output_edges = make_edges_8_way_grid(out_width, out_depth);
