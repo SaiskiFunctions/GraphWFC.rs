@@ -69,42 +69,69 @@ pub fn render(
             };
 
             let blend_coefficient = 1.0 / chunks.len() as f64;
-            // more right
+
+            let pixel_chunks =
             chunks
+                // a vec of vecs of pixel aliases
                 .iter()
-                // map each chunk to an array of rgb channels by pixel alias
+                // map to a vec of vecs of Rgb<u8> pixels
                 .map(|chunk| {
                     chunk
                         .iter()
                         .map(|pixel_alias| {
-                            let channels = key
+                            key
                                 .get_by_left(pixel_alias)
                                 .copied()
                                 .unwrap_or(GREEN)
-                                .channels();
-
-                            [channels[0].clone(), channels[1].clone(), channels[2].clone()]
                         })
-                        .collect::<Vec<[u8; 3]>>()
+                        .collect() //::<Vec<Rgb<u8>>>()
                 })
-                .fold(vec![[0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
+                .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk: Vec<Rgb<u8>>| {
                     acc
-                        .iter()
-                        .zip(chunk.iter()) // pair each pixel representation in the chunk
-                        .map(|(acc_pixel, pixel)| {
-                            acc_pixel // iterate of channels
-                                .iter()
-                                .zip(pixel
-                                    .into_iter()
-                                    .map(|channel| channel * blend_coefficient as u8)
-                                )
-                                .map(|(acc_channel, channel)| acc_channel + channel)
-                        })
-                        .collect()
+                        .into_iter()
+                        // zip each pixel of acc output image with the current chunk pixel
+                        .zip(chunks.into_iter())
+                        .map(|(mut acc_pixel, pixel)| {
+                            acc_pixel
+                                .channels_mut()
+                                .into_iter()
+                                // somehow the chunk pixels get turned into usize
+                                .zip(pixel.into_iter())
+                                .for_each(|(acc_channel, pixel_channel)| {
+                                    *acc_channel += (*pixel_channel as usize)
+                                })
+                        });
+                    // acc
+                        // .iter()
+                        // .zip(chunk.into_iter()) // pair each pixel representation in the chunk
+                        // .map(|(acc_pixel, pixel)| {
+                        //     let mut acc_channels = acc_pixel.channels_mut();
+                        //
+                        //     acc_channels
+                        //
+                        //     acc_pixel
+                        //         .map(|(acc_channel, channel)| acc_channel + channel)
+                        //
+                        //     acc_pixel // iterate of channels
+                        //         .iter()
+                        //         .zip(pixel
+                        //             .into_iter()
+                        //             .map(|channel| channel * blend_coefficient as u8)
+                        //         )
+                        //         .map(|(acc_channel, channel)| acc_channel + channel)
+                        // })
+                        // .collect()
+                    acc
                 })
+                .into_iter()
                 // map pixel channels back to rgb
-                .map(|pixel_channels| {
-                    Rgb::from_channels(pixel_channels[0], pixel_channels[1], pixel_channels[2], 1)
+                .map(|pixel_usize| {
+                    let pixel_usize_channels = pixel_usize.channels();
+                    let pixel_u8: Rgb<u8> = Rgb::from_channels(pixel_usize_channels[0] as u8,
+                    pixel_usize_channels[1] as u8,
+                    pixel_usize_channels[2] as u8,
+                    1);
+                    pixel_u8
                 })
                 .enumerate()
                 .for_each(|(pixel_index, pixel)| {
@@ -116,6 +143,10 @@ pub fn render(
         });
 
     output_image.save(filename).unwrap();
+}
+
+fn make_empty_pixel() -> Rgb<u8> {
+    Rgb::from([0, 0, 0])
 }
 
 // TODO: handle unwrap of image::open properly
@@ -573,5 +604,41 @@ mod tests {
     #[test]
     fn blend_vec() {
         let x = vec![vec![0, 1, 2], vec![3, 4, 5], vec![6, 7, 8]];
+    }
+
+    #[test]
+    fn map_channels() {
+        let mut x: Rgb<u8> = Rgb::from([125, 125, 125]);
+        x = x.map(|channel| channel + 10);
+
+        println!("{:?}", x);
+    }
+
+    #[test]
+    fn mut_channels() {
+        let mut x: Rgb<u8> = Rgb::from([125, 125, 125]);
+        let mut c = x.channels_mut();
+        let y = [10, 10, 20];
+        // c = c.iter().zip(y.iter()).map(|(p_1, p_2)| p_1 + p_2).collect();
+        for i in 0..c.len() {
+            c[i] += y[i]
+        }
+        // c[0] += 10;
+        println!("{:?}", x);
+    }
+
+    #[test]
+    fn re_mut_channels() {
+        let mut x: Rgb<u8> = Rgb::from([125, 125, 125]);
+        let y = [10, 10, 20];
+        let mut c = x.channels_mut();
+        c
+            .into_iter()
+            .zip(y.into_iter())
+            .for_each(|(p_1, p_2)| {
+                *p_1 += p_2
+            });
+
+        println!("{:?}", x);
     }
 }
