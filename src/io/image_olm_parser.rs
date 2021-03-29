@@ -75,10 +75,10 @@ pub fn render(
 
             let blend_ratio = 1.0 / chunks.len() as f64;
 
-            let blended_pixel_chunks: Vec<Vec<Rgb<u8>>> = chunks
+            let output_pixels: Vec<Rgb<u8>> = chunks
                 // a vec of vecs of pixel aliases
                 .iter()
-                // map to a vec of vecs of Rgb<u8> pixels
+                // map pixel aliases to rgb values
                 .map(|chunk| {
                     chunk
                         .iter()
@@ -89,21 +89,19 @@ pub fn render(
                                 .unwrap_or(GREEN)
                                 .map(|channel| (channel as f64 * blend_ratio) as u8)
                         })
-                        .collect::<Vec<Rgb<u8>>>()
-                }).collect();
-
-            let mut output_pixels: Vec<Rgb<u8>> = vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size];
-
-            let output_pixels: Vec<Rgb<u8>> = blended_pixel_chunks
-                .into_iter()
+                })
+                // fold into single vec of Rgb values, chunk is an iterator of Rgb<u8> here
                 .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
                     acc
                         .iter_mut()
-                        .zip(chunk.iter())
+                        // zip each pixel in acc with each pixel in chunk
+                        .zip(chunk)
                         .for_each(|(acc_pixel, chunk_pixel)| {
                             acc_pixel
                                 .channels_mut()
                                 .iter_mut()
+                                // zip the RGB channels of each pixel together
+                                // i.e. r + r, g + g, b + b
                                 .zip(chunk_pixel.channels())
                                 .for_each(|(acc_channel, chunk_channel)| {
                                     *acc_channel += chunk_channel
