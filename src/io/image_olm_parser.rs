@@ -110,15 +110,15 @@ const fn real_vertex_indexes(chunk_size: usize) -> [usize; 8] {
     let dim = (3 * chunk_size) - (chunk_size - 1);
     let step = chunk_size - 1;
     [
-        dim * chunk_size * 0 + (step + 1) * 0,      // NW
-        dim * chunk_size * 0 + (step + 1) * 1,      // N
-        dim * chunk_size * 0 + (step + 1) * 2,      // NE
-        dim * chunk_size * 1 + (step + 1) * 0,      // W
-        // dim * chunk_size * 1 + (step + 1) * 1    // Center (unused)
-        dim * chunk_size * 1 + (step + 1) * 2,      // E
-        dim * chunk_size * 2 + (step + 1) * 0,      // SW
-        dim * chunk_size * 2 + (step + 1) * 1,      // S
-        dim * chunk_size * 2 + (step + 1) * 2,      // SE
+        0,                                      // NW
+        step + 1,                               // N
+        (step + 1) * 2,                         // NE
+        dim * chunk_size,                       // W
+        // dim * chunk_size + step + 1          // Center (unused)
+        dim * chunk_size + (step + 1) * 2,      // E
+        dim * chunk_size * 2,                   // SW
+        dim * chunk_size * 2 + step + 1,        // S
+        dim * chunk_size * 2 + (step + 1) * 2,  // SE
     ]
 }
 
@@ -246,8 +246,8 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
     // pixel based graph dimensions
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
-
-    let vertices: Vec<MSu16xNU> = vec![*all_labels; v_dim_x * v_dim_y];
+    let vertices_len = v_dim_x * v_dim_y;
+    let vertices: Vec<MSu16xNU> = vec![*all_labels; vertices_len];
 
     // create negative indexed range to offset vertex centered directional field by N
     let signed_chunk_size: i32 = TryFrom::try_from(chunk_size)
@@ -259,10 +259,8 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
         .cartesian_product(range)
         .filter(|i| i != &(0, 0)); // remove 0 offset for correct directional mapping
 
-    let edges: Edges = vertices
-        .iter()
-        .enumerate()
-        .fold(HashMap::new(), |mut acc, (index, _)| {
+    let edges: Edges = (0..vertices_len)
+        .fold(HashMap::new(), |mut acc, index| {
             let (x, y) = index_to_coords(index, v_dim_x);
             range_cart_prod
                 .clone()
@@ -286,7 +284,7 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
 fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, graph, None, true)
+    collapse::collapse(rules, graph, None, Some(1))
 }
 
 #[cfg(test)]

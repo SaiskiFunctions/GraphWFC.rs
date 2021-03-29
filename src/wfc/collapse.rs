@@ -30,9 +30,9 @@ fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
         .vertices
         .iter()
         .enumerate()
-        .for_each(|(_index, labels)| {
+        .for_each(|(index, labels)| {
             assert!(labels.is_subset(&out_graph.all_labels));
-            let from_index = _index as VertexIndex;
+            let from_index = index as VertexIndex;
             if labels.is_singleton() {
                 init_propagations.push(from_index);
                 observed.insert(from_index as usize);
@@ -57,7 +57,7 @@ fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
 }
 
 const METRICS: bool = false;
-const OBSERVE_CHANCE: usize = 33;
+const OBSERVE_CHANCE: usize = 75;
 
 fn exec_collapse(
     rng: &mut SmallRng,
@@ -65,7 +65,7 @@ fn exec_collapse(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<MSu16xNU>,
-    partial: bool
+    iterations: Option<usize>
 ) -> Vec<MSu16xNU> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
@@ -78,6 +78,9 @@ fn exec_collapse(
         metrics.avg("props/obs", ("props", "obs"));
         metrics.avg("props/loops", ("props", "loops"));
     }
+
+    let iterations = iterations.unwrap_or(usize::MAX);
+    let mut counter: usize = 1;
 
     loop {
         // propagate constraints
@@ -114,7 +117,8 @@ fn exec_collapse(
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
-        if partial { return vertices }
+        if counter >= iterations { return vertices }
+        counter += 1;
 
         // check if all vertices observed, if so we have finished
         if observed_counter == vertices_len {
@@ -193,7 +197,7 @@ pub fn collapse(
     rules: &Rules,
     mut output_graph: Graph,
     seed: Option<u64>,
-    partial: bool
+    iterations: Option<usize>
 ) -> Graph {
     let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
@@ -204,7 +208,7 @@ pub fn collapse(
         &output_graph.edges,
         init,
         output_graph.vertices,
-        partial // 🐯
+        iterations // 🐯
     );
     output_graph.vertices = collapsed_vertices;
     output_graph
@@ -285,7 +289,7 @@ mod tests {
 
         let init = init_collapse(&mut rng, &out_graph);
 
-        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
+        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), None);
         let expected: Vec<MSu16xNU> = vec![
             [1, 0, 0].iter().collect(),
             [0, 2, 0].iter().collect(),
@@ -341,7 +345,7 @@ mod tests {
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
-            false
+            None
         );
 
         let expected: Vec<MSu16xNU> = vec![
@@ -427,7 +431,7 @@ mod tests {
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),
-            false
+            None
         );
 
         let expected: Vec<MSu16xNU> = vec![
