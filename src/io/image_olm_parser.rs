@@ -75,10 +75,10 @@ pub fn render(
 
             let blend_ratio = 1.0 / chunks.len() as f64;
 
-            let output_pixels: Vec<Rgb<u8>> = chunks
-                // a vec of vecs of pixel aliases
+            chunks
+                // a vec of DMatrix of pixel aliases
                 .iter()
-                // map pixel aliases to rgb values
+                // map each DMatrix of pixel aliases into an iterator rgb values
                 .map(|chunk| {
                     chunk
                         .iter()
@@ -87,15 +87,17 @@ pub fn render(
                                 .get_by_left(pixel_alias)
                                 .copied()
                                 .unwrap_or(GREEN)
+                                // map the pixel to contribute a percentage of the final pixel
+                                // value proportional to the number of overlayed chunks
                                 .map(|channel| (channel as f64 * blend_ratio) as u8)
                         })
                 })
-                // fold into single vec of Rgb values, chunk is an iterator of Rgb<u8> here
+                // fold into single vec of Rgb values
                 .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
                     acc
                         .iter_mut()
                         // zip each pixel in acc with each pixel in chunk
-                        .zip(chunk)
+                        .zip(chunk) // iterator rgb values consumed here
                         .for_each(|(acc_pixel, chunk_pixel)| {
                             acc_pixel
                                 .channels_mut()
@@ -108,9 +110,7 @@ pub fn render(
                                 })
                         });
                     acc
-                });
-
-            output_pixels
+                })
                 .into_iter()
                 .enumerate()
                 .for_each(|(pixel_index, pixel)| {
@@ -122,10 +122,6 @@ pub fn render(
         });
 
     output_image.save(filename).unwrap();
-}
-
-fn make_empty_pixel() -> Rgb<u8> {
-    Rgb::from([0, 0, 0])
 }
 
 // TODO: handle unwrap of image::open properly
