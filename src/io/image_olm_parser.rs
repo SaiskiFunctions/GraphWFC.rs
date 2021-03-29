@@ -41,9 +41,9 @@ pub fn render(
     graph
         .vertices
         .into_iter()
-        // map into a list of labels that are non-zero on each vertex
+        // Vec<Multiset> => Vec<Vec<DMatrix>>
+        // map each non-zero multiset label into a corresponding DMatrix
         .map(|vertex| {
-            // vertex.is_singleton().then(|| chunks.index(vertex.imax()).clone())
             vertex
                 .into_iter()
                 .enumerate()
@@ -54,21 +54,28 @@ pub fn render(
                     acc
                 })
         })
-        // map vertices into options for 0 and >1 labels
+        // Vec<Vec<DMatrix>> => Vec<Option<DMatrix>>
+        // map to options depending on whether the set of chunks is empty
         .map(|label_list| label_list.is_empty().not().then(|| label_list))
         .enumerate()
+        // for each chunk of the image which may contain multiple overlayed opt_chunks
         .for_each(|(chunk_index, opt_chunks)| {
             let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
             // project to pixel coordinates
             let top_left_pix_x = chunk_x * chunk_size;
             let top_left_pix_y = chunk_y * chunk_size;
 
-            let chunks = match opt_chunks {
+            // Vec<Option<DMatrix>> => Vec<DMatrix>
+            let chunks: Vec<DMatrix<usize>> = match opt_chunks {
+                // change an empty set of chunks into a chunk of contradiction pixels
                 None => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
+                // otherwise returns chunks
                 Some(chunks) => chunks
             };
 
-            let pixel_chunks: Vec<Vec<Rgb<u8>>> = chunks
+            let blend_coefficient = 1.0 / chunks.len() as f64;
+
+            let blended_pixel_chunks: Vec<Vec<Rgb<u8>>> = chunks
                 // a vec of vecs of pixel aliases
                 .iter()
                 // map to a vec of vecs of Rgb<u8> pixels
@@ -80,37 +87,29 @@ pub fn render(
                                 .get_by_left(pixel_alias)
                                 .copied()
                                 .unwrap_or(GREEN)
-                        })
-                        .collect::<Vec<Rgb<u8>>>()
-                }).collect();
-
-            let blend_coefficient = 1.0 / chunks.len() as f64;
-
-            let blended_pixel_chunks: Vec<Vec<Rgb<u8>>> = pixel_chunks
-                .into_iter()
-                .map(|chunk| {
-                    chunk
-                        .into_iter()
-                        .map(|pixel| {
-                            pixel.map(|channel| (channel as f64 * blend_coefficient) as u8)
+                                .map(|channel| (channel as f64 * blend_coefficient) as u8)
                         })
                         .collect::<Vec<Rgb<u8>>>()
                 }).collect();
 
             let mut output_pixels: Vec<Rgb<u8>> = vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size];
 
-            for i in 0..blended_pixel_chunks.len() {
-                let blended_chunk = blended_pixel_chunks.index(i);
-                for j in 0..blended_chunk.len() {
-                    let mut new_output: Rgb<u8> = Rgb::from_channels(
-                        output_pixels[j].channels()[0] + blended_chunk[j].channels()[0],
-                        output_pixels[j].channels()[1] + blended_chunk[j].channels()[1],
-                        output_pixels[j].channels()[2] + blended_chunk[j].channels()[2],
-                        1
-                    );
-                    output_pixels[j] = new_output;
-                }
-            }
+            blended_pixel_chunks
+                .into_iter()
+                .for_each(|chunk| {
+                    output_pixels
+                        .iter_mut()
+                        .zip(chunk.iter())
+                        .for_each(|(output_pixel, chunk_pixel)| {
+                            output_pixel
+                                .channels_mut()
+                                .iter_mut()
+                                .zip(chunk_pixel.channels())
+                                .for_each(|(o_pix, b_pix)| {
+                                    *o_pix += b_pix
+                                })
+                        })
+                });
 
             output_pixels
                 .into_iter()
@@ -367,7 +366,7 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
 fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, graph, None, true)
+    collapse::collapse(rules, graph, None, 0)
 }
 
 #[cfg(test)]
@@ -621,5 +620,15 @@ mod tests {
             });
 
         println!("{:?}", x);
+    }
+
+    #[test]
+    fn map_dmatrix() {
+        let x = DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+        let y: DMatrix<Rgb<usize>> = x.iter().map(|v| Rgb::from([*v, *v, *v])).collect();
+
+        y.iter().for_each(|r| println!("{:?}", r));
+        // println!("{}", y);
     }
 }

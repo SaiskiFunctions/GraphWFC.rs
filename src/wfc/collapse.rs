@@ -65,8 +65,9 @@ fn exec_collapse(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<MSu16xNU>,
-    partial: bool
+    partial: usize
 ) -> Vec<MSu16xNU> {
+    let mut run_counter = 0;
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
     let vertices_len = vertices.len();
@@ -113,7 +114,7 @@ fn exec_collapse(
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
-        if partial { return vertices }
+        if run_counter >= partial { return vertices }
 
         // check if all vertices observed, if so we have finished
         if observed_counter == vertices_len {
@@ -157,6 +158,7 @@ fn exec_collapse(
                 generate_propagations(&mut propagations, &observed, edges, index);
             }
         }
+        run_counter += 1;
     }
 }
 
@@ -192,7 +194,7 @@ pub fn collapse(
     rules: &Rules,
     mut output_graph: Graph,
     seed: Option<u64>,
-    partial: bool
+    partial: usize
 ) -> Graph {
     let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
@@ -284,7 +286,7 @@ mod tests {
 
         let init = init_collapse(&mut rng, &out_graph);
 
-        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), false);
+        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), 10000);
         let expected: Vec<MSu16xNU> = vec![
             [1, 0, 0].iter().collect(),
             [0, 2, 0].iter().collect(),
@@ -340,7 +342,7 @@ mod tests {
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
-            false
+            100000
         );
 
         let expected: Vec<MSu16xNU> = vec![
@@ -426,7 +428,7 @@ mod tests {
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),
-            false
+            100000
         );
 
         let expected: Vec<MSu16xNU> = vec![
