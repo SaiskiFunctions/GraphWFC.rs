@@ -73,7 +73,7 @@ pub fn render(
                 Some(chunks) => chunks
             };
 
-            let blend_coefficient = 1.0 / chunks.len() as f64;
+            let blend_ratio = 1.0 / chunks.len() as f64;
 
             let blended_pixel_chunks: Vec<Vec<Rgb<u8>>> = chunks
                 // a vec of vecs of pixel aliases
@@ -87,28 +87,29 @@ pub fn render(
                                 .get_by_left(pixel_alias)
                                 .copied()
                                 .unwrap_or(GREEN)
-                                .map(|channel| (channel as f64 * blend_coefficient) as u8)
+                                .map(|channel| (channel as f64 * blend_ratio) as u8)
                         })
                         .collect::<Vec<Rgb<u8>>>()
                 }).collect();
 
             let mut output_pixels: Vec<Rgb<u8>> = vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size];
 
-            blended_pixel_chunks
+            let output_pixels: Vec<Rgb<u8>> = blended_pixel_chunks
                 .into_iter()
-                .for_each(|chunk| {
-                    output_pixels
+                .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
+                    acc
                         .iter_mut()
                         .zip(chunk.iter())
-                        .for_each(|(output_pixel, chunk_pixel)| {
-                            output_pixel
+                        .for_each(|(acc_pixel, chunk_pixel)| {
+                            acc_pixel
                                 .channels_mut()
                                 .iter_mut()
                                 .zip(chunk_pixel.channels())
-                                .for_each(|(o_pix, b_pix)| {
-                                    *o_pix += b_pix
+                                .for_each(|(acc_channel, chunk_channel)| {
+                                    *acc_channel += chunk_channel
                                 })
-                        })
+                        });
+                    acc
                 });
 
             output_pixels
