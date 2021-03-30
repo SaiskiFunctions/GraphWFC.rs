@@ -20,7 +20,7 @@ type InitCollapse = (
 );
 
 fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
-    let mut observed: BitSet = BitSet::new();
+    let mut observed: BitSet = BitSet::with_capacity(out_graph.vertices.len());
     let mut propagations: Vec<Propagate> = Vec::new();
     let mut init_propagations: Vec<VertexIndex> = Vec::new();
     let mut heap: BinaryHeap<Observe> = BinaryHeap::new();
@@ -57,7 +57,7 @@ fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
 }
 
 const METRICS: bool = false;
-const OBSERVE_CHANCE: usize = 75;
+const OBSERVE_CHANCE: usize = 33;
 
 fn exec_collapse(
     rng: &mut SmallRng,
@@ -69,28 +69,32 @@ fn exec_collapse(
 ) -> Vec<MSu16xNU> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
-    let vertices_len = vertices.len();
-    let mut observed_counter: usize = 0;
 
     let mut metrics = Metrics::new();
 
     if METRICS {
-        metrics.avg("props/obs", ("props", "obs"));
-        metrics.avg("props/loops", ("props", "loops"));
+        metrics.avg("props per obs", ("props", "obs"));
+        metrics.avg("props per prop loops", ("props", "prop loops"));
+        metrics.avg("heap pops per collapse loop", ("heap pops", "collapse loops"));
     }
 
     let iterations = iterations.unwrap_or(usize::MAX);
     let mut counter: usize = 1;
 
-    loop {
-        // propagate constraints
-        while !propagations.is_empty() {
-            if METRICS { metrics.inc("loops") }
+    // let mut previous: f64 = f64::MAX;
 
+    loop {
+        if METRICS { metrics.inc("collapse loops") }
+        // propagate constraints
+        let mut previous: f64 = f64::MAX;
+        while !propagations.is_empty() {
+            if METRICS { metrics.inc("prop loops") }
+
+            // let mut previous: f64 = f64::MAX;
             for propagate in propagations.drain(..) {
                 if METRICS { metrics.inc("props") }
 
-                assert!(vertices.len() >= propagate.from as usize);
+                debug_assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
                 // skip vertices with contradiction
                 if prop_labels.is_empty() {
@@ -99,16 +103,24 @@ fn exec_collapse(
 
                 let constraint = build_constraint(prop_labels, propagate.direction, rules);
 
-                assert!(vertices.len() >= propagate.to as usize);
+                debug_assert!(vertices.len() >= propagate.to as usize);
                 let labels = vertices.index_mut(propagate.to as usize);
 
                 let constrained = labels.intersection(&constraint);
                 if constrained.is_any_lesser(labels) {
                     if constrained.count_non_zero() <= 1 {
                         observed.insert(propagate.to as usize);
-                        observed_counter += 1
+                        if METRICS {
+                            if constrained.is_empty() {
+                                metrics.inc("contradictions")
+                            }
+                        }
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
-                        heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
+                        let entropy = constrained.collision_entropy();
+                        if entropy < 3.0 && entropy < previous {
+                            previous = entropy;
+                            heap.push(Observe::new(propagate.to, entropy))
+                        }
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
                     *labels = constrained
@@ -117,45 +129,50 @@ fn exec_collapse(
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
+        // if METRICS { metrics.acc("heap size", heap.len() as f64) }
+
         if counter >= iterations { return vertices }
         counter += 1;
-
-        // check if all vertices observed, if so we have finished
-        if observed_counter == vertices_len {
-            if METRICS { metrics.print(Some("All Observed")) }
-            return vertices;
-        }
 
         // try to find a vertex index to observe
         let mut observe_index: Option<VertexIndex> = None;
         // check the heap first
         while !heap.is_empty() {
+            if METRICS { metrics.inc("heap pops") }
             let observe = heap.pop().unwrap();
             if !observed.contains(observe.index as usize) {
+                if METRICS { metrics.acc("unobserved entropy", observe.entropy) }
+
                 observe_index = Some(observe.index);
                 break;
+            }
+            if METRICS {
+                metrics.inc("heap pops already observed");
+                metrics.acc("already observed entropy", observe.entropy);
             }
         }
         // if no index to check in heap, check vec of initial vertices to observe
         if observe_index.is_none() {
+            if METRICS { metrics.inc("heap empty") }
             while !to_observe.is_empty() {
+                if METRICS { metrics.inc("to_observe pops") }
                 let index = to_observe.pop().unwrap();
                 if !observed.contains(index as usize) {
                     observe_index = Some(index);
                     break;
                 }
+                if METRICS { metrics.inc("to_observe pops already observed") }
             }
         }
         match observe_index {
             None => {
-                if METRICS { metrics.print(Some("All Observed")) }
+                if METRICS { metrics.print(Some("METRICS")) }
                 // Nothing left to observe, therefore we've finished
                 return vertices;
             }
             Some(index) => {
                 if METRICS { metrics.inc("obs") }
-
-                assert!(vertices.len() >= index as usize);
+                debug_assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
                 labels_multiset.choose_random(rng);
                 observed.insert(index as usize);

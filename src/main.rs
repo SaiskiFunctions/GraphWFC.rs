@@ -41,7 +41,7 @@ enum RunMode {
 }
 
 const CHUNK_SIZE: usize = 2;
-const MODE: RunMode = RunMode::OLM;
+const MODE: RunMode = RunMode::Tile;
 
 fn main() {
     match MODE {

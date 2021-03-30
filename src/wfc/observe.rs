@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Observe {
-    entropy: f64,
+    pub entropy: f64,
     pub index: VertexIndex,
 }
 
