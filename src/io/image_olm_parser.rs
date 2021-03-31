@@ -3,7 +3,7 @@ use crate::io::{
     limit_iter::Limit,
     sub_matrix::SubMatrix,
     tri_wave::TriWave,
-    utils::{Reflection, Rotation},
+    utils::{DiagonalReflection, Reflection, Rotation},
 };
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::wfc::collapse;
@@ -76,7 +76,7 @@ pub fn render(
 pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, IndexMap<Chunk, u16>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
-    let chunk_frequencies = chunk_image(img, chunk_size, &pixel_aliases, true, false);
+    let chunk_frequencies = chunk_image(img, chunk_size, &pixel_aliases, true, false, false, false);
     let overlap_rules = overlaps(&chunk_frequencies, chunk_size);
 
     if chunk_frequencies.len() > MSu16xNU::len() {
@@ -88,16 +88,16 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
     let raw_graph = create_raw_graph(&all_labels, chunk_size, (3, 3));
     let mut pruned_rules: Rules = HashMap::new();
 
-    (0..MSu16xNU::len())
+    (0..all_labels.count_non_zero())
         .for_each(|label| {
-            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label);
+            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label as usize);
             real_vertex_indexes(chunk_size)
                 .iter()
                 .enumerate()
                 .for_each(|(direction, index)| {
                     let set = pruned_graph.vertices.index(*index);
                     if !set.is_empty() {
-                        pruned_rules.insert((direction as u16, label), *set);
+                        pruned_rules.insert((direction as u16, label as usize), *set);
                     }
                 });
         });
@@ -158,31 +158,40 @@ fn chunk_image(
     chunk_size: usize,
     pixel_aliases: &PixelKeys,
     rotate: bool,
-    reflect: bool,
+    reflect_vertical: bool,
+    reflect_horizontal: bool,
+    reflect_diagonal: bool,
 ) -> IndexMap<Chunk, u16> {
     sub_images(image, chunk_size)
         .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
         .fold(IndexMap::new(), |mut acc, aliases| {
-            let mut chunks: Vec<Chunk> = Vec::new();
-            let mut chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &aliases);
-            chunks.push(chunk.clone());
+            let chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &aliases);
 
             if rotate {
+                let mut rot_chunk = chunk.clone();
                 for _ in 0..3 {
-                    chunk = chunk.rotate_90();
-                    chunks.push(chunk.clone())
+                    rot_chunk = rot_chunk.rotate_90();
+                    push_chunk_frequency(rot_chunk.clone(), &mut acc);
                 }
             }
-
-            if reflect {
-                chunks.extend(chunks.clone().iter().map(|c| c.reflect_vertical()))
+            if reflect_vertical {
+                push_chunk_frequency(chunk.reflect_vertical(), &mut acc);
+            }
+            if reflect_horizontal {
+                push_chunk_frequency(chunk.reflect_horizontal(), &mut acc);
+            }
+            if reflect_diagonal {
+                push_chunk_frequency(chunk.reflect_top_left(), &mut acc);
+                push_chunk_frequency(chunk.reflect_bottom_left(), &mut acc);
             }
 
-            chunks.into_iter().for_each(|c| {
-                acc.entry(c).and_modify(|f| *f += 1).or_insert(1);
-            });
+            push_chunk_frequency(chunk, &mut acc);
             acc
         })
+}
+
+fn push_chunk_frequency(chunk: Chunk, frequencies: &mut IndexMap<Chunk, u16>) {
+    frequencies.entry(chunk).and_modify(|f| *f += 1).or_insert(1);
 }
 
 type Position = (usize, usize);
@@ -308,7 +317,7 @@ mod tests {
         pixel_aliases.insert(0, Rgb::from([255, 255, 255]));
         pixel_aliases.insert(1, Rgb::from([0, 0, 0]));
 
-        let chunk_map = chunk_image(img, 2, &pixel_aliases, true, false);
+        let chunk_map = chunk_image(img, 2, &pixel_aliases, true, false, false, false);
 
         let mut expected_map: IndexMap<Chunk, u16> = IndexMap::new();
         expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![1, 0, 0, 0]), 1);
