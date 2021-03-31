@@ -69,8 +69,6 @@ fn exec_collapse(
 ) -> Vec<MSu16xNU> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
-    let vertices_len = vertices.len();
-    let mut observed_counter: usize = 0;
 
     let mut metrics = Metrics::new();
 
@@ -106,7 +104,6 @@ fn exec_collapse(
                 if constrained.is_any_lesser(labels) {
                     if constrained.count_non_zero() <= 1 {
                         observed.insert(propagate.to as usize);
-                        observed_counter += 1
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
                         heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
                     }
@@ -119,12 +116,6 @@ fn exec_collapse(
 
         if counter >= iterations { return vertices }
         counter += 1;
-
-        // check if all vertices observed, if so we have finished
-        if observed_counter == vertices_len {
-            if METRICS { metrics.print(Some("All Observed")) }
-            return vertices;
-        }
 
         // try to find a vertex index to observe
         let mut observe_index: Option<VertexIndex> = None;
