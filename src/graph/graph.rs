@@ -55,9 +55,9 @@ impl Graph {
     pub fn rules(&self) -> Rules {
         self.edges
             .iter()
-            .fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
+            .fold(HashMap::new(), |mut rules, (from_vertex_index, connections)| {
                 let from_labels = self.vertices.index(*from_vertex_index as usize);
-                edges.iter().for_each(|(to_vertex_index, direction)| {
+                connections.iter().for_each(|(to_vertex_index, direction)| {
                     let to_labels = self.vertices.index(*to_vertex_index as usize);
                     from_labels
                         .into_iter()

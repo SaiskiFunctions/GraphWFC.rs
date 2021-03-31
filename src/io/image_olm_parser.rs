@@ -88,16 +88,16 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
     let raw_graph = create_raw_graph(&all_labels, chunk_size, (3, 3));
     let mut pruned_rules: Rules = HashMap::new();
 
-    (0..MSu16xNU::len())
+    (0..all_labels.count_non_zero())
         .for_each(|label| {
-            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label);
+            let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label as usize);
             real_vertex_indexes(chunk_size)
                 .iter()
                 .enumerate()
                 .for_each(|(direction, index)| {
                     let set = pruned_graph.vertices.index(*index);
                     if !set.is_empty() {
-                        pruned_rules.insert((direction as u16, label), *set);
+                        pruned_rules.insert((direction as u16, label as usize), *set);
                     }
                 });
         });
