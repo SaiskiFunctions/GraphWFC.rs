@@ -3,7 +3,7 @@ use crate::io::{
     limit_iter::Limit,
     sub_matrix::SubMatrix,
     tri_wave::TriWave,
-    utils::Rotation,
+    utils::{DiagonalReflection, Reflection, Rotation},
 };
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::wfc::collapse;
@@ -12,15 +12,14 @@ use bimap::BiMap;
 use hashbrown::HashMap;
 use image::{imageops, Rgb, RgbImage};
 use itertools::Itertools;
-use nalgebra::{DMatrix, U4};
-use std::collections::HashSet;
-use std::ops::{IndexMut, Index};
+use nalgebra::DMatrix;
+use std::ops::{IndexMut, Index, AddAssign};
 use std::convert::TryFrom;
-use linked_hash_map::LinkedHashMap;
+use indexmap::IndexMap;
 
 use crate::MSu16xNU;
 
-const GREEN: image::Rgb<u8> = image::Rgb([0, 255, 0]);
+const GREEN: Rgb<u8> = Rgb([0, 255, 0]);
 
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
@@ -29,7 +28,7 @@ pub fn render(
     filename: &str,
     graph: Graph,
     key: &PixelKeys,
-    chunks: &[Chunk],
+    chunks: &IndexMap<Chunk, u16>,
     (width, height): (usize, usize),
     chunk_size: usize,
 ) {
@@ -40,8 +39,11 @@ pub fn render(
     graph
         .vertices
         .into_iter()
-        .map(|vertex| {
-            vertex.is_singleton().then(|| chunks.index(vertex.imax()).clone())
+        .map(|labels| {
+            labels
+                .is_singleton()
+                .then(|| chunks.get_index(labels.imax()).map(|t| t.0.clone()))
+                .flatten()
         })
         .enumerate()
         .for_each(|(chunk_index, opt_chunk)| {
@@ -71,43 +73,24 @@ pub fn render(
 }
 
 // TODO: handle unwrap of image::open properly
-pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, Vec<Chunk>) {
+pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, IndexMap<Chunk, u16>) {
     let img = image::open(filename).unwrap().to_rgb8();
     let pixel_aliases = alias_pixels(&img);
-    let chunk_frequencies = chunk_image(img, chunk_size, &pixel_aliases, false);
-    // convert frequencies into a list of unique chunks
-    // TODO: could use chunk keys directly in future
-    let mut chunks: Vec<Chunk> = chunk_frequencies
-        .keys()
-        .fold(Vec::new(), |mut acc, chunk| {
-            acc.push(chunk.clone());
-            acc
-        });
-    let overlap_rules = overlaps(&chunks, chunk_size);
+    let chunk_frequencies = chunk_image(img, chunk_size, &pixel_aliases, true, false, false, false);
+    let overlap_rules = overlaps(&chunk_frequencies, chunk_size);
 
-    if chunks.len() > MSu16xNU::len() {
-        println!("Chunks LEN: {}", chunks.len());
+    if chunk_frequencies.len() > MSu16xNU::len() {
+        println!("Chunks LEN: {}", chunk_frequencies.len());
         panic!("labels multiset not large enough to store all unique chunks")
     }
 
-    // put frequencies into multi set
-    let mut all_labels = chunks
-        .iter()
-        .enumerate()
-        .fold(MSu16xNU::empty(), |mut acc, (index, chunk)| {
-            let frequency = chunk_frequencies.get(chunk).unwrap();
-            acc.insert(index, *frequency as u16);
-            // acc.insert(index, 1); // previous implementation
-            acc
-        });
-
+    let all_labels = chunk_frequencies.values().collect();
     let raw_graph = create_raw_graph(&all_labels, chunk_size, (3, 3));
     let mut pruned_rules: Rules = HashMap::new();
 
     (0..all_labels.count_non_zero())
         .for_each(|label| {
             let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label as usize);
-
             real_vertex_indexes(chunk_size)
                 .iter()
                 .enumerate()
@@ -119,9 +102,10 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
                 });
         });
 
-    (pruned_rules, pixel_aliases, all_labels, chunks)
+    (pruned_rules, pixel_aliases, all_labels, chunk_frequencies)
 }
 
+// todo: work out if step will be needed, currently useless
 const fn real_vertex_indexes(chunk_size: usize) -> [usize; 8] {
     let dim = (3 * chunk_size) - (chunk_size - 1);
     let step = chunk_size - 1;
@@ -130,7 +114,7 @@ const fn real_vertex_indexes(chunk_size: usize) -> [usize; 8] {
         step + 1,                               // N
         (step + 1) * 2,                         // NE
         dim * chunk_size,                       // W
-        // dim * chunk_size + step + 1
+        // dim * chunk_size + step + 1          // Center (unused)
         dim * chunk_size + (step + 1) * 2,      // E
         dim * chunk_size * 2,                   // SW
         dim * chunk_size * 2 + step + 1,        // S
@@ -162,11 +146,8 @@ fn alias_sub_image(image: RgbImage, pixel_aliases: &PixelKeys) -> Vec<usize> {
 fn alias_pixels(image: &RgbImage) -> PixelKeys {
     image
         .pixels()
-        .fold(HashSet::<Rgb<u8>>::new(), |mut acc, pixel| {
-            acc.insert(*pixel);
-            acc
-        })
-        .into_iter()
+        .unique()
+        .copied()
         .enumerate()
         .collect()
 }
@@ -177,31 +158,40 @@ fn chunk_image(
     chunk_size: usize,
     pixel_aliases: &PixelKeys,
     rotate: bool,
-) -> LinkedHashMap<Chunk, usize> {
+    reflect_vertical: bool,
+    reflect_horizontal: bool,
+    reflect_diagonal: bool,
+) -> IndexMap<Chunk, u16> {
     sub_images(image, chunk_size)
         .map(|sub_image| alias_sub_image(sub_image, pixel_aliases))
-        .fold(LinkedHashMap::new(), |mut acc, pixels| {
-            let mut chunks: Vec<Chunk> = Vec::new();
-            let mut chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &pixels);
-            chunks.push(chunk.clone());
+        .fold(IndexMap::new(), |mut acc, aliases| {
+            let chunk = DMatrix::from_row_slice(chunk_size, chunk_size, &aliases);
 
             if rotate {
-                // rotate through 90° three times using the previous chunk as a starting point
-                (0..3)
-                    .for_each(|i| {
-                        chunk = chunk.rotate_90();
-                        chunks.push(chunk.clone());
-                    });
+                let mut rot_chunk = chunk.clone();
+                for _ in 0..3 {
+                    rot_chunk = rot_chunk.rotate_90();
+                    push_chunk_frequency(rot_chunk.clone(), &mut acc);
+                }
+            }
+            if reflect_vertical {
+                push_chunk_frequency(chunk.reflect_vertical(), &mut acc);
+            }
+            if reflect_horizontal {
+                push_chunk_frequency(chunk.reflect_horizontal(), &mut acc);
+            }
+            if reflect_diagonal {
+                push_chunk_frequency(chunk.reflect_top_left(), &mut acc);
+                push_chunk_frequency(chunk.reflect_bottom_left(), &mut acc);
             }
 
-            // add each of the new chunks into the frequency>chunk map
-            chunks
-                .into_iter()
-                .for_each(|chunk| {
-                    *acc.entry(chunk).or_insert(0) += 1
-                });
+            push_chunk_frequency(chunk, &mut acc);
             acc
         })
+}
+
+fn push_chunk_frequency(chunk: Chunk, frequencies: &mut IndexMap<Chunk, u16>) {
+    frequencies.entry(chunk).and_modify(|f| *f += 1).or_insert(1);
 }
 
 type Position = (usize, usize);
@@ -228,11 +218,11 @@ fn sub_chunk_positions(chunk_size: usize) -> Vec<(Position, Size, Direction)> {
         .collect()
 }
 
-fn overlaps(chunks: &[Chunk], chunk_size: usize) -> Rules {
+fn overlaps(chunks: &IndexMap<Chunk, u16>, chunk_size: usize) -> Rules {
     chunks
-        .iter()
+        .keys()
         .enumerate()
-        .fold(HashMap::new(), |mut acc, (index, chunk)| {
+        .fold(HashMap::new(), |mut rules, (label, chunk)| {
             let sub_positions = sub_chunk_positions(chunk_size);
             sub_positions
                 .iter()
@@ -241,24 +231,22 @@ fn overlaps(chunks: &[Chunk], chunk_size: usize) -> Rules {
                     let reverse_index = sub_positions.len() - 1 - *direction as usize;
                     let (rev_pos, rev_size, _) = sub_positions[reverse_index];
                     chunks
-                        .iter()
+                        .keys()
                         .enumerate()
-                        .for_each(|(other_index, other_chunk)| {
+                        .for_each(|(other_label, other_chunk)| {
                             // find mirrored sub chunk
                             let other_sub_chunk = other_chunk.sub_matrix(rev_pos, rev_size);
                             if sub_chunk == other_sub_chunk {
-                                acc
-                                    .entry((*direction, index))
-                                    .and_modify(|labels| labels.insert(other_index, 1))
-                                    .or_insert({
-                                        let mut set = MSu16xNU::empty();
-                                        set.insert(other_index, 1);
-                                        set
-                                    });
+                                let mut set = MSu16xNU::empty();
+                                set.insert(other_label, 1);
+                                rules
+                                    .entry((*direction, label))
+                                    .and_modify(|l| l.add_assign(set))
+                                    .or_insert(set);
                             }
                         })
                 });
-            acc
+            rules
         })
 }
 
@@ -267,8 +255,8 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
     // pixel based graph dimensions
     let v_dim_x = (width * chunk_size) - (chunk_size - 1);
     let v_dim_y = (height * chunk_size) - (chunk_size - 1);
-
-    let vertices: Vec<MSu16xNU> = vec![*all_labels; v_dim_x * v_dim_y];
+    let vertices_len = v_dim_x * v_dim_y;
+    let vertices: Vec<MSu16xNU> = vec![*all_labels; vertices_len];
 
     // create negative indexed range to offset vertex centered directional field by N
     let signed_chunk_size: i32 = TryFrom::try_from(chunk_size)
@@ -280,10 +268,8 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
         .cartesian_product(range)
         .filter(|i| i != &(0, 0)); // remove 0 offset for correct directional mapping
 
-    let edges: Edges = vertices
-        .iter()
-        .enumerate()
-        .fold(HashMap::new(), |mut acc, (index, _)| {
+    let edges: Edges = (0..vertices_len)
+        .fold(HashMap::new(), |mut acc, index| {
             let (x, y) = index_to_coords(index, v_dim_x);
             range_cart_prod
                 .clone()
@@ -307,7 +293,7 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
 fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, graph, None, true)
+    collapse::collapse(rules, graph, None, Some(1))
 }
 
 #[cfg(test)]
@@ -315,8 +301,6 @@ mod tests {
     use super::*;
     use crate::utils::hash_map;
     use image::ImageBuffer;
-    use std::ops::Index;
-    use std::iter::FromIterator;
 
     #[test]
     fn test_alias_pixels() {
@@ -333,9 +317,9 @@ mod tests {
         pixel_aliases.insert(0, Rgb::from([255, 255, 255]));
         pixel_aliases.insert(1, Rgb::from([0, 0, 0]));
 
-        let chunk_map = chunk_image(img, 2, &pixel_aliases, true);
+        let chunk_map = chunk_image(img, 2, &pixel_aliases, true, false, false, false);
 
-        let mut expected_map: LinkedHashMap<Chunk, usize> = LinkedHashMap::new();
+        let mut expected_map: IndexMap<Chunk, u16> = IndexMap::new();
         expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![1, 0, 0, 0]), 1);
         expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![0, 1, 0, 0]), 1);
         expected_map.insert(DMatrix::from_row_slice(2, 2, &vec![0, 0, 1, 0]), 1);
@@ -371,11 +355,10 @@ mod tests {
 
     #[test]
     fn test_overlaps() {
-        let chunks_n2 = vec![
-            DMatrix::from_row_slice(2, 2, &vec![0, 1, 2, 3]),
-            DMatrix::from_row_slice(2, 2, &vec![3, 2, 0, 1]),
-            DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1])
-        ];
+        let mut chunks_n2: IndexMap<Chunk, u16> = IndexMap::new();
+        chunks_n2.insert(DMatrix::from_row_slice(2, 2, &vec![0, 1, 2, 3]), 1);
+        chunks_n2.insert(DMatrix::from_row_slice(2, 2, &vec![3, 2, 0, 1]), 1);
+        chunks_n2.insert(DMatrix::from_row_slice(2, 2, &vec![2, 0, 3, 1]), 1);
 
         let mut overlaps_n2: Rules = HashMap::new();
         overlaps_n2.insert((5, 0), [0, 1, 0, 0].iter().collect());
@@ -390,10 +373,9 @@ mod tests {
         let result_n2 = overlaps(&chunks_n2, 2);
         assert_eq!(result_n2, overlaps_n2);
 
-        let chunks_n3 = vec![
-            DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]),
-            DMatrix::from_row_slice(3, 3, &vec![9, 10, 11, 12, 13, 14, 15, 16, 0])
-        ];
+        let mut chunks_n3: IndexMap<Chunk, u16> = IndexMap::new();
+        chunks_n3.insert(DMatrix::from_row_slice(3, 3, &vec![0, 1, 2, 3, 4, 5, 6, 7, 8]), 1);
+        chunks_n3.insert(DMatrix::from_row_slice(3, 3, &vec![9, 10, 11, 12, 13, 14, 15, 16, 0]), 1);
 
         let mut overlaps_n3: Rules = HashMap::new();
         overlaps_n3.insert((0, 0), [0, 1].iter().collect());
@@ -403,12 +385,12 @@ mod tests {
 
         assert_eq!(result_n3, overlaps_n3);
 
-        let chunks_n4 = vec![
-            DMatrix::from_row_slice(4, 4, &vec![0, 0, 2, 3,
-                                                0, 1, 4, 5,
-                                                6, 7, 0, 0,
-                                                8, 9, 0, 1])
-        ];
+        let mut chunks_n4: IndexMap<Chunk, u16> = IndexMap::new();
+        chunks_n4.insert(DMatrix::from_row_slice(
+            4, 4, &vec![0, 0, 2, 3,
+                        0, 1, 4, 5,
+                        6, 7, 0, 0,
+                        8, 9, 0, 1]), 1);
 
         // test overlapping with self only
         let mut overlaps_n4: Rules = HashMap::new();
@@ -422,9 +404,8 @@ mod tests {
 
     #[test]
     fn test_create_raw_graph() {
-        let chunks_n3 = vec![
-            DMatrix::from_row_slice(1, 1, &vec![0])
-        ];
+        let mut chunks_n3: IndexMap<Chunk, u16> = IndexMap::new();
+        chunks_n3.insert(DMatrix::from_row_slice(1, 1, &vec![0]), 1);
 
         let edges_n3: Edges = hash_map(&[
             (0, vec![(1, 12), (2, 13), (4, 16), (5, 17), (6, 18), (8, 21), (9, 22), (10, 23)]),
@@ -434,11 +415,7 @@ mod tests {
             (4, vec![(0, 7), (1, 8), (2, 9), (5, 12), (6, 13), (8, 16), (9, 17), (10, 18), (12, 21), (13, 22), (14, 23)]),
         ]);
 
-        let mut all_labels = MSu16xNU::empty();
-        for i in 0..chunks_n3.len() {
-            all_labels.insert(i, 1)
-        }
-
+        let all_labels: MSu16xNU = chunks_n3.values().collect();
         let raw_graph = create_raw_graph(&all_labels, 3, (2, 2));
 
         assert_eq!(raw_graph.edges.get(&0).unwrap(), edges_n3.get(&0).unwrap());

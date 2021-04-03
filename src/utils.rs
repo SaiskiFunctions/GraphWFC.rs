@@ -53,7 +53,7 @@ impl<'a> Metrics<'a> {
     }
 
     pub fn get_counter(&self, key: &'a str) -> Option<i32> {
-        self.counters.get(key).cloned()
+        self.counters.get(key).copied()
     }
 
     pub fn acc(&mut self, key: &'a str, value: i32) {
@@ -129,7 +129,7 @@ pub fn coords_to_index(x: usize, y: usize, width: usize) -> usize {
 }
 
 pub fn is_inside((x, y): (i32, i32), (w, h): (usize, usize)) -> bool {
-    !(x < 0 || y < 0 || x > (w as i32 - 1) || y > (h as i32 - 1))
+    x >= 0 && y >= 0 && x < w as i32 && y < h as i32
 }
 
 #[cfg(test)]

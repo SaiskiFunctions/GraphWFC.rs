@@ -1,20 +1,23 @@
 use wfc_rust::graph::graph::Graph;
-use wfc_rust::io::text_parser::{parse, render};
+use wfc_rust::io::text_parser;
 use wfc_rust::io::image_olm_parser;
 use wfc_rust::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use wfc_rust::wfc::collapse::collapse;
 
 // TODO: Save the results of parsing
 
-fn run_tile(input: &str, output: &str, width: usize, depth: usize) {
-    if let Ok((input_graph, keys)) = parse(input) {
+fn run_tile(input: &str, output: &str, width: usize, depth: usize, intercardinals: bool) {
+    if let Ok((input_graph, keys)) = text_parser::parse(input, intercardinals) {
         let all_labels = input_graph.all_labels;
         let output_vertices = vec![all_labels; width * depth];
-        // let output_edges = make_edges_cardinal_grid(width, depth);
-        let output_edges = make_edges_8_way_grid(width, depth);
+        let output_edges = if intercardinals {
+            make_edges_8_way_grid(width, depth)
+        } else {
+            make_edges_cardinal_grid(width, depth)
+        };
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(&input_graph.rules(), output_graph, Some(0), false);
-        render(output, &collapsed_graph, &keys, width);
+        let collapsed_graph = collapse(&input_graph.rules(), output_graph, None, None);
+        text_parser::render(output, &collapsed_graph, &keys, width);
     }
 }
 
@@ -28,7 +31,7 @@ fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: us
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
     let output_vertices = vec![all_labels; graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-    let collapsed_graph = collapse(&rules, output_graph, Some(123), false);
+    let collapsed_graph = collapse(&rules, output_graph, None, None);
     image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize);
 }
 
@@ -56,7 +59,7 @@ fn main() {
             let out_width = 20;
             let out_depth = 20;
 
-            run_tile(input, output, out_width, out_depth);
+            run_tile(input, output, out_width, out_depth, true);
         }
     }
 }
