@@ -73,24 +73,25 @@ fn exec_collapse(
     let mut metrics = Metrics::new();
 
     if METRICS {
-        metrics.avg("props per obs", ("props", "obs"));
+        metrics.avg("props per observation", ("props", "obs"));
         metrics.avg("props per prop loops", ("props", "prop loops"));
         metrics.avg("heap pops per collapse loop", ("heap pops", "collapse loops"));
+        metrics.init_counter("contradictions", 0);
     }
 
     let iterations = iterations.unwrap_or(usize::MAX);
     let mut counter: usize = 1;
 
-    // let mut previous: f64 = f64::MAX;
-
     loop {
         if METRICS { metrics.inc("collapse loops") }
         // propagate constraints
-        let mut previous: f64 = f64::MAX;
+
         while !propagations.is_empty() {
             if METRICS { metrics.inc("prop loops") }
 
-            // let mut previous: f64 = f64::MAX;
+            let mut previous: f64 = f64::MAX;
+            let mut prev_to: Option<u32> = None;
+
             for propagate in propagations.drain(..) {
                 if METRICS { metrics.inc("props") }
 
@@ -119,7 +120,9 @@ fn exec_collapse(
                         let entropy = constrained.collision_entropy();
                         if entropy < 3.0 && entropy < previous {
                             previous = entropy;
-                            heap.push(Observe::new(propagate.to, entropy))
+                            prev_to = Some(propagate.to);
+
+                            // heap.push(Observe::new(propagate.to, entropy))
                         }
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
@@ -127,9 +130,10 @@ fn exec_collapse(
                 }
             }
             to_propagate = replace(&mut propagations, to_propagate);
+            prev_to.iter().for_each(|to| heap.push(Observe::new(*to, previous)))
         }
 
-        // if METRICS { metrics.acc("heap size", heap.len() as f64) }
+        if METRICS { metrics.acc("heap size", heap.len() as f64) }
 
         if counter >= iterations { return vertices }
         counter += 1;

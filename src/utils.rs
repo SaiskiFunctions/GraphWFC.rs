@@ -110,8 +110,8 @@ impl<'a> Metrics<'a> {
         self.counters.insert(key, value);
     }
 
-    pub fn get_counter(&self, key: &'a str) -> Option<usize> {
-        self.counters.get(key).copied()
+    pub fn get_counter(&self, key: &'a str) -> Option<&usize> {
+        self.counters.get(key)
     }
 
     pub fn acc(&mut self, key: &'a str, value: f64) {
@@ -125,8 +125,8 @@ impl<'a> Metrics<'a> {
         self.accumulators.insert(key, Accumulator::from_vec(value));
     }
 
-    pub fn get_acc(&self, key: &'a str) -> Option<Accumulator> {
-        self.accumulators.get(key).cloned()
+    pub fn get_acc(&self, key: &'a str) -> Option<&Accumulator> {
+        self.accumulators.get(key)
     }
 
     pub fn avg(&mut self, key: &'a str, value: (&'a str, &'a str)) {
@@ -134,7 +134,7 @@ impl<'a> Metrics<'a> {
     }
 
     pub fn print(&self, msg: Option<&str>) {
-        msg.map(|string| println!("{}", string));
+        msg.iter().for_each(|string| println!("{}", string));
         println!("{}", self)
     }
 }
