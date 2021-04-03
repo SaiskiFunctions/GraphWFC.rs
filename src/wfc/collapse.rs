@@ -65,12 +65,14 @@ fn exec_collapse(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<MSu16xNU>,
-    iterations: Option<usize>
-) -> Vec<MSu16xNU> {
+    iterations: Option<usize>,
+    progress: bool
+) -> (Vec<MSu16xNU>, Vec<(usize, MSu16xNU)>) {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
     let mut metrics = Metrics::new();
+    let mut progress_log: Vec<(usize, MSu16xNU)> = Vec::new();
 
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
@@ -108,13 +110,14 @@ fn exec_collapse(
                         heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
-                    *labels = constrained
+                    *labels = constrained;
+                    if progress { progress_log.push((propagate.to as usize, constrained)) }
                 }
             }
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
-        if counter >= iterations { return vertices }
+        if counter >= iterations { return (vertices, progress_log) }
         counter += 1;
 
         // try to find a vertex index to observe
@@ -141,7 +144,7 @@ fn exec_collapse(
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
                 // Nothing left to observe, therefore we've finished
-                return vertices;
+                return (vertices, progress_log);
             }
             Some(index) => {
                 if METRICS { metrics.inc("obs") }
@@ -149,6 +152,7 @@ fn exec_collapse(
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
                 labels_multiset.choose_random(rng);
+                if progress { progress_log.push((index as usize, *labels_multiset)) }
                 observed.insert(index as usize);
                 generate_propagations(&mut propagations, &observed, edges, index);
             }

@@ -24,9 +24,18 @@ const GREEN: Rgb<u8> = Rgb([0, 255, 0]);
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
 
+
+pub fn render_gif(progress: Vec<(usize, MSu16xNU)>, all_labels: MSu16xNU) {
+    let mut vertices = vec![all_labels; 50 * 50];
+
+    progress.iter().for_each(|(index, update_labels)| {
+
+    });
+}
+
 pub fn render(
     filename: &str,
-    graph: Graph,
+    vertices: &Vec<MSu16xNU>,
     key: &PixelKeys,
     chunks: &IndexMap<Chunk, u16>,
     (width, height): (usize, usize),
@@ -36,8 +45,7 @@ pub fn render(
     let graph_width = width / chunk_size; // in chunks
     let contradiction_key = key.len();
 
-    graph
-        .vertices
+    vertices
         .into_iter()
         .map(|labels| {
             labels
