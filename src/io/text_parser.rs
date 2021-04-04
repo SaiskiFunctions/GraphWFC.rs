@@ -54,28 +54,25 @@ pub fn render(
     key: &IndexMap<char, u16>,
     width: usize,
 ) {
-    graphs
-        .iter()
-        .for_each(|graph| {
-            let lines: String = graph
-                .vertices
-                .chunks_exact(width)
-                .map(|chunk| {
-                    chunk
-                        .iter()
-                        .map(|labels| {
-                            labels
-                                .is_singleton()
-                                .then(|| key.get_index(labels.imax()).map(|t| *t.0))
-                                .flatten()
-                                .unwrap_or(CONTRADICT_CHAR)
-                        })
-                        .chain(iter::once('\n'))
-                })
-                .flatten()
-                .collect::<String>();
-            if write(filename, lines).is_ok() {}
-        })
+        let lines: String = graphs
+            .last() // text parser does do support progress renders yet
+            .vertices
+            .chunks_exact(width)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .map(|labels| {
+                        labels
+                            .is_singleton()
+                            .then(|| key.get_index(labels.imax()).map(|t| *t.0))
+                            .flatten()
+                            .unwrap_or(CONTRADICT_CHAR)
+                    })
+                    .chain(iter::once('\n'))
+            })
+            .flatten()
+            .collect::<String>();
+        if write(filename, lines).is_ok() {}
 }
 
 #[cfg(test)]
