@@ -50,28 +50,32 @@ const CONTRADICT_CHAR: char = '❌';
 
 pub fn render(
     filename: &str,
-    graph: &Graph,
+    graphs: Vec<Graph>,
     key: &IndexMap<char, u16>,
     width: usize,
 ) {
-    let lines: String = graph
-        .vertices
-        .chunks_exact(width)
-        .map(|chunk| {
-            chunk
-                .iter()
-                .map(|labels| {
-                    labels
-                        .is_singleton()
-                        .then(|| key.get_index(labels.imax()).map(|t| *t.0))
-                        .flatten()
-                        .unwrap_or(CONTRADICT_CHAR)
+    graphs
+        .iter()
+        .for_each(|graph| {
+            let lines: String = graph
+                .vertices
+                .chunks_exact(width)
+                .map(|chunk| {
+                    chunk
+                        .iter()
+                        .map(|labels| {
+                            labels
+                                .is_singleton()
+                                .then(|| key.get_index(labels.imax()).map(|t| *t.0))
+                                .flatten()
+                                .unwrap_or(CONTRADICT_CHAR)
+                        })
+                        .chain(iter::once('\n'))
                 })
-                .chain(iter::once('\n'))
+                .flatten()
+                .collect::<String>();
+            if write(filename, lines).is_ok() {}
         })
-        .flatten()
-        .collect::<String>();
-    if write(filename, lines).is_ok() {}
 }
 
 #[cfg(test)]

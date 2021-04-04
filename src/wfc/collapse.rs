@@ -65,12 +65,15 @@ fn exec_collapse(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<MSu16xNU>,
-    iterations: Option<usize>
-) -> Vec<MSu16xNU> {
+    iterations: Option<usize>,
+    progress: bool
+) -> Vec<Vec<MSu16xNU>> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
     let mut metrics = Metrics::new();
+
+    let mut output_vertices = Vec::new();
 
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
@@ -114,7 +117,8 @@ fn exec_collapse(
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
-        if counter >= iterations { return vertices }
+        if progress { output_vertices.push(vertices.clone()) }
+        if counter >= iterations { return vec![vertices.clone()] }
         counter += 1;
 
         // try to find a vertex index to observe
@@ -141,7 +145,7 @@ fn exec_collapse(
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
                 // Nothing left to observe, therefore we've finished
-                return vertices;
+                return vec![vertices.clone()];
             }
             Some(index) => {
                 if METRICS { metrics.inc("obs") }
@@ -149,6 +153,7 @@ fn exec_collapse(
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
                 labels_multiset.choose_random(rng);
+                if progress { output_vertices.push(vertices.clone()) }
                 observed.insert(index as usize);
                 generate_propagations(&mut propagations, &observed, edges, index);
             }
@@ -189,7 +194,7 @@ pub fn collapse(
     mut output_graph: Graph,
     seed: Option<u64>,
     iterations: Option<usize>
-) -> Graph {
+) -> Vec<Graph> {
     let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
 
@@ -198,11 +203,21 @@ pub fn collapse(
         rules,
         &output_graph.edges,
         init,
-        output_graph.vertices,
-        iterations // 🐯
+        output_graph.vertices.clone(),
+        iterations, // 🐯
+        false
     );
-    output_graph.vertices = collapsed_vertices;
-    output_graph
+
+    let mut output_graphs: Vec<Graph> = Vec::new();
+    collapsed_vertices
+        .into_iter()
+        .for_each(|vertices| {
+            let mut graph = output_graph.clone();
+            graph.vertices = vertices;
+           output_graphs.push(graph);
+        });
+
+    output_graphs
 }
 
 #[cfg(test)]

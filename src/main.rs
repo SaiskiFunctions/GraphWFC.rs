@@ -17,7 +17,7 @@ fn run_tile(input: &str, output: &str, width: usize, depth: usize, intercardinal
         };
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
         let collapsed_graph = collapse(&input_graph.rules(), output_graph, None, None);
-        text_parser::render(output, &collapsed_graph, &keys, width);
+        text_parser::render(output, collapsed_graph, &keys, width);
     }
 }
 

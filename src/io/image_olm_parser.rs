@@ -1,22 +1,23 @@
+
 use crate::graph::graph::{Rules, Edges, Graph};
 use crate::io::{
     limit_iter::Limit,
     sub_matrix::SubMatrix,
     tri_wave::TriWave,
-    utils::Rotation,
+    utils::{DiagonalReflection, Reflection, Rotation},
 };
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::wfc::collapse;
 
 use bimap::BiMap;
 use hashbrown::HashMap;
-use image::{imageops, Rgb, RgbImage};
+use image::{imageops, Rgb, RgbImage, Pixel};
 use itertools::Itertools;
-use nalgebra::{DMatrix, U4};
-use std::collections::HashSet;
-use std::ops::{IndexMut, Index};
+use nalgebra::DMatrix;
+use std::ops::{IndexMut, Index, AddAssign};
 use std::convert::TryFrom;
 use indexmap::IndexMap;
+use std::ops::Not;
 
 use crate::MSu16xNU;
 
@@ -27,7 +28,7 @@ type PixelKeys = BiMap<usize, Rgb<u8>>;
 
 pub fn render(
     filename: &str,
-    graph: Graph,
+    graphs: Vec<Graph>,
     key: &PixelKeys,
     chunks: &IndexMap<Chunk, u16>,
     (width, height): (usize, usize),
@@ -37,87 +38,91 @@ pub fn render(
     let graph_width = width / chunk_size; // in chunks
     let contradiction_key = key.len();
 
-    graph
-        .vertices
+    graphs
         .into_iter()
-        // Vec<Multiset> => Vec<Vec<DMatrix>>
-        // map each non-zero multiset label into a corresponding DMatrix
-        .map(|vertex| {
-            vertex
+        .for_each(|graph| {
+            graph
+                .vertices
                 .into_iter()
-                .enumerate()
-                .fold(Vec::new(), |mut acc, (label, frequency)| {
-                    if frequency > 0 {
-                        acc.push(chunks.index(label).clone())
-                    }
-                    acc
-                })
-        })
-        // Vec<Vec<DMatrix>> => Vec<Option<DMatrix>>
-        // map to options depending on whether the set of chunks is empty
-        .map(|label_list| label_list.is_empty().not().then(|| label_list))
-        .enumerate()
-        // for each chunk of the image which may contain multiple overlayed opt_chunks
-        .for_each(|(chunk_index, opt_chunks)| {
-            let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
-            // project to pixel coordinates
-            let top_left_pix_x = chunk_x * chunk_size;
-            let top_left_pix_y = chunk_y * chunk_size;
-
-            // Vec<Option<DMatrix>> => Vec<DMatrix>
-            let chunks: Vec<DMatrix<usize>> = match opt_chunks {
-                // change an empty set of chunks into a chunk of contradiction pixels
-                None => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
-                // otherwise returns chunks
-                Some(chunks) => chunks
-            };
-
-            let blend_ratio = 1.0 / chunks.len() as f64;
-
-            chunks
-                // a vec of DMatrix of pixel aliases
-                .iter()
-                // map each DMatrix of pixel aliases into an iterator rgb values
-                .map(|chunk| {
-                    chunk
-                        .iter()
-                        .map(|pixel_alias| {
-                            key
-                                .get_by_left(pixel_alias)
-                                .copied()
-                                .unwrap_or(GREEN)
-                                // map the pixel to contribute a percentage of the final pixel
-                                // value proportional to the number of overlayed chunks
-                                .map(|channel| (channel as f64 * blend_ratio) as u8)
+                // Vec<Multiset> => Vec<Vec<DMatrix>>
+                // map each non-zero multiset label into a corresponding DMatrix
+                .map(|vertex| {
+                    vertex
+                        .into_iter()
+                        .enumerate()
+                        .fold(Vec::new(), |mut acc, (label, frequency)| {
+                            if frequency > 0 {
+                                let (chunk, _) = chunks.get_index(label).unwrap();
+                                acc.push(chunk.clone())
+                            }
+                            acc
                         })
                 })
-                // fold into single vec of Rgb values
-                .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
-                    acc
-                        .iter_mut()
-                        // zip each pixel in acc with each pixel in chunk
-                        .zip(chunk) // iterator rgb values consumed here
-                        .for_each(|(acc_pixel, chunk_pixel)| {
-                            acc_pixel
-                                .channels_mut()
-                                .iter_mut()
-                                // zip the RGB channels of each pixel together
-                                // i.e. r + r, g + g, b + b
-                                .zip(chunk_pixel.channels())
-                                .for_each(|(acc_channel, chunk_channel)| {
-                                    *acc_channel += chunk_channel
-                                })
-                        });
-                    acc
-                })
-                .into_iter()
+                // Vec<Vec<DMatrix>> => Vec<Option<DMatrix>>
+                // map to options depending on whether the set of chunks is empty
+                .map(|label_list| label_list.is_empty().not().then(|| label_list))
                 .enumerate()
-                .for_each(|(pixel_index, pixel)| {
-                    let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
-                    let pixel_y = (top_left_pix_y + p_y) as u32;
-                    let pixel_x = (top_left_pix_x + p_x) as u32;
-                    let pixel = key.get_by_left(pixel_alias).copied().unwrap_or(GREEN);
-                    output_image.put_pixel(pixel_x, pixel_y, pixel);
+                // for each chunk of the image which may contain multiple overlayed opt_chunks
+                .for_each(|(chunk_index, opt_chunks)| {
+                    let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
+                    // project to pixel coordinates
+                    let top_left_pix_x = chunk_x * chunk_size;
+                    let top_left_pix_y = chunk_y * chunk_size;
+
+                    // Vec<Option<DMatrix>> => Vec<DMatrix>
+                    let chunks: Vec<DMatrix<usize>> = match opt_chunks {
+                        // change an empty set of chunks into a chunk of contradiction pixels
+                        None => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
+                        // otherwise returns chunks
+                        Some(chunks) => chunks
+                    };
+
+                    let blend_ratio = 1.0 / chunks.len() as f64;
+
+                    chunks
+                        // a vec of DMatrix of pixel aliases
+                        .iter()
+                        // map each DMatrix of pixel aliases into an iterator rgb values
+                        .map(|chunk| {
+                            chunk
+                                .iter()
+                                .map(|pixel_alias| {
+                                    key
+                                        .get_by_left(pixel_alias)
+                                        .copied()
+                                        .unwrap_or(GREEN)
+                                        // map the pixel to contribute a percentage of the final pixel
+                                        // value proportional to the number of overlayed chunks
+                                        .map(|channel| (channel as f64 * blend_ratio) as u8)
+                                })
+                        })
+                        // fold into single vec of Rgb values
+                        .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
+                            acc
+                                .iter_mut()
+                                // zip each pixel in acc with each pixel in chunk
+                                .zip(chunk) // iterator rgb values consumed here
+                                .for_each(|(acc_pixel, chunk_pixel)| {
+                                    acc_pixel
+                                        .channels_mut()
+                                        .iter_mut()
+                                        // zip the RGB channels of each pixel together
+                                        // i.e. r + r, g + g, b + b
+                                        .zip(chunk_pixel.channels())
+                                        .for_each(|(acc_channel, chunk_channel)| {
+                                            *acc_channel += chunk_channel
+                                        })
+                                });
+                            acc
+                        })
+                        .into_iter()
+                        .enumerate()
+                        .for_each(|(pixel_index, pixel)| {
+                            let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
+                            let pixel_y = (top_left_pix_y + p_y) as u32;
+                            let pixel_x = (top_left_pix_x + p_x) as u32;
+                            output_image.put_pixel(pixel_x, pixel_y, pixel);
+                        });
                 });
         });
 
@@ -346,7 +351,7 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
 fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, graph, None, Some(1))
+    collapse::collapse(rules, graph, None, Some(1)).first().unwrap().clone()
 }
 
 #[cfg(test)]
@@ -476,5 +481,10 @@ mod tests {
         assert_eq!(raw_graph.edges.get(&2).unwrap(), edges_n3.get(&2).unwrap());
         assert_eq!(raw_graph.edges.get(&3).unwrap(), edges_n3.get(&3).unwrap());
         assert_eq!(raw_graph.edges.get(&4).unwrap(), edges_n3.get(&4).unwrap());
+    }
+
+    #[test]
+    fn wrapping_stuff() {
+
     }
 }
