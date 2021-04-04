@@ -30,9 +30,9 @@ fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
         .vertices
         .iter()
         .enumerate()
-        .for_each(|(_index, labels)| {
+        .for_each(|(index, labels)| {
             assert!(labels.is_subset(&out_graph.all_labels));
-            let from_index = _index as VertexIndex;
+            let from_index = index as VertexIndex;
             if labels.is_singleton() {
                 init_propagations.push(from_index);
                 observed.insert(from_index as usize);
@@ -57,7 +57,7 @@ fn init_collapse(rng: &mut SmallRng, out_graph: &Graph) -> InitCollapse {
 }
 
 const METRICS: bool = false;
-const OBSERVE_CHANCE: usize = 33;
+const OBSERVE_CHANCE: usize = 75;
 
 fn exec_collapse(
     rng: &mut SmallRng,
@@ -65,13 +65,10 @@ fn exec_collapse(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<MSu16xNU>,
-    partial: usize
+    iterations: Option<usize>
 ) -> Vec<MSu16xNU> {
-    let mut run_counter = 0;
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
-    let vertices_len = vertices.len();
-    let mut observed_counter: usize = 0;
 
     let mut metrics = Metrics::new();
 
@@ -79,6 +76,9 @@ fn exec_collapse(
         metrics.avg("props/obs", ("props", "obs"));
         metrics.avg("props/loops", ("props", "loops"));
     }
+
+    let iterations = iterations.unwrap_or(usize::MAX);
+    let mut counter: usize = 1;
 
     loop {
         // propagate constraints
@@ -90,6 +90,7 @@ fn exec_collapse(
 
                 assert!(vertices.len() >= propagate.from as usize);
                 let prop_labels = vertices.index(propagate.from as usize);
+                // skip vertices with contradiction
                 if prop_labels.is_empty() {
                     continue
                 }
@@ -100,10 +101,9 @@ fn exec_collapse(
                 let labels = vertices.index_mut(propagate.to as usize);
 
                 let constrained = labels.intersection(&constraint);
-                if labels != &constrained {
-                    if constrained.is_singleton() || constrained.is_empty() {
+                if constrained.is_any_lesser(labels) {
+                    if constrained.count_non_zero() <= 1 {
                         observed.insert(propagate.to as usize);
-                        observed_counter += 1
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
                         heap.push(Observe::new(propagate.to, constrained.collision_entropy()))
                     }
@@ -114,13 +114,8 @@ fn exec_collapse(
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
-        if run_counter >= partial { return vertices }
-
-        // check if all vertices observed, if so we have finished
-        if observed_counter == vertices_len {
-            if METRICS { metrics.print(Some("All Observed")) }
-            return vertices;
-        }
+        if counter >= iterations { return vertices }
+        counter += 1;
 
         // try to find a vertex index to observe
         let mut observe_index: Option<VertexIndex> = None;
@@ -158,7 +153,6 @@ fn exec_collapse(
                 generate_propagations(&mut propagations, &observed, edges, index);
             }
         }
-        run_counter += 1;
     }
 }
 
@@ -166,9 +160,9 @@ pub fn build_constraint(labels: &MSu16xNU, direction: EdgeDirection, rules: &Rul
     labels
         .into_iter()
         .enumerate()
-        .fold(MSu16xNU::empty(), |mut acc, (index, frequency)| {
+        .fold(MSu16xNU::empty(), |mut acc, (label, frequency)| {
             if frequency > 0 {
-                if let Some(a) = rules.get(&(direction, index)) {
+                if let Some(a) = rules.get(&(direction, label)) {
                     acc = acc.union(a)
                 }
             }
@@ -194,7 +188,7 @@ pub fn collapse(
     rules: &Rules,
     mut output_graph: Graph,
     seed: Option<u64>,
-    partial: usize
+    iterations: Option<usize>
 ) -> Graph {
     let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
@@ -205,7 +199,7 @@ pub fn collapse(
         &output_graph.edges,
         init,
         output_graph.vertices,
-        partial // 🐯
+        iterations // 🐯
     );
     output_graph.vertices = collapsed_vertices;
     output_graph
@@ -286,7 +280,7 @@ mod tests {
 
         let init = init_collapse(&mut rng, &out_graph);
 
-        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), 10000);
+        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), None);
         let expected: Vec<MSu16xNU> = vec![
             [1, 0, 0].iter().collect(),
             [0, 2, 0].iter().collect(),
@@ -342,7 +336,7 @@ mod tests {
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
-            100000
+            None
         );
 
         let expected: Vec<MSu16xNU> = vec![
@@ -351,7 +345,7 @@ mod tests {
             [0, 3].iter().collect(),
             [3, 0].iter().collect(),
             [3, 0].iter().collect(),
-            [3, 0].iter().collect(),
+            [0, 3].iter().collect(),
         ];
 
         assert_eq!(result, expected);
@@ -428,7 +422,7 @@ mod tests {
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),
-            100000
+            None
         );
 
         let expected: Vec<MSu16xNU> = vec![
@@ -447,18 +441,5 @@ mod tests {
         ];
 
         assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn test_entropy() {
-        let x: MSu16xNU = [3, 0, 1, 5, 2, 6, 1].iter().collect();
-        println!("{}", x.collision_entropy())
-    }
-
-    #[test]
-    fn test_rng() {
-        let mut rng = SmallRng::seed_from_u64(0);
-        (0..25)
-            .for_each(|_| println!("{}", rng.next_u64()))
     }
 }
