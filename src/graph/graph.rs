@@ -55,21 +55,19 @@ impl Graph {
     pub fn rules(&self) -> Rules {
         self.edges
             .iter()
-            .fold(HashMap::new(), |mut rules, (from_vertex_index, edges)| {
-                edges.iter().for_each(|(to_vertex_index, direction)| {
-                    let union_labels = self.vertices.index(*to_vertex_index as usize);
-                    self.vertices
-                        .index(*from_vertex_index as usize)
+            .fold(HashMap::new(), |mut rules, (from_vertex_index, connections)| {
+                let from_labels = self.vertices.index(*from_vertex_index as usize);
+                connections.iter().for_each(|(to_vertex_index, direction)| {
+                    let to_labels = self.vertices.index(*to_vertex_index as usize);
+                    from_labels
                         .into_iter()
                         .enumerate()
-                        .filter(|(_, label)| label > &0)
-                        .for_each(|(from_vertex_label, _)| {
-                            let rules_key = (*direction, from_vertex_label);
+                        .filter(|(_, frequency)| frequency > &0)
+                        .for_each(|(label, _)| {
                             rules
-                                .entry(rules_key)
-                                .and_modify(|to_labels| to_labels.add_assign(*union_labels))
-                                // .and_modify(|to_labels| *to_labels = to_labels.union(union_labels))
-                                .or_insert(*union_labels);
+                                .entry((*direction, label))
+                                .and_modify(|l| l.add_assign(*to_labels))
+                                .or_insert(*to_labels);
                         })
                 });
                 rules

@@ -7,19 +7,19 @@ repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 
 [dependencies]
 rand = "0.8.3"
-nalgebra = "0.23.2"
-bencher = "0.1.5"
-hashbrown = "0.9.1"
-alga = "0.9.3"
-image = "0.23.8"
-itertools = "0.9.0"
-num-traits = "0.2.12"
-bimap = "0.5.2"
+nalgebra = "0.25.3"
+hashbrown = "0.11.2"
+image = "0.23.14"
+itertools = "0.10.0"
+num-traits = "0.2.14"
+bimap = "0.6.0"
 bit-set = "0.5.2"
 utote = { version = "0.3.5", features = ["packed_simd", "rand"] }
-#utote = { features = ["packed_simd", "rand"], path = "../utote" }
-typenum = "1.12.0"
-linked-hash-map = "0.5.4"
+typenum = "1.13.0"
+indexmap = "1.6.2"
+
+[dev-dependencies]
+bencher = "0.1.5"
 
 [[bench]]
 name = "benches"
