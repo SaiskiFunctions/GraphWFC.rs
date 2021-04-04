@@ -208,16 +208,19 @@ pub fn collapse(
         false
     );
 
-    let mut output_graphs: Vec<Graph> = Vec::new();
+    // return a list of output graphs
     collapsed_vertices
         .into_iter()
-        .for_each(|vertices| {
-            let mut graph = output_graph.clone();
-            graph.vertices = vertices;
-           output_graphs.push(graph);
-        });
-
-    output_graphs
+        .fold(Vec::new(), |mut graphs, vertices| {
+            graphs.push(
+                Graph::new(
+                    vertices.clone(),
+                    output_graph.edges.clone(),
+                    output_graph.all_labels.clone()
+                )
+            );
+            graphs
+        })
 }
 
 #[cfg(test)]
