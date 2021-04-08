@@ -16,8 +16,8 @@ fn run_tile(input: &str, output: &str, width: usize, depth: usize, intercardinal
             make_edges_cardinal_grid(width, depth)
         };
         let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-        let collapsed_graph = collapse(&input_graph.rules(), output_graph, None, None);
-        text_parser::render(output, collapsed_graph, &keys, width);
+        let collapsed_vertices = collapse(&input_graph.rules(), &output_graph, None, None);
+        text_parser::render(output, collapsed_vertices, &keys, width);
     }
 }
 
@@ -31,8 +31,8 @@ fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: us
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
     let output_vertices = vec![all_labels; graph_width * graph_depth];
     let output_graph = Graph::new(output_vertices, output_edges, all_labels);
-    let collapsed_graph = collapse(&rules, output_graph, None, None);
-    image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize);
+    let collapsed_vertices = collapse(&rules, &output_graph, None, None);
+    image_olm_parser::render(output, collapsed_vertices, &keys, &chunks, (width, depth), chunk_size as usize);
 }
 
 enum RunMode {

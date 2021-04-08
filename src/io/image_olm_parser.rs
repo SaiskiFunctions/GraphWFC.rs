@@ -1,5 +1,5 @@
 
-use crate::graph::graph::{Rules, Edges, Graph};
+use crate::graph::graph::{Rules, Edges, Graph, Vertices};
 use crate::io::{
     limit_iter::Limit,
     sub_matrix::SubMatrix,
@@ -28,7 +28,7 @@ type PixelKeys = BiMap<usize, Rgb<u8>>;
 
 pub fn render(
     filename: &str,
-    graphs: Vec<Graph>,
+    graphs: Vec<Vertices>,
     key: &PixelKeys,
     chunks: &IndexMap<Chunk, u16>,
     (width, height): (usize, usize),
@@ -42,7 +42,6 @@ pub fn render(
         .into_iter()
         .for_each(|graph| {
             graph
-                .vertices
                 .into_iter()
                 // Vec<Multiset> => Vec<Vec<DMatrix>>
                 // map each non-zero multiset label into a corresponding DMatrix
@@ -88,7 +87,7 @@ pub fn render(
                                         .unwrap_or(GREEN)
                                         // map the pixel to contribute a percentage of the final pixel
                                         // value proportional to the number of overlayed chunks
-                                        .map(|channel| (channel as f64 * blend_ratio) as u8)
+                                        .map(|channel| (channel as f64 * blend_ratio).round() as u8)
                                 })
                         })
                         // fold into single vec of Rgb values
@@ -142,13 +141,14 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
 
     (0..all_labels.count_non_zero())
         .for_each(|label| {
+            // pruned graph vertices returned from collapse
             let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label as usize);
 
             real_vertex_indexes(chunk_size)
                 .iter()
                 .enumerate()
                 .for_each(|(direction, index)| {
-                    let set = pruned_graph.vertices.index(*index);
+                    let set = pruned_graph.index(*index);
                     if !set.is_empty() {
                         pruned_rules.insert((direction as u16, label as usize), *set);
                     }
@@ -343,10 +343,10 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
     Graph::new(vertices, edges, *all_labels)
 }
 
-fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
+fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Vertices {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, graph, None, Some(1)).first().unwrap().clone()
+    collapse::collapse(rules, &graph, None, Some(1)).first().unwrap().clone()
 }
 
 #[cfg(test)]
@@ -476,10 +476,5 @@ mod tests {
         assert_eq!(raw_graph.edges.get(&2).unwrap(), edges_n3.get(&2).unwrap());
         assert_eq!(raw_graph.edges.get(&3).unwrap(), edges_n3.get(&3).unwrap());
         assert_eq!(raw_graph.edges.get(&4).unwrap(), edges_n3.get(&4).unwrap());
-    }
-
-    #[test]
-    fn wrapping_stuff() {
-
     }
 }

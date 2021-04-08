@@ -1,4 +1,4 @@
-use crate::graph::graph::{Edges, Graph};
+use crate::graph::graph::{Edges, Graph, Vertices};
 use crate::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use crate::MSu16xNU;
 use std::fs::{read_to_string, write};
@@ -50,13 +50,12 @@ const CONTRADICT_CHAR: char = '❌';
 
 pub fn render(
     filename: &str,
-    graphs: Vec<Graph>,
+    graphs: Vec<Vertices>,
     key: &IndexMap<char, u16>,
     width: usize,
 ) {
     let graph = graphs.last().unwrap(); // text parser does do support progress renders yet
     let lines: String = graph
-        .vertices
         .chunks_exact(width)
         .map(|chunk| {
             chunk
