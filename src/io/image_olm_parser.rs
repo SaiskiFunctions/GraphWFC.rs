@@ -58,24 +58,19 @@ pub fn render(
                             acc
                         })
                 })
-                // Vec<Vec<DMatrix>> => Vec<Option<DMatrix>>
-                // map to options depending on whether the set of chunks is empty
-                .map(|label_list| label_list.is_empty().not().then(|| label_list))
+                .map(|chunks| {
+                    match chunks.is_empty() {
+                        true => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
+                        false => chunks
+                    }
+                })
                 .enumerate()
                 // for each chunk of the image which may contain multiple overlayed opt_chunks
-                .for_each(|(chunk_index, opt_chunks)| {
+                .for_each(|(chunk_index, chunks)| {
                     let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
                     // project to pixel coordinates
                     let top_left_pix_x = chunk_x * chunk_size;
                     let top_left_pix_y = chunk_y * chunk_size;
-
-                    // Vec<Option<DMatrix>> => Vec<DMatrix>
-                    let chunks: Vec<DMatrix<usize>> = match opt_chunks {
-                        // change an empty set of chunks into a chunk of contradiction pixels
-                        None => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
-                        // otherwise returns chunks
-                        Some(chunks) => chunks
-                    };
 
                     let blend_ratio = 1.0 / chunks.len() as f64;
 
