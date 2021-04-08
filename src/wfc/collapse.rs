@@ -118,7 +118,10 @@ fn exec_collapse(
         }
 
         if progress { output_vertices.push(vertices.clone()) }
-        if counter >= iterations { return vec![vertices.clone()] }
+        if counter >= iterations {
+            output_vertices.push(vertices.clone());
+            return output_vertices
+        }
         counter += 1;
 
         // try to find a vertex index to observe
@@ -145,7 +148,8 @@ fn exec_collapse(
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
                 // Nothing left to observe, therefore we've finished
-                return vec![vertices.clone()];
+                output_vertices.push(vertices.clone());
+                return output_vertices
             }
             Some(index) => {
                 if METRICS { metrics.inc("obs") }
@@ -207,7 +211,7 @@ pub fn collapse(
         init,
         output_graph.vertices.clone(),
         iterations, // 🐯
-        false
+        true
     );
 
     // return a list of output graphs

@@ -4,4 +4,4 @@ pub mod utils;
 pub mod tri_wave;
 pub mod limit_iter;
 pub mod sub_matrix;
-mod file_padder;
+mod frame_padder;

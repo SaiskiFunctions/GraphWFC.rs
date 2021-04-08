@@ -47,9 +47,9 @@ fn main() {
     match MODE {
         RunMode::OLM => {
             let input = "resources/test/City.png";
-            let output = "resources/test/test_result_9.png";
-            let out_width = 60;
-            let out_depth = 60;
+            let output = "resources/test/test_result_9";
+            let out_width = 20;
+            let out_depth = 20;
 
             run_olm(input, CHUNK_SIZE, output, out_width, out_depth);
         },

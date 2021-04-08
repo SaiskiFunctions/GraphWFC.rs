@@ -5,6 +5,7 @@ use crate::io::{
     sub_matrix::SubMatrix,
     tri_wave::TriWave,
     utils::{DiagonalReflection, Reflection, Rotation},
+    frame_padder::pad_frame
 };
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::wfc::collapse;
@@ -37,10 +38,12 @@ pub fn render(
     let mut output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
     let graph_width = width / chunk_size; // in chunks
     let contradiction_key = key.len();
+    let output_frames = graphs.len();
 
     graphs
         .into_iter()
-        .for_each(|graph| {
+        .enumerate()
+        .for_each(|(frame, graph)| {
             graph
                 .into_iter()
                 // Vec<Multiset> => Vec<Vec<DMatrix>>
@@ -118,9 +121,11 @@ pub fn render(
                             output_image.put_pixel(pixel_x, pixel_y, pixel);
                         });
                 });
-        });
 
-    output_image.save(filename).unwrap();
+            let filename_extension = pad_frame(output_frames, frame);
+            let full_filename = format!("{}_{}.png", filename, filename_extension);
+            output_image.save(full_filename).unwrap();
+        });
 }
 
 // TODO: handle unwrap of image::open properly
@@ -346,7 +351,7 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
 fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Vertices {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, &graph, None, Some(1)).first().unwrap().clone()
+    collapse::collapse(rules, &graph, None, Some(1)).into_iter().nth(0).unwrap()
 }
 
 #[cfg(test)]
