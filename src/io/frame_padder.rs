@@ -1,4 +1,5 @@
 pub fn pad_frame(radix: usize, index: usize) -> String {
+    if index > radix { panic!("Frame index greater than pad amount.") }
     let base = index.to_string();
     let pad = radix.to_string().len() - base.len();
     "0".repeat(pad) + &base
@@ -18,5 +19,8 @@ mod tests {
 
         let pad = pad_frame(10000, 99998);
         assert_eq!(pad, "99998");
+
+        // let pad = pad_frame(10000, 999989);
+        // assert_eq!(pad, "99998");
     }
 }

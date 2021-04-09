@@ -88,31 +88,37 @@ pub fn render(
                                         .get_by_left(pixel_alias)
                                         .copied()
                                         .unwrap_or(GREEN)
-                                        // map the pixel to contribute a percentage of the final pixel
-                                        // value proportional to the number of overlayed chunks
-                                        .map(|channel| (channel as f64 * blend_ratio).round() as u8)
                                 })
                         })
-                        // fold into single vec of Rgb values
-                        .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
+                        // sum each matching pixel for each chunk
+                        .fold(vec![vec![0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
                             acc
                                 .iter_mut()
                                 // zip each pixel in acc with each pixel in chunk
                                 .zip(chunk) // iterator rgb values consumed here
                                 .for_each(|(acc_pixel, chunk_pixel)| {
                                     acc_pixel
-                                        .channels_mut()
                                         .iter_mut()
                                         // zip the RGB channels of each pixel together
                                         // i.e. r + r, g + g, b + b
                                         .zip(chunk_pixel.channels())
                                         .for_each(|(acc_channel, chunk_channel)| {
-                                            *acc_channel += chunk_channel
+                                            *acc_channel += (*chunk_channel as usize);
                                         })
                                 });
                             acc
                         })
-                        .into_iter()
+                        .iter()
+                        .map(|sum_pixel| {
+                            // average the combined pixel values
+                            let blend_pixel_r = (sum_pixel[0] / chunks.len()) as u8;
+                            let blend_pixel_g = (sum_pixel[1] / chunks.len()) as u8;
+                            let blend_pixel_b = (sum_pixel[2] / chunks.len()) as u8;
+                            let alpha = 1;
+
+                            // map to an rgb value
+                            Rgb::from_channels(blend_pixel_r, blend_pixel_g, blend_pixel_b, alpha)
+                        })
                         .enumerate()
                         .for_each(|(pixel_index, pixel)| {
                             let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
