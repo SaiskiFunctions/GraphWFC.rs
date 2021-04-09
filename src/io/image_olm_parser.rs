@@ -129,12 +129,12 @@ pub fn render(
                         });
                 });
 
-            let frame_extension = pad_frame(output_frames, frame);
-
             let filename_parts: Vec<&str> = filename.split(".").collect();
 
             let file_title = filename_parts[0];
             let file_extension = filename_parts[1];
+
+            let frame_extension = pad_frame(output_frames, frame);
 
             let full_filename = format!("{}_{}.{}", file_title, frame_extension, file_extension);
             output_image.save(full_filename).unwrap();
