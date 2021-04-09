@@ -110,14 +110,15 @@ pub fn render(
                         })
                         .iter()
                         .map(|sum_pixel| {
-                            // average the combined pixel values
-                            let blend_pixel_r = (sum_pixel[0] / chunks.len()) as u8;
-                            let blend_pixel_g = (sum_pixel[1] / chunks.len()) as u8;
-                            let blend_pixel_b = (sum_pixel[2] / chunks.len()) as u8;
-                            let alpha = 1;
-
-                            // map to an rgb value
-                            Rgb::from_channels(blend_pixel_r, blend_pixel_g, blend_pixel_b, alpha)
+                            let mut pixel = Rgb::from([0, 0, 0]);
+                            sum_pixel
+                                .iter()
+                                .zip(pixel.channels_mut())
+                                .for_each(|(sum_channel, pixel_channel)| {
+                                    let blend_channel = (sum_channel / chunks.len()) as u8;
+                                    *pixel_channel = blend_channel;
+                                });
+                            pixel
                         })
                         .enumerate()
                         .for_each(|(pixel_index, pixel)| {

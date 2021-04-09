@@ -211,7 +211,7 @@ pub fn collapse(
         init,
         output_graph.vertices.clone(),
         iterations, // 🐯
-        true
+        false
     );
 
     // return a list of output graphs
