@@ -193,29 +193,51 @@ fn generate_propagations(
     }
 }
 
-// Takes a graph as input and returns a list of vertices
-// from which new graphs can be constructed
-pub fn collapse(
+fn _collapse(
     rules: &Rules,
     output_graph: &Graph,
     seed: Option<u64>,
-    iterations: Option<usize>
+    iterations: Option<usize>,
+    progress: bool
 ) -> Vec<Vertices> {
     let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
 
-    let collapsed_vertices = exec_collapse(
+    exec_collapse(
         rng,
         rules,
         &output_graph.edges,
         init,
         output_graph.vertices.clone(),
-        iterations, // 🐯
-        false
-    );
+        iterations,
+        progress
+    )
+}
 
-    // return a list of output graphs
-    collapsed_vertices
+// returns a single collapsed graph
+pub fn collapse(
+    rules: &Rules,
+    output_graph: &Graph,
+    seed: Option<u64>,
+    iterations: Option<usize>
+) -> Graph {
+
+    let collapsed_vertices = _collapse(rules, output_graph, seed, iterations, false);
+
+    Graph::new(
+        collapsed_vertices.last().unwrap().clone(),
+        output_graph.edges.clone(),
+        output_graph.all_labels.clone()
+    )
+}
+
+// Public interface for progress collapses
+pub fn collapse_progress(
+    rules: &Rules,
+    output_graph: &Graph,
+    seed: Option<u64>,
+) -> Vec<Vertices> {
+    _collapse(rules, output_graph, seed, None, true)
 }
 
 #[cfg(test)]

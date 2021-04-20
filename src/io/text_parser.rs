@@ -50,12 +50,12 @@ const CONTRADICT_CHAR: char = '❌';
 
 pub fn render(
     filename: &str,
-    graphs: Vec<Vertices>,
+    graph: Graph,
     key: &IndexMap<char, u16>,
     width: usize,
 ) {
-    let graph = graphs.last().unwrap(); // text parser does do support progress renders yet
     let lines: String = graph
+        .vertices
         .chunks_exact(width)
         .map(|chunk| {
             chunk
