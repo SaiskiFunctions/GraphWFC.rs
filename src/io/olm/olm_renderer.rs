@@ -80,6 +80,18 @@ pub fn render(
     output_image.save(filename).unwrap();
 }
 
+pub fn render(
+    filename: &str,
+    graph: Graph,,
+    key: &PixelKeys,
+    chunks: &IndexMap<Chunk, u16>,
+    (width, height): (usize, usize),
+    chunk_size: usize,
+    opt_post_processors: Option<Vec<impl PostProcessor<RgbImage>>>
+) {
+
+}
+
 pub fn progress(
     filename: &str,
     graphs: Vec<Vertices>,

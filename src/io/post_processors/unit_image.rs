@@ -1,7 +1,7 @@
 use image::{Rgb, RgbImage};
 use crate::io::post_processors::post_processor::PostProcessor;
 
-// extremely simply image post processor for demonstration purposes
+// extremely simple image post processor for demonstration purposes
 pub struct UnitImage {
     color: Rgb<u8>
 }
