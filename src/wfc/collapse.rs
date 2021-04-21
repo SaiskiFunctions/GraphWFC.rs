@@ -214,7 +214,7 @@ fn _collapse(
     )
 }
 
-// returns a single collapsed graph
+// Public interface for single graph collapses
 pub fn collapse(
     rules: &Rules,
     output_graph: &Graph,

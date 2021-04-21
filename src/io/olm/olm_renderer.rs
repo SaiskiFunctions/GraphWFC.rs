@@ -18,7 +18,6 @@ const GREEN: Rgb<u8> = Rgb([0, 255, 0]);
 
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
-// type ImageProcessor = dyn PostProcessor<RgbImage>;
 
 // we've maintained two render functions here because of the complexity
 pub fn render(
