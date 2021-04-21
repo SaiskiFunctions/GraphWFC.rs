@@ -11,7 +11,7 @@ impl UnitImage {
 }
 
 impl PostProcessor<RgbImage> for UnitImage {
-    fn process(self, input: &RgbImage) -> RgbImage {
+    fn process(&self, input: &RgbImage) -> RgbImage {
         let (width, height) = input.dimensions();
         RgbImage::from_pixel(width, height, self.color)
     }

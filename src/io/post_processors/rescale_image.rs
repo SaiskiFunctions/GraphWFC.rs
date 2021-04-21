@@ -8,13 +8,11 @@ pub struct RescaleImage {
 }
 
 impl RescaleImage {
-    pub fn new(scale: usize) -> RescaleImage {
-        RescaleImage { scale }
-    }
+    pub fn new(scale: usize) -> RescaleImage { RescaleImage { scale } }
 }
 
 impl PostProcessor<RgbImage> for RescaleImage {
-    fn process(self, input: &RgbImage) -> RgbImage {
+    fn process(&self, input: &RgbImage) -> RgbImage {
         let scale = self.scale;
         let (width, height) = input.dimensions();
         let mut scaled_img: RgbImage = image::ImageBuffer::new(width * scale as u32,

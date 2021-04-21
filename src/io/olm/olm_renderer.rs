@@ -70,7 +70,7 @@ pub fn render(
     match opt_post_processors {
         Some(post_processors) => {
             post_processors
-                .into_iter()
+                .iter()
                 .for_each(|post_processor| {
                     output_image = post_processor.process(&output_image)
                 })
@@ -99,6 +99,7 @@ pub fn progress(
         .into_iter()
         .enumerate()
         .for_each(|(frame, graph)| {
+            output_image = image::ImageBuffer::new(width as u32, height as u32);
             graph
                 .into_iter()
                 // Vec<Multiset> => Vec<Vec<DMatrix>>
@@ -193,10 +194,10 @@ pub fn progress(
 
             let full_filename = format!("{}_{}.{}", file_title, frame_extension, file_extension);
 
-            match opt_post_processors {
+            match &opt_post_processors {
                 Some(post_processors) => {
                     post_processors
-                        .into_iter()
+                        .iter()
                         .for_each(|post_processor| {
                             output_image = post_processor.process(&output_image)
                         })
