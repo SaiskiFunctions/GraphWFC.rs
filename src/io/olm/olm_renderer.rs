@@ -34,6 +34,7 @@ pub fn render(
     let contradiction_key = key.len();
 
     output_image = image::ImageBuffer::new(width as u32, height as u32);
+
     graph
         .vertices
         .into_iter()
@@ -59,13 +60,13 @@ pub fn render(
         })
         .enumerate()
         // for each chunk of the image which may contain multiple overlayed opt_chunks
-        .for_each(|(chunk_index, chunks)| {
-            let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
+        .for_each(|(vertex_index, vertex_chunks)| {
+            let (vertex_x, vertex_y) = index_to_coords(vertex_index, graph_width);
             // project to pixel coordinates
-            let top_left_pix_x = chunk_x * chunk_size;
-            let top_left_pix_y = chunk_y * chunk_size;
+            let top_left_pix_x = vertex_x * chunk_size;
+            let top_left_pix_y = vertex_y * chunk_size;
 
-            chunks
+            vertex_chunks
                 // a vec of DMatrix of pixel aliases
                 .iter()
                 // map each DMatrix of pixel aliases into an iterator rgb values
@@ -79,7 +80,8 @@ pub fn render(
                                 .unwrap_or(GREEN)
                         })
                 })
-                // sum each matching pixel for each chunk
+                // sum each matching pixel values for each chunk
+                // using usize to avoid capping on u8 channel size
                 .fold(vec![vec![0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
                     acc
                         .iter_mut()
@@ -98,18 +100,21 @@ pub fn render(
                     acc
                 })
                 .iter()
+                // blend summed pixel values by dividing by length of chunks
+                // and convert back into an rgb pixel value
                 .map(|sum_pixel| {
                     let mut pixel = Rgb::from([0, 0, 0]);
                     sum_pixel
                         .iter()
                         .zip(pixel.channels_mut())
                         .for_each(|(sum_channel, pixel_channel)| {
-                            let blend_channel = (sum_channel / chunks.len()) as u8;
+                            let blend_channel = (sum_channel / vertex_chunks.len()) as u8;
                             *pixel_channel = blend_channel;
                         });
                     pixel
                 })
                 .enumerate()
+                // update pixel values in the output image
                 .for_each(|(pixel_index, pixel)| {
                     let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
                     let pixel_y = (top_left_pix_y + p_y) as u32;
@@ -118,6 +123,7 @@ pub fn render(
                 });
         });
 
+    // do any post-processing on the image
     match &opt_post_processors {
         Some(post_processors) => {
             post_processors
