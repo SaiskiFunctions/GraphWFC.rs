@@ -1,1 +1,1 @@
-mod rgb_utils;
+pub mod rgb_utils;

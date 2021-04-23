@@ -3,6 +3,7 @@ use crate::graph::graph::{Graph, Vertices};
 use crate::io::frame_padder::pad_frame;
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::io::post_processors::post_processor::PostProcessor;
+use crate::io::misc_utils::rgb_utils::PixelOperations;
 
 use bimap::BiMap;
 use hashbrown::HashMap;
@@ -82,20 +83,14 @@ pub fn render(
                 })
                 // sum each matching pixel values for each chunk
                 // using usize to avoid capping on u8 channel size
-                .fold(vec![vec![0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
+                .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
                     acc
                         .iter_mut()
                         // zip each pixel in acc with each pixel in chunk
-                        .zip(chunk) // iterator rgb values consumed here
+                        .zip(chunk)
+                        // add each pixel together
                         .for_each(|(acc_pixel, chunk_pixel)| {
-                            acc_pixel
-                                .iter_mut()
-                                // zip the RGB channels of each pixel together
-                                // i.e. r + r, g + g, b + b
-                                .zip(chunk_pixel.channels())
-                                .for_each(|(acc_channel, chunk_channel)| {
-                                    *acc_channel += (*chunk_channel as usize);
-                                })
+                            *acc_pixel = acc_pixel.add(chunk_pixel);
                         });
                     acc
                 })
@@ -105,6 +100,7 @@ pub fn render(
                 .map(|sum_pixel| {
                     let mut pixel = Rgb::from([0, 0, 0]);
                     sum_pixel
+                        .channels()
                         .iter()
                         .zip(pixel.channels_mut())
                         .for_each(|(sum_channel, pixel_channel)| {
