@@ -40,7 +40,7 @@ fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: us
     // image_olm_parser::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize);
     // image_olm_parser::progress_render(output, collapsed_vertices, &keys, &chunks, (width, depth), chunk_size as usize);
     let post_processors = Some(vec![RescaleImage::new(10)]);
-    olm_renderer::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize, post_processors);
+    olm_renderer::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize, &post_processors);
     // olm_renderer::progress(output, collapsed_vertices, &keys, &chunks, (width, depth), chunk_size as usize, post_processors);
 
 }
