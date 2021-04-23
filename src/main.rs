@@ -1,9 +1,9 @@
 use wfc_rust::graph::graph::Graph;
 use wfc_rust::io::text_parser;
-use wfc_rust::io::image_olm_parser;
 use wfc_rust::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use wfc_rust::wfc::collapse::{collapse, collapse_progress};
 use wfc_rust::io::olm::olm_renderer;
+use wfc_rust::io::olm::olm_parser;
 use wfc_rust::io::post_processors::unit_image::UnitImage;
 use image::Rgb;
 use wfc_rust::io::post_processors::rescale_image::RescaleImage;
@@ -29,7 +29,7 @@ fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: us
     if width % chunk_size != 0 || depth % chunk_size != 0 {
         panic!("Output dimensions and N size NOT divisible.");
     }
-    let (rules, keys, all_labels, chunks) = image_olm_parser::parse(input, chunk_size);
+    let (rules, keys, all_labels, chunks) = olm_parser::parse(input, chunk_size);
     let graph_width = width / chunk_size; // in chunks
     let graph_depth = depth / chunk_size; // in chunks
     let output_edges = make_edges_8_way_grid(graph_width, graph_depth);
@@ -41,7 +41,7 @@ fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: us
     // image_olm_parser::progress_render(output, collapsed_vertices, &keys, &chunks, (width, depth), chunk_size as usize);
     let post_processors = Some(vec![RescaleImage::new(10)]);
     olm_renderer::render(output, collapsed_graph, &keys, &chunks, (width, depth), chunk_size as usize, &post_processors);
-    // olm_renderer::progress(output, collapsed_vertices, &keys, &chunks, (width, depth), chunk_size as usize, post_processors);
+    // olm_renderer::progress(output, collapsed_vertices, &keys, &chunks, (width, depth), chunk_size as usize, &post_processors);
 
 }
 
