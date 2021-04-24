@@ -22,20 +22,17 @@ where
     }
 }
 
-impl<D> std::ops::Add for Rgb<D>
-where
-    D: Primitive
-{
-    type Output = Rgb<D>;
+impl std::ops::Add for Rgb<usize> {
+    type Output = Rgb<usize>;
 
     fn add<T>(self, rhs: Rgb<T>) -> Self::Output
     where
         T: Primitive
     {
         Rgb::from([
-            self.channels()[0] + D::from(rhs.channels()[0]).unwrap(),
-            self.channels()[1] + D::from(rhs.channels()[1]).unwrap(),
-            self.channels()[2] + D::from(rhs.channels()[2]).unwrap()
+            self.channels()[0] + usize::from(rhs.channels()[0]).unwrap(),
+            self.channels()[1] + usize::from(rhs.channels()[1]).unwrap(),
+            self.channels()[2] + usize::from(rhs.channels()[2]).unwrap()
         ])
     }
 }
