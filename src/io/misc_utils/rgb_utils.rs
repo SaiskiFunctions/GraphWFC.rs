@@ -1,4 +1,5 @@
 use image::{Rgb, Pixel, Primitive};
+use std::ops::Add;
 
 pub trait PixelOperations<D>
 where
@@ -17,6 +18,24 @@ where
             self.channels()[0] + D::from(x.channels()[0]).unwrap(),
             self.channels()[1] + D::from(x.channels()[1]).unwrap(),
             self.channels()[2] + D::from(x.channels()[2]).unwrap()
+        ])
+    }
+}
+
+impl<D> std::ops::Add for Rgb<D>
+where
+    D: Primitive
+{
+    type Output = Rgb<D>;
+
+    fn add<T>(self, rhs: Rgb<T>) -> Self::Output
+    where
+        T: Primitive
+    {
+        Rgb::from([
+            self.channels()[0] + D::from(rhs.channels()[0]).unwrap(),
+            self.channels()[1] + D::from(rhs.channels()[1]).unwrap(),
+            self.channels()[2] + D::from(rhs.channels()[2]).unwrap()
         ])
     }
 }
