@@ -32,92 +32,69 @@ pub fn render(
 ) {
     let mut output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
     let graph_width = width / chunk_size; // in chunks
-    let contradiction_key = key.len();
 
     output_image = image::ImageBuffer::new(width as u32, height as u32);
 
-    graph
-        .vertices
-        .into_iter()
-        // Vec<Multiset> => Vec<Vec<DMatrix>>
-        // map each non-zero multiset label into a corresponding DMatrix
-        .map(|vertex| {
-            vertex
-                .into_iter()
-                .enumerate()
-                .fold(Vec::new(), |mut acc, (label, frequency)| {
-                    if frequency > 0 {
-                        let (chunk, _) = chunks.get_index(label).unwrap();
-                        acc.push(chunk.clone())
-                    }
-                    acc
-                })
-        })
-        .map(|chunks| {
-            match chunks.is_empty() {
-                true => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
-                false => chunks
-            }
-        })
-        .enumerate()
-        // for each chunk of the image which may contain multiple overlayed opt_chunks
-        .for_each(|(vertex_index, vertex_chunks)| {
-            let (vertex_x, vertex_y) = index_to_coords(vertex_index, graph_width);
-            // project to pixel coordinates
-            let top_left_pix_x = vertex_x * chunk_size;
-            let top_left_pix_y = vertex_y * chunk_size;
+    let vertices_as_chunks = vertices_to_chunks(graph.vertices, chunks, chunk_size, key.len());
 
-            vertex_chunks
-                // a vec of DMatrix of pixel aliases
-                .iter()
-                // map each DMatrix of pixel aliases into an iterator rgb values
-                .map(|chunk| {
-                    chunk
-                        .iter()
-                        .map(|pixel_alias| {
-                            key
-                                .get_by_left(pixel_alias)
-                                .copied()
-                                .unwrap_or(GREEN)
-                        })
-                })
-                // sum each matching pixel values for each chunk
-                // using usize to avoid capping on u8 channel size
-                .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
-                    acc
-                        .iter_mut()
-                        // zip each pixel in acc with each pixel in chunk
-                        .zip(chunk)
-                        // add each pixel together
-                        .for_each(|(acc_pixel, chunk_pixel)| {
-                            *acc_pixel = acc_pixel.add(chunk_pixel);
-                        });
-                    acc
-                })
-                .iter()
-                // blend summed pixel values by dividing by length of chunks
-                // and convert back into an rgb pixel value
-                .map(|sum_pixel| {
-                    let mut pixel = Rgb::from([0, 0, 0]);
-                    sum_pixel
-                        .channels()
-                        .iter()
-                        .zip(pixel.channels_mut())
-                        .for_each(|(sum_channel, pixel_channel)| {
-                            let blend_channel = (sum_channel / vertex_chunks.len()) as u8;
-                            *pixel_channel = blend_channel;
-                        });
-                    pixel
-                })
-                .enumerate()
-                // update pixel values in the output image
-                .for_each(|(pixel_index, pixel)| {
-                    let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
-                    let pixel_y = (top_left_pix_y + p_y) as u32;
-                    let pixel_x = (top_left_pix_x + p_x) as u32;
-                    output_image.put_pixel(pixel_x, pixel_y, pixel);
-                });
-        });
+    for (vertex_index, vertex_chunks) in vertices_as_chunks.into_iter().enumerate() {
+        // EXTRACT INTO FUNCTION
+        let (vertex_x, vertex_y) = index_to_coords(vertex_index, graph_width);
+        // project to pixel coordinates
+        let top_left_pix_x = vertex_x * chunk_size;
+        let top_left_pix_y = vertex_y * chunk_size;
+
+        vertex_chunks
+            // a vec of DMatrix of pixel aliases
+            .iter()
+            // map each DMatrix of pixel aliases into an iterator rgb values
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .map(|pixel_alias| {
+                        key
+                            .get_by_left(pixel_alias)
+                            .copied()
+                            .unwrap_or(GREEN)
+                    })
+            })
+            // sum each matching pixel values for each chunk
+            // using usize to avoid capping on u8 channel size
+            .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
+                acc
+                    .iter_mut()
+                    // zip each pixel in acc with each pixel in chunk
+                    .zip(chunk)
+                    // add each pixel together
+                    .for_each(|(acc_pixel, chunk_pixel)| {
+                        *acc_pixel = acc_pixel.add(chunk_pixel);
+                    });
+                acc
+            })
+            .iter()
+            // blend summed pixel values by dividing by length of chunks
+            // and convert back into an rgb pixel value
+            .map(|sum_pixel| {
+                let mut pixel = Rgb::from([0, 0, 0]);
+                sum_pixel
+                    .channels()
+                    .iter()
+                    .zip(pixel.channels_mut())
+                    .for_each(|(sum_channel, pixel_channel)| {
+                        let blend_channel = (sum_channel / vertex_chunks.len()) as u8;
+                        *pixel_channel = blend_channel;
+                    });
+                pixel
+            })
+            .enumerate()
+            // update pixel values in the output image
+            .for_each(|(pixel_index, pixel)| {
+                let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
+                let pixel_y = (top_left_pix_y + p_y) as u32;
+                let pixel_x = (top_left_pix_x + p_x) as u32;
+                output_image.put_pixel(pixel_x, pixel_y, pixel);
+            });
+    }
 
     // do any post-processing on the image
     match &opt_post_processors {
@@ -176,4 +153,35 @@ pub fn progress(
                 opt_post_processors
             )
         })
+}
+
+fn vertices_to_chunks(
+    vertices: Vertices,
+    chunks: &IndexMap<Chunk, u16>,
+    chunk_size: usize,
+    contradiction_key: usize,
+) -> Vec<Vec<Chunk>> {
+    vertices
+        .into_iter()
+        // Vec<Multiset> => Vec<Vec<DMatrix>>
+        // map each non-zero multiset label into a corresponding DMatrix
+        .map(|vertex| {
+            vertex
+                .into_iter()
+                .enumerate()
+                .fold(Vec::new(), |mut acc, (label, frequency)| {
+                    if frequency > 0 {
+                        let (chunk, _) = chunks.get_index(label).unwrap();
+                        acc.push(chunk.clone())
+                    }
+                    acc
+                })
+        })
+        .map(|chunks| {
+            match chunks.is_empty() {
+                true => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
+                false => chunks
+            }
+        })
+        .collect()
 }
