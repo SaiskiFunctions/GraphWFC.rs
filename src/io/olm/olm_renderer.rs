@@ -3,7 +3,7 @@ use crate::graph::graph::{Graph, Vertices};
 use crate::io::frame_padder::pad_frame;
 use crate::utils::{index_to_coords, is_inside, coords_to_index};
 use crate::io::post_processors::post_processor::PostProcessor;
-use crate::io::misc_utils::rgb_utils::PixelOperations;
+use crate::io::pixel_utils::PixelOperations;
 
 use bimap::BiMap;
 use hashbrown::HashMap;
