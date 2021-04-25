@@ -38,62 +38,19 @@ pub fn render(
     let vertices_as_chunks = vertices_to_chunks(graph.vertices, chunks, chunk_size, key.len());
 
     for (vertex_index, vertex_chunks) in vertices_as_chunks.into_iter().enumerate() {
-        // EXTRACT INTO FUNCTION
         let (vertex_x, vertex_y) = index_to_coords(vertex_index, graph_width);
         // project to pixel coordinates
         let top_left_pix_x = vertex_x * chunk_size;
         let top_left_pix_y = vertex_y * chunk_size;
 
-        vertex_chunks
-            // a vec of DMatrix of pixel aliases
-            .iter()
-            // map each DMatrix of pixel aliases into an iterator rgb values
-            .map(|chunk| {
-                chunk
-                    .iter()
-                    .map(|pixel_alias| {
-                        key
-                            .get_by_left(pixel_alias)
-                            .copied()
-                            .unwrap_or(GREEN)
-                    })
-            })
-            // sum each matching pixel values for each chunk
-            // using usize to avoid capping on u8 channel size
-            .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
-                acc
-                    .iter_mut()
-                    // zip each pixel in acc with each pixel in chunk
-                    .zip(chunk)
-                    // add each pixel together
-                    .for_each(|(acc_pixel, chunk_pixel)| {
-                        *acc_pixel = acc_pixel.add(chunk_pixel);
-                    });
-                acc
-            })
-            .iter()
-            // blend summed pixel values by dividing by length of chunks
-            // and convert back into an rgb pixel value
-            .map(|sum_pixel| {
-                let mut pixel = Rgb::from([0, 0, 0]);
-                sum_pixel
-                    .channels()
-                    .iter()
-                    .zip(pixel.channels_mut())
-                    .for_each(|(sum_channel, pixel_channel)| {
-                        let blend_channel = (sum_channel / vertex_chunks.len()) as u8;
-                        *pixel_channel = blend_channel;
-                    });
-                pixel
-            })
-            .enumerate()
-            // update pixel values in the output image
-            .for_each(|(pixel_index, pixel)| {
-                let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
-                let pixel_y = (top_left_pix_y + p_y) as u32;
-                let pixel_x = (top_left_pix_x + p_x) as u32;
-                output_image.put_pixel(pixel_x, pixel_y, pixel);
-            });
+        let vertex_as_pixels = chunks_to_pixels(vertex_chunks, key, chunk_size);
+
+        for (pixel_index, pixel) in vertex_as_pixels.into_iter().enumerate() {
+            let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
+            let pixel_y = (top_left_pix_y + p_y) as u32;
+            let pixel_x = (top_left_pix_x + p_x) as u32;
+            output_image.put_pixel(pixel_x, pixel_y, pixel);
+        }
     }
 
     // do any post-processing on the image
@@ -182,6 +139,47 @@ fn vertices_to_chunks(
                 true => vec![DMatrix::from_element(chunk_size, chunk_size, contradiction_key)],
                 false => chunks
             }
+        })
+        .collect()
+}
+
+fn chunks_to_pixels(chunks: Vec<Chunk>, key: &PixelKeys, chunk_size: usize) -> Vec<Rgb<u8>> {
+    chunks
+        // a vec of DMatrix of pixel aliases
+        .iter()
+        // map each DMatrix of pixel aliases into an iterator rgb values
+        .map(|chunk| {
+            chunk
+                .iter()
+                .map(|pixel_alias| {
+                    key
+                        .get_by_left(pixel_alias)
+                        .copied()
+                        .unwrap_or(GREEN)
+                })
+        })
+        // sum each matching pixel values for each chunk
+        // using usize to avoid capping on u8 channel size
+        .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
+            acc
+                .iter_mut()
+                // zip each pixel in acc with each pixel in chunk
+                .zip(chunk)
+                // add each pixel together
+                .for_each(|(acc_pixel, chunk_pixel)| {
+                    *acc_pixel = acc_pixel.add(chunk_pixel);
+                });
+            acc
+        })
+        .iter()
+        // blend summed pixel values by dividing by length of chunks
+        // unfortunately its way more complex to do this iteratively so accept code duplication
+        .map(|sum_pixel| {
+            Rgb::from([
+                (sum_pixel.channels()[0] / chunks.len()) as u8,
+                (sum_pixel.channels()[1] / chunks.len()) as u8,
+                (sum_pixel.channels()[2] / chunks.len()) as u8,
+            ])
         })
         .collect()
 }
