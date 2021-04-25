@@ -6,7 +6,7 @@ mod collapse {
     use bencher::Bencher;
     use wfc_rust::graph::graph::Graph;
     use wfc_rust::io::text_parser::parse;
-    use wfc_rust::io::misc_utils::make_edges_8_way_grid;
+    use wfc_rust::io::utils::make_edges_8_way_grid;
     use wfc_rust::wfc::collapse::collapse;
 
     pub fn bench_collapse(bench: &mut Bencher) {
