@@ -14,7 +14,8 @@ itertools = "0.10.0"
 num-traits = "0.2.14"
 bimap = "0.6.0"
 bit-set = "0.5.2"
-utote = { version = "0.3.5", features = ["packed_simd", "rand"] }
+utote = { version = "0.5.0", features = ["packed_simd", "rand"], path = "../utote" }
+#utote = { version = "0.5.0", features = ["rand"], path = "../utote" }
 typenum = "1.13.0"
 indexmap = "1.6.2"
 

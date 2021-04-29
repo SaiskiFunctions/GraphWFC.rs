@@ -90,7 +90,7 @@ fn exec_collapse(
             if METRICS { metrics.inc("prop loops") }
 
             let mut previous: f64 = f64::MAX;
-            let mut prev_to: Option<u32> = None;
+            // let mut prev_to: Option<u32> = None;
 
             for propagate in propagations.drain(..) {
                 if METRICS { metrics.inc("props") }
@@ -112,17 +112,15 @@ fn exec_collapse(
                     if constrained.count_non_zero() <= 1 {
                         observed.insert(propagate.to as usize);
                         if METRICS {
-                            if constrained.is_empty() {
-                                metrics.inc("contradictions")
-                            }
+                            if constrained.is_empty() { metrics.inc("contradictions") }
                         }
                     } else if rng.gen_range(0..100) < OBSERVE_CHANCE {
                         let entropy = constrained.collision_entropy();
                         if entropy < 3.0 && entropy < previous {
                             previous = entropy;
-                            prev_to = Some(propagate.to);
+                            // prev_to = Some(propagate.to);
 
-                            // heap.push(Observe::new(propagate.to, entropy))
+                            heap.push(Observe::new(propagate.to, entropy))
                         }
                     }
                     generate_propagations(&mut to_propagate, &observed, edges, propagate.to);
@@ -130,7 +128,7 @@ fn exec_collapse(
                 }
             }
             to_propagate = replace(&mut propagations, to_propagate);
-            prev_to.iter().for_each(|to| heap.push(Observe::new(*to, previous)))
+            // prev_to.iter().for_each(|to| heap.push(Observe::new(*to, previous)))
         }
 
         if METRICS { metrics.acc("heap size", heap.len() as f64) }
@@ -191,7 +189,7 @@ pub fn build_constraint(labels: &MSu16xNU, direction: EdgeDirection, rules: &Rul
         .into_iter()
         .enumerate()
         .fold(MSu16xNU::empty(), |mut acc, (label, frequency)| {
-            if frequency > 0 {
+            if frequency > &0 {
                 if let Some(a) = rules.get(&(direction, label)) {
                     acc = acc.union(a)
                 }

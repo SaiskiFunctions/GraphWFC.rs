@@ -23,7 +23,7 @@ fn run_tile(input: &str, output: &str, width: usize, depth: usize, intercardinal
 
 fn run_olm(input: &str, chunk_size: usize, output: &str, width: usize, depth: usize) {
     if width % chunk_size != 0 || depth % chunk_size != 0 {
-        panic!("Output dimensions and N size NOT divisible.");
+        panic!("Output dimensions and chunk size NOT divisible.");
     }
     let (rules, keys, all_labels, chunks) = image_olm_parser::parse(input, chunk_size);
     let graph_width = width / chunk_size; // in chunks
@@ -41,15 +41,15 @@ enum RunMode {
 }
 
 const CHUNK_SIZE: usize = 2;
-const MODE: RunMode = RunMode::OLM;
+const MODE: RunMode = RunMode::Tile;
 
 fn main() {
     match MODE {
         RunMode::OLM => {
             let input = "resources/test/City.png";
             let output = "resources/test/test_result_9.png";
-            let out_width = 600;
-            let out_depth = 600;
+            let out_width = 60;
+            let out_depth = 60;
           
             run_olm(input, CHUNK_SIZE, output, out_width, out_depth);
         },

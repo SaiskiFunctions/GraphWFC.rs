@@ -431,9 +431,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5d65c4d95931acda4498f675e332fcbdc9a06705cd07086c510e9b6009cd1c1"
+checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 
 [[package]]
 name = "png"
@@ -567,14 +567,12 @@ checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "utote"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9836adcbab249c6e762ebfeb99e4d58d48996dc0ddba43c49234f78dbf5c547e"
+version = "0.5.0"
 dependencies = [
- "generic-array",
+ "num-traits",
  "packed_simd_2",
+ "paste",
  "rand",
- "typenum",
 ]
 
 [[package]]

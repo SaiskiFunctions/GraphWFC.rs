@@ -62,7 +62,7 @@ impl Graph {
                     from_labels
                         .into_iter()
                         .enumerate()
-                        .filter(|(_, frequency)| frequency > &0)
+                        .filter(|(_, frequency)| *frequency > &0)
                         .for_each(|(label, _)| {
                             rules
                                 .entry((*direction, label))
