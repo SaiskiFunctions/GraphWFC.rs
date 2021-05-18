@@ -6,7 +6,7 @@ edition = "2018"
 repository = "https://github.com/SaiskiFunctions/GraphWFC.rs"
 
 [dependencies]
-rand = "0.8.3"
+rand = { version = "0.8.3", features = ["small_rng"] }
 nalgebra = "0.25.3"
 hashbrown = "0.11.2"
 image = "0.23.14"
@@ -14,8 +14,9 @@ itertools = "0.10.0"
 num-traits = "0.2.14"
 bimap = "0.6.0"
 bit-set = "0.5.2"
-utote = { version = "0.5.0", features = ["packed_simd", "rand"], path = "../utote" }
-#utote = { version = "0.5.0", features = ["rand"], path = "../utote" }
+#utote = { version = "0.5.0", features = ["simd", "rand"] }
+utote = { version = "0.6.0", features = ["simd", "rand"], path = "../utote" }
+#utote = { version = "0.6.0", features = ["rand"], path = "../utote" }
 typenum = "1.13.0"
 indexmap = "1.6.2"
 

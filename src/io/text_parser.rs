@@ -63,7 +63,7 @@ pub fn render(
                 .map(|labels| {
                     labels
                         .is_singleton()
-                        .then(|| key.get_index(labels.imax()).map(|t| *t.0))
+                        .then(|| key.get_index(labels.elem_max()).map(|t| *t.0))
                         .flatten()
                         .unwrap_or(CONTRADICT_CHAR)
                 })

@@ -42,7 +42,7 @@ pub fn render(
         .map(|labels| {
             labels
                 .is_singleton()
-                .then(|| chunks.get_index(labels.imax()).map(|t| t.0.clone()))
+                .then(|| chunks.get_index(labels.elem_max()).map(|t| t.0.clone()))
                 .flatten()
         })
         .enumerate()
