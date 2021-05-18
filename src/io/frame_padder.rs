@@ -17,8 +17,8 @@ mod tests {
         let pad = pad_frame(1000, 230);
         assert_eq!(pad, "0230");
 
-        let pad = pad_frame(10000, 99998);
-        assert_eq!(pad, "99998");
+        let pad = pad_frame(10000, 9998);
+        assert_eq!(pad, "09998");
 
         // let pad = pad_frame(10000, 999989);
         // assert_eq!(pad, "99998");
