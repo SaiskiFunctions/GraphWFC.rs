@@ -160,7 +160,7 @@ fn chunks_to_pixels(chunks: Vec<Chunk>, key: &PixelKeys, chunk_size: usize) -> V
         })
         // sum each matching pixel values for each chunk
         // using usize to avoid capping on u8 channel size
-        .fold(vec![[0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
+        .fold(vec![[0; 3]; chunk_size * chunk_size], |mut acc, chunk| {
             acc
                 .iter_mut()
                 // zip each pixel in acc with each pixel in chunk
