@@ -6,6 +6,7 @@ use crate::MSu16xNU;
 pub type VertexIndex = u32; // each unique vertex in a graph
 pub type EdgeDirection = u16; // the directional relationship between two vertices
 pub type Edges = HashMap<VertexIndex, Vec<(VertexIndex, EdgeDirection)>>;
+pub type Vertices = Vec<MSu16xNU>;
 
 //                        vertex label (index of LabelFrequencies vector)
 //                                         |
@@ -15,7 +16,7 @@ pub type Rules = HashMap<(EdgeDirection, usize), MSu16xNU>;
 // It will always be true that: |rules| <= |directions| x |labels|
 
 pub struct Graph {
-    pub vertices: Vec<MSu16xNU>, // index of vec == vertex index
+    pub vertices: Vertices, // index of vec == vertex index
     pub edges: Edges,
     pub all_labels: MSu16xNU,
 }

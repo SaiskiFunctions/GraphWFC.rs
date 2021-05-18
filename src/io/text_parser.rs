@@ -1,4 +1,4 @@
-use crate::graph::graph::{Edges, Graph};
+use crate::graph::graph::{Edges, Graph, Vertices};
 use crate::io::utils::{make_edges_cardinal_grid, make_edges_8_way_grid};
 use crate::MSu16xNU;
 use std::fs::{read_to_string, write};
@@ -50,7 +50,7 @@ const CONTRADICT_CHAR: char = '❌';
 
 pub fn render(
     filename: &str,
-    graph: &Graph,
+    graph: Graph,
     key: &IndexMap<char, u16>,
     width: usize,
 ) {

@@ -1,4 +1,4 @@
-use crate::graph::graph::{Rules, Edges, Graph};
+use crate::graph::graph::{Rules, Edges, Graph, Vertices};
 use crate::io::{
     limit_iter::Limit,
     sub_matrix::SubMatrix,
@@ -10,67 +10,18 @@ use crate::wfc::collapse;
 
 use bimap::BiMap;
 use hashbrown::HashMap;
-use image::{imageops, Rgb, RgbImage};
+use image::{imageops, Rgb, RgbImage, Pixel};
 use itertools::Itertools;
 use nalgebra::DMatrix;
 use std::ops::{IndexMut, Index, AddAssign};
 use std::convert::TryFrom;
 use indexmap::IndexMap;
+use std::ops::Not;
 
 use crate::MSu16xNU;
 
-const GREEN: Rgb<u8> = Rgb([0, 255, 0]);
-
 type Chunk = DMatrix<usize>;
 type PixelKeys = BiMap<usize, Rgb<u8>>;
-
-pub fn render(
-    filename: &str,
-    graph: Graph,
-    key: &PixelKeys,
-    chunks: &IndexMap<Chunk, u16>,
-    (width, height): (usize, usize),
-    chunk_size: usize,
-) {
-    let mut output_image: RgbImage = image::ImageBuffer::new(width as u32, height as u32);
-    let graph_width = width / chunk_size; // in chunks
-    let contradiction_key = key.len();
-
-    graph
-        .vertices
-        .into_iter()
-        .map(|labels| {
-            labels
-                .is_singleton()
-                .then(|| chunks.get_index(labels.imax()).map(|t| t.0.clone()))
-                .flatten()
-        })
-        .enumerate()
-        .for_each(|(chunk_index, opt_chunk)| {
-            let (chunk_x, chunk_y) = index_to_coords(chunk_index, graph_width);
-            // project to pixel coordinates
-            let top_left_pix_x = chunk_x * chunk_size;
-            let top_left_pix_y = chunk_y * chunk_size;
-
-            let chunk = match opt_chunk {
-                None => DMatrix::from_element(chunk_size, chunk_size, contradiction_key),
-                Some(chunk) => chunk
-            };
-
-            chunk
-                .iter()
-                .enumerate()
-                .for_each(|(pixel_index, pixel_alias)| {
-                    let (p_y, p_x) = index_to_coords(pixel_index, chunk_size);
-                    let pixel_y = (top_left_pix_y + p_y) as u32;
-                    let pixel_x = (top_left_pix_x + p_x) as u32;
-                    let pixel = key.get_by_left(pixel_alias).copied().unwrap_or(GREEN);
-                    output_image.put_pixel(pixel_x, pixel_y, pixel);
-                });
-        });
-
-    output_image.save(filename).unwrap();
-}
 
 // TODO: handle unwrap of image::open properly
 pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, IndexMap<Chunk, u16>) {
@@ -90,7 +41,9 @@ pub fn parse(filename: &str, chunk_size: usize) -> (Rules, PixelKeys, MSu16xNU, 
 
     (0..all_labels.count_non_zero())
         .for_each(|label| {
+            // pruned graph vertices returned from collapse
             let pruned_graph = propagate_overlaps(raw_graph.clone(), &overlap_rules, label as usize);
+
             real_vertex_indexes(chunk_size)
                 .iter()
                 .enumerate()
@@ -293,7 +246,7 @@ fn create_raw_graph(all_labels: &MSu16xNU, chunk_size: usize, (height, width): (
 fn propagate_overlaps(mut graph: Graph, rules: &Rules, label: usize) -> Graph {
     let central_vertex = (graph.vertices.len() - 1) / 2;
     graph.vertices.index_mut(central_vertex).choose(label);
-    collapse::collapse(rules, graph, None, Some(1))
+    collapse::collapse(rules, &graph, None, Some(1))
 }
 
 #[cfg(test)]

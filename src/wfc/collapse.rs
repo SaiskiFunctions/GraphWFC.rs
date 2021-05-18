@@ -1,4 +1,4 @@
-use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex};
+use crate::graph::graph::{EdgeDirection, Edges, Graph, Rules, VertexIndex, Vertices};
 use crate::wfc::observe::Observe;
 use crate::wfc::propagate::Propagate;
 use rand::prelude::*;
@@ -65,12 +65,15 @@ fn exec_collapse(
     edges: &Edges,
     init: InitCollapse,
     mut vertices: Vec<MSu16xNU>,
-    iterations: Option<usize>
-) -> Vec<MSu16xNU> {
+    iterations: Option<usize>,
+    progress: bool
+) -> Vec<Vertices> {
     let (mut observed, mut propagations, mut to_observe, mut heap) = init;
     let mut to_propagate: Vec<Propagate> = Vec::new();
 
     let mut metrics = Metrics::new();
+
+    let mut output_vertices = Vec::new();
 
     if METRICS {
         metrics.avg("props/obs", ("props", "obs"));
@@ -114,7 +117,11 @@ fn exec_collapse(
             to_propagate = replace(&mut propagations, to_propagate);
         }
 
-        if counter >= iterations { return vertices }
+        if progress { output_vertices.push(vertices.clone()) }
+        if counter >= iterations {
+            output_vertices.push(vertices.clone());
+            return output_vertices
+        }
         counter += 1;
 
         // try to find a vertex index to observe
@@ -141,7 +148,8 @@ fn exec_collapse(
             None => {
                 if METRICS { metrics.print(Some("All Observed")) }
                 // Nothing left to observe, therefore we've finished
-                return vertices;
+                output_vertices.push(vertices.clone());
+                return output_vertices
             }
             Some(index) => {
                 if METRICS { metrics.inc("obs") }
@@ -149,6 +157,7 @@ fn exec_collapse(
                 assert!(vertices.len() >= index as usize);
                 let labels_multiset = vertices.index_mut(index as usize);
                 labels_multiset.choose_random(rng);
+                if progress { output_vertices.push(vertices.clone()) }
                 observed.insert(index as usize);
                 generate_propagations(&mut propagations, &observed, edges, index);
             }
@@ -184,25 +193,51 @@ fn generate_propagations(
     }
 }
 
-pub fn collapse(
+fn _collapse(
     rules: &Rules,
-    mut output_graph: Graph,
+    output_graph: &Graph,
     seed: Option<u64>,
-    iterations: Option<usize>
-) -> Graph {
+    iterations: Option<usize>,
+    progress: bool
+) -> Vec<Vertices> {
     let rng = &mut SmallRng::seed_from_u64(seed.unwrap_or_else(|| thread_rng().next_u64()));
     let init = init_collapse(rng, &output_graph);
 
-    let collapsed_vertices = exec_collapse(
+    exec_collapse(
         rng,
         rules,
         &output_graph.edges,
         init,
-        output_graph.vertices,
-        iterations // 🐯
-    );
-    output_graph.vertices = collapsed_vertices;
-    output_graph
+        output_graph.vertices.clone(),
+        iterations,
+        progress
+    )
+}
+
+// Public interface for single graph collapses
+pub fn collapse(
+    rules: &Rules,
+    output_graph: &Graph,
+    seed: Option<u64>,
+    iterations: Option<usize>
+) -> Graph {
+
+    let collapsed_vertices = _collapse(rules, output_graph, seed, iterations, false);
+
+    Graph::new(
+        collapsed_vertices.last().unwrap().clone(),
+        output_graph.edges.clone(),
+        output_graph.all_labels.clone()
+    )
+}
+
+// Public interface for progress collapses
+pub fn collapse_progress(
+    rules: &Rules,
+    output_graph: &Graph,
+    seed: Option<u64>,
+) -> Vec<Vertices> {
+    _collapse(rules, output_graph, seed, None, true)
 }
 
 #[cfg(test)]
@@ -280,7 +315,7 @@ mod tests {
 
         let init = init_collapse(&mut rng, &out_graph);
 
-        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), None);
+        let result = exec_collapse(&mut rng, &rules, &out_graph.edges, init, simple_vertices(), None, false).into_iter().nth(0).unwrap();
         let expected: Vec<MSu16xNU> = vec![
             [1, 0, 0].iter().collect(),
             [0, 2, 0].iter().collect(),
@@ -288,6 +323,7 @@ mod tests {
             [0, 2, 0].iter().collect(),
         ];
 
+        // assert_eq!((), result)
         assert_eq!(result, expected);
     }
 
@@ -336,8 +372,12 @@ mod tests {
             &out_graph.edges,
             init,
             out_graph.vertices.clone(),
-            None
-        );
+            None,
+            false
+        )
+            .into_iter()
+            .nth(0)
+            .unwrap();
 
         let expected: Vec<MSu16xNU> = vec![
             [0, 3].iter().collect(),
@@ -422,8 +462,12 @@ mod tests {
             &output_graph.edges,
             init,
             output_graph.vertices.clone(),
-            None
-        );
+            None,
+            false
+        )
+            .into_iter()
+            .nth(0)
+            .unwrap();
 
         let expected: Vec<MSu16xNU> = vec![
             [3, 0].iter().collect(),
