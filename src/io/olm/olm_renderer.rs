@@ -160,14 +160,16 @@ fn chunks_to_pixels(chunks: Vec<Chunk>, key: &PixelKeys, chunk_size: usize) -> V
         })
         // sum each matching pixel values for each chunk
         // using usize to avoid capping on u8 channel size
-        .fold(vec![Rgb::from([0, 0, 0]); chunk_size * chunk_size], |mut acc, chunk| {
+        .fold(vec![[0, 0, 0]; chunk_size * chunk_size], |mut acc, chunk| {
             acc
                 .iter_mut()
                 // zip each pixel in acc with each pixel in chunk
                 .zip(chunk)
                 // add each pixel together
                 .for_each(|(acc_pixel, chunk_pixel)| {
-                    *acc_pixel = acc_pixel.add(chunk_pixel);
+                    acc_pixel[0] += chunk_pixel.channels()[0] as usize;
+                    acc_pixel[1] += chunk_pixel.channels()[1] as usize;
+                    acc_pixel[2] += chunk_pixel.channels()[2] as usize;
                 });
             acc
         })
@@ -176,9 +178,9 @@ fn chunks_to_pixels(chunks: Vec<Chunk>, key: &PixelKeys, chunk_size: usize) -> V
         // unfortunately its way more complex to do this iteratively so accept code duplication
         .map(|sum_pixel| {
             Rgb::from([
-                (sum_pixel.channels()[0] / chunks.len()) as u8,
-                (sum_pixel.channels()[1] / chunks.len()) as u8,
-                (sum_pixel.channels()[2] / chunks.len()) as u8,
+                (sum_pixel[0] / chunks.len()) as u8,
+                (sum_pixel[1] / chunks.len()) as u8,
+                (sum_pixel[2] / chunks.len()) as u8,
             ])
         })
         .collect()
